@@ -26,6 +26,16 @@ const FIELD_NAMES = {
   new_password: "Nueva contraseña",
   current_password: "Contraseña actual",
   full_name: "Nombre",
+  name: "Nombre",
+  phone: "Teléfono",
+  whatsapp: "WhatsApp",
+  website: "Sitio web",
+  facebook: "Facebook",
+  price: "Precio",
+  price_min: "Precio mínimo",
+  price_max: "Precio máximo",
+  description: "Descripción",
+  date: "Fecha",
 };
 
 function errorMessage(status, body) {
@@ -45,10 +55,13 @@ function errorMessage(status, body) {
   return "Ocurrió un error inesperado.";
 }
 
-async function request(path, { method = "GET", body, form, signal } = {}) {
+async function request(path, { method = "GET", body, form, multipart, signal } = {}) {
   const headers = { Accept: "application/json" };
   let payload;
-  if (form) {
+  if (multipart) {
+    // FormData con archivos: el navegador pone el Content-Type con su "boundary"
+    payload = multipart;
+  } else if (form) {
     headers["Content-Type"] = "application/x-www-form-urlencoded";
     payload = new URLSearchParams(form);
   } else if (body !== undefined) {
@@ -107,4 +120,22 @@ export const api = {
   createClaim: (establishmentId, data) =>
     request(`/establishments/${establishmentId}/claims`, { method: "POST", body: data }),
   myClaims: (opts) => request("/me/claims", opts),
+  // Panel comercial (propietario o admin)
+  ownerEstablishments: (opts) => request("/owner/establishments", opts),
+  ownerEstablishment: (id, opts) => request(`/owner/establishments/${id}`, opts),
+  updateEstablishment: (id, data) => request(`/establishments/${id}`, { method: "PATCH", body: data }),
+  replaceHours: (id, slots) => request(`/establishments/${id}/hours`, { method: "PUT", body: { slots } }),
+  addSpecialHours: (id, data) => request(`/establishments/${id}/special-hours`, { method: "POST", body: data }),
+  deleteSpecialHours: (id, specialId) =>
+    request(`/establishments/${id}/special-hours/${specialId}`, { method: "DELETE" }),
+  addOffering: (id, data) => request(`/establishments/${id}/offerings`, { method: "POST", body: data }),
+  updateOffering: (offeringId, data) => request(`/offerings/${offeringId}`, { method: "PATCH", body: data }),
+  deleteOffering: (offeringId) => request(`/offerings/${offeringId}`, { method: "DELETE" }),
+  uploadPhoto: (id, file, caption) => {
+    const data = new FormData();
+    data.append("file", file);
+    if (caption) data.append("caption", caption);
+    return request(`/establishments/${id}/photos`, { method: "POST", multipart: data });
+  },
+  deletePhoto: (id, photoId) => request(`/establishments/${id}/photos/${photoId}`, { method: "DELETE" }),
 };

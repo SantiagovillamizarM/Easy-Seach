@@ -4,9 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_roles
-from app.api.routes.catalog import get_editable_establishment
+from app.api.routes.catalog import get_editable_establishment, to_detail
 from app.db.session import get_db
 from app.models import Establishment, EstablishmentPhoto, OwnershipClaim, User
+from app.schemas.catalog import EstablishmentDetail
 from app.schemas.owner import ClaimIn, ClaimOut, PhotoOut
 from app.services.catalog import LOAD_OPTIONS, to_summary
 from app.services.photos import PhotoError, delete_photo_file, save_establishment_photo
@@ -74,6 +75,13 @@ def my_establishments(user: User = Depends(require_roles("owner", "admin")), db:
          "has_description": bool(est.description)}
         for est in ests
     ]
+
+
+@router.get("/owner/establishments/{establishment_id}", response_model=EstablishmentDetail)
+def editable_establishment(est: Establishment = Depends(get_editable_establishment)):
+    """Datos para el editor del panel: a diferencia del detalle público, incluye los productos
+    marcados como no disponibles (para poder reactivarlos)."""
+    return {**to_detail(est), "offerings": sorted(est.offerings, key=lambda o: (o.kind, o.name.lower()))}
 
 
 # ------------------------------- Fotos ---------------------------------------------------

@@ -104,6 +104,22 @@ def test_owner_panel_lists_only_own(client, shop, user_headers, admin_headers):
     assert r.status_code == 200 and r.json()["source"] == "owner"
 
 
+def test_owner_editor_includes_unavailable_offerings(client, db, shop, user_headers, admin_headers):
+    _approve(client, admin_headers, shop.id, user_headers)
+    h = _h(client, "usuario@test.com")
+    client.post(f"/api/establishments/{shop.id}/offerings", headers=h,
+                json={"kind": "product", "name": "Llanta rin 13", "price": 180000, "is_available": False})
+    editor = client.get(f"/api/owner/establishments/{shop.id}", headers=h)
+    assert editor.status_code == 200
+    assert [o["name"] for o in editor.json()["offerings"]] == ["Llanta rin 13"]
+    # El detalle público no muestra lo que no está disponible
+    assert client.get("/api/establishments/montallantas-prueba").json()["offerings"] == []
+    # Otro propietario no puede abrir el editor
+    _make_user(db, "extrano2@test.com", "owner")
+    assert client.get(f"/api/owner/establishments/{shop.id}",
+                      headers=_h(client, "extrano2@test.com")).status_code == 403
+
+
 # ------------------------------- Fotos ----------------------------------------------------
 
 def _jpeg_with_gps() -> bytes:
