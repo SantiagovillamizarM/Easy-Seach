@@ -75,3 +75,25 @@ def test_admin_route_allows_admin(client, admin_headers):
     assert r.status_code == 200
     assert any(u["email"] == "admin@test.com" for u in r.json())
     assert "password_hash" not in r.json()[0]  # nunca se expone el hash
+
+
+def test_update_profile_name(client, user_headers):
+    r = client.patch("/api/auth/me", json={"full_name": "  Nuevo   Nombre "}, headers=user_headers)
+    assert r.status_code == 200 and r.json()["full_name"] == "Nuevo Nombre"
+    # No se puede cambiar el rol por esta vía
+    r = client.patch("/api/auth/me", json={"full_name": "Otro", "role": "admin"}, headers=user_headers)
+    assert r.json()["role"] == "user"
+    assert client.patch("/api/auth/me", json={"full_name": "x"}, headers=user_headers).status_code == 422
+
+
+def test_change_password(client, user_headers):
+    url = "/api/auth/change-password"
+    wrong = client.post(url, json={"current_password": "mala1234", "new_password": "nueva1234"}, headers=user_headers)
+    assert wrong.status_code == 400
+    weak = client.post(url, json={"current_password": "clave1234", "new_password": "sololetras"}, headers=user_headers)
+    assert weak.status_code == 422
+    ok = client.post(url, json={"current_password": "clave1234", "new_password": "nueva1234"}, headers=user_headers)
+    assert ok.status_code == 204
+    # La contraseña vieja ya no sirve y la nueva sí
+    assert client.post("/api/auth/login", data={"username": "usuario@test.com", "password": "clave1234"}).status_code == 401
+    assert client.post("/api/auth/login", data={"username": "usuario@test.com", "password": "nueva1234"}).status_code == 200
