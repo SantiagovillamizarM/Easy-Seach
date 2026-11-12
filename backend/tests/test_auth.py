@@ -73,8 +73,9 @@ def test_admin_route_rejects_anonymous(client):
 def test_admin_route_allows_admin(client, admin_headers):
     r = client.get("/api/admin/users", headers=admin_headers)
     assert r.status_code == 200
-    assert any(u["email"] == "admin@test.com" for u in r.json())
-    assert "password_hash" not in r.json()[0]  # nunca se expone el hash
+    items = r.json()["items"]
+    assert any(u["email"] == "admin@test.com" for u in items)
+    assert "password_hash" not in items[0]  # nunca se expone el hash
 
 
 def test_update_profile_name(client, user_headers):

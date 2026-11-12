@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     Time,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -201,6 +202,25 @@ class SpecialHour(Base):
     note: Mapped[str | None] = mapped_column(String(200))
 
     establishment: Mapped[Establishment] = relationship(back_populates="special_hours")
+
+
+class DuplicateDismissal(Base):
+    """Par de establecimientos que un administrador revisó y confirmó que NO son duplicados.
+
+    Se guarda siempre con establishment_a_id < establishment_b_id para que el par sea único.
+    """
+
+    __tablename__ = "duplicate_dismissals"
+    __table_args__ = (
+        CheckConstraint("establishment_a_id < establishment_b_id", name="ordered_pair"),
+        UniqueConstraint("establishment_a_id", "establishment_b_id", name="uq_duplicate_dismissals_pair"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    establishment_a_id: Mapped[int] = mapped_column(ForeignKey("establishments.id", ondelete="CASCADE"))
+    establishment_b_id: Mapped[int] = mapped_column(ForeignKey("establishments.id", ondelete="CASCADE"))
+    dismissed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Embedding(Base):

@@ -2,6 +2,7 @@
 from app.models.base import Base
 from app.models.catalog import (
     Category,
+    DuplicateDismissal,
     Embedding,
     Establishment,
     EstablishmentPhoto,
@@ -17,6 +18,7 @@ from app.models.user import User
 __all__ = [
     "Base",
     "Category",
+    "DuplicateDismissal",
     "Embedding",
     "Establishment",
     "EstablishmentPhoto",
