@@ -12,10 +12,11 @@ import {
   Star,
   Tag,
 } from "lucide-react";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import FavoriteButton from "../components/FavoriteButton.jsx";
 import HoursBadge from "../components/HoursBadge.jsx";
+import ReviewsSection from "../components/ReviewsSection.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -76,6 +77,11 @@ export default function EstablishmentPage() {
   const { coords } = useUserLocation();
   const [est, setEst] = useState(null);
   const [error, setError] = useState(null);
+
+  // Las reseñas recalculan la calificación: se refleja en el encabezado sin recargar la página
+  const updateRating = useCallback((avg, count) => {
+    setEst((current) => (current ? { ...current, rating_avg: avg, rating_count: count } : current));
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -210,6 +216,8 @@ export default function EstablishmentPage() {
               </div>
             </Section>
           )}
+
+          <ReviewsSection establishment={est} onRatingChange={updateRating} />
         </div>
 
         <aside className="space-y-5">

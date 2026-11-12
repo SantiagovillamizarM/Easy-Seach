@@ -94,4 +94,13 @@ export const api = {
   history: (params = {}, opts) => request(`/me/history?${new URLSearchParams(params)}`, opts),
   deleteHistoryItem: (id) => request(`/me/history/${id}`, { method: "DELETE" }),
   clearHistory: () => request("/me/history", { method: "DELETE" }),
+  // Reseñas
+  reviews: (establishmentId, params = {}, opts) =>
+    request(`/establishments/${establishmentId}/reviews?${new URLSearchParams(params)}`, opts),
+  myReview: (establishmentId, opts) => request(`/establishments/${establishmentId}/reviews/mine`, opts),
+  createReview: (establishmentId, data) =>
+    request(`/establishments/${establishmentId}/reviews`, { method: "POST", body: data }),
+  updateReview: (id, data) => request(`/reviews/${id}`, { method: "PATCH", body: data }),
+  deleteReview: (id) => request(`/reviews/${id}`, { method: "DELETE" }),
+  reportReview: (id, data = {}) => request(`/reviews/${id}/report`, { method: "POST", body: data }),
 };
