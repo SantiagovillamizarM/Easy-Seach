@@ -16,6 +16,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import FavoriteButton from "../components/FavoriteButton.jsx";
 import HoursBadge from "../components/HoursBadge.jsx";
+import OwnerClaimCard from "../components/OwnerClaimCard.jsx";
 import ReviewsSection from "../components/ReviewsSection.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
@@ -269,6 +270,8 @@ export default function EstablishmentPage() {
               </div>
             )}
           </Section>
+
+          <OwnerClaimCard establishment={est} />
 
           {est.source === "osm" && (
             <p className="px-1 text-xs text-ink-soft">

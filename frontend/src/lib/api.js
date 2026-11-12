@@ -103,4 +103,8 @@ export const api = {
   updateReview: (id, data) => request(`/reviews/${id}`, { method: "PATCH", body: data }),
   deleteReview: (id) => request(`/reviews/${id}`, { method: "DELETE" }),
   reportReview: (id, data = {}) => request(`/reviews/${id}/report`, { method: "POST", body: data }),
+  // Perfiles comerciales
+  createClaim: (establishmentId, data) =>
+    request(`/establishments/${establishmentId}/claims`, { method: "POST", body: data }),
+  myClaims: (opts) => request("/me/claims", opts),
 };
