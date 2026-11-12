@@ -20,7 +20,7 @@
 | 1 — Modelo de datos y autenticación | ✅ Completada |
 | 2 — Establecimientos, horarios y embeddings | ✅ Completada |
 | 3 — Motor de búsqueda inteligente | ✅ Completada |
-| 4 — Frontend de búsqueda | ⏳ Pendiente |
+| 4 — Frontend de búsqueda | ✅ Completada |
 | 5 — Recomendaciones IA y cuenta de usuario | ⏳ Pendiente |
 | 6 — Reseñas y panel comercial | ⏳ Pendiente |
 | 7 — Panel administrativo | ⏳ Pendiente |
@@ -172,6 +172,45 @@ Además: 4 municipios y 260 barrios con coordenadas reales.
   "dentro del presupuesto". Se avisa al usuario. Mejora con la carga manual (CSV) y el panel de propietarios.
 - "en la cancha" puede confundirse con el barrio "La Cancha" (nombre genérico en OSM).
 - Plan gratuito de Gemini: si se agota la cuota, la búsqueda sigue funcionando con reglas.
+
+## Fase 4 — Frontend de búsqueda
+
+Rama: `feature/fase-4-frontend`.
+
+**Hecho:**
+- Sistema de diseño propio (`src/index.css`): tinta azul profundo, índigo de marca, verde para "abierto",
+  tipografía Plus Jakarta Sans instalada localmente, componentes `card`, `btn-*`, `chip`, `input`.
+- Páginas:
+  - **Inicio** (`/`): el buscador como protagonista, ejemplos de la propuesta, accesos rápidos, "Cómo funciona" y
+    compromiso de información real.
+  - **Resultados** (`/buscar?q=…`): barra "Entendimos" (transparencia de la IA), avisos, lista con tarjetas
+    numeradas, mapa con marcadores sincronizados, filtros (lugar con autocompletar, distancia, presupuesto,
+    calificación, categoría, abierto ahora). En celular: panel inferior de filtros y pestañas Lista/Mapa.
+  - **Detalle** (`/lugar/:slug`): estado del horario, precio, dirección, botones (Cómo llegar, Llamar, WhatsApp,
+    Sitio web, Instagram; solo si existe el dato), descripción, productos y servicios, fotos, mapa, horario semanal
+    con el día de hoy resaltado, horarios especiales y la fuente de los datos.
+  - **404** para rutas inexistentes.
+- Ubicación del navegador: se pide solo cuando el usuario lo decide; las coordenadas viven en memoria (no en URL ni
+  localStorage). Si la búsqueda dice "cerca" y no hay permiso, aparece un aviso con el botón "Usar mi ubicación".
+- Los filtros viven en la URL (se pueden compartir), sin coordenadas. El panel muestra los filtros que aplicó la IA,
+  y desmarcar "abierto ahora" envía un `false` explícito para respetar al usuario.
+- El mapa se carga aparte (lazy loading): la página inicial pesa menos.
+- Atribución de OpenStreetMap en el pie de página, el mapa y el detalle.
+
+**Verificado (capturas con Edge headless contra el backend real):**
+- Escritorio: inicio, resultados con mapa, detalle, búsqueda con "abierto ahora" + presupuesto (el panel refleja
+  lo que entendió la IA).
+- Celular (iframe de 390 px): inicio, resultados y detalle sin desbordamientos.
+- Consola del navegador sin errores en inicio, resultados, detalle, lugar inexistente y ruta inexistente.
+- `vite build` sin errores.
+
+**Problemas encontrados y solución:**
+- Tailwind v4 no permite `@apply` de clases propias declaradas en `@layer components` → se usan `@utility`.
+- Lucide eliminó los íconos de marcas (Instagram) → ícono genérico `AtSign`.
+- La regla global de foco estaba fuera de las capas de Tailwind y ganaba a las clases → movida a `@layer base`.
+
+**Pendiente para fases siguientes:** recomendaciones de IA en los resultados (Fase 5), iniciar sesión, favoritos e
+historial (Fase 5), reseñas (Fase 6).
 
 ## Convención de commits
 
