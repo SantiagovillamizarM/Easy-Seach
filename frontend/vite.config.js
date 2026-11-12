@@ -12,6 +12,7 @@ export default defineConfig({
     // Las peticiones a /api se reenvían al backend (así evitamos problemas de CORS en desarrollo)
     proxy: {
       "/api": "http://127.0.0.1:8010",
+      "/uploads": "http://127.0.0.1:8010",
     },
   },
 });

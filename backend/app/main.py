@@ -5,9 +5,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, auth, catalog, health, me, search
+from app.api.routes import admin, auth, catalog, health, me, owner, reviews, search
 from app.core.config import get_settings
+from app.services.photos import PUBLIC_PREFIX, upload_root
 
 settings = get_settings()
 logger = logging.getLogger("easysearch")
@@ -47,3 +49,8 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(catalog.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api")
+app.include_router(owner.router, prefix="/api")
+
+# Fotos subidas por propietarios (archivos ya validados y re-codificados como WebP)
+app.mount(PUBLIC_PREFIX, StaticFiles(directory=upload_root()), name="uploads")

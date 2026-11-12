@@ -22,7 +22,7 @@
 | 3 — Motor de búsqueda inteligente | ✅ Completada |
 | 4 — Frontend de búsqueda | ✅ Completada |
 | 5 — Recomendaciones IA y cuenta de usuario | ✅ Completada |
-| 6 — Reseñas y panel comercial | ⏳ Pendiente |
+| 6 — Reseñas y panel comercial | ✅ Completada |
 | 7 — Panel administrativo | ⏳ Pendiente |
 | 8 — Calidad y seguridad | ⏳ Pendiente |
 | 9 — Documentación y cierre | ⏳ Pendiente |
@@ -253,6 +253,48 @@ Rama: `feature/fase-5-cuenta-recomendaciones` (3 bloques, un commit por bloque).
   estrictas.
 - Tras `git pull`, Git en Windows dejó archivos con saltos de línea CRLF y algunos reemplazos automáticos no se
   aplicaron (la app quedó en blanco) → detectado en la consola del navegador y corregido.
+
+## Fase 6 — Reseñas y panel comercial
+
+Rama: `feature/fase-6-resenas-panel-comercial` (3 commits: reseñas, solicitudes y fotos, panel comercial).
+
+**Bloque A — Reseñas con moderación:**
+- Una reseña por usuario y establecimiento (1 a 5 estrellas + comentario); el propietario no puede reseñar su
+  propio negocio. Se muestra el autor como "Nombre I." (sin el apellido completo).
+- Moderación por capas: reglas (insultos, enlaces o correos, teléfonos, todo en mayúsculas, caracteres repetidos)
+  → Gemini → si la IA no está
+  disponible, la reseña queda **pendiente** para revisión humana. Límite de 5 reseñas por hora y detección de
+  duplicados. Editar una reseña la vuelve a moderar.
+- La calificación promedio se recalcula solo con reseñas aprobadas. Reportes: uno por usuario y reseña.
+
+**Bloque B1 — Solicitudes de propiedad y fotos:**
+- `POST /api/establishments/{id}/claims` y `GET /api/me/claims`. Un admin las aprueba o rechaza
+  (`/api/admin/claims`); al aprobar, el negocio queda verificado, el usuario pasa a rol `owner` y las demás
+  solicitudes pendientes del mismo negocio se rechazan.
+- Fotos (`POST/DELETE /api/establishments/{id}/photos`): solo imágenes reales (Pillow), máximo 5 MB y 10 por negocio.
+  Se convierten a WebP, se redimensionan a 1600 px y **se eliminan los metadatos EXIF y la ubicación GPS**.
+  Nombres aleatorios y servidas desde `/uploads`.
+
+**Bloque B2 — Panel comercial:**
+- `/panel`: negocios del propietario con barra de "perfil completo" (descripción, horario, productos, fotos) y
+  estado de sus solicitudes. Enlace "Panel comercial" en el menú para propietarios y administradores.
+- `/panel/lugar/:id` con 4 pestañas: **Información** (datos, categorías, precios, contacto), **Horario** (semanal
+  con jornada partida, 24 horas, cerrado; festivos y fechas especiales), **Productos y servicios** (crear, editar,
+  ocultar temporalmente, eliminar) y **Fotos** (subir y eliminar).
+- `GET /api/owner/establishments/{id}`: datos para el editor; incluye los productos ocultos (el detalle público no).
+- Guardar el horario lo marca como **confirmado** por el establecimiento.
+
+**Verificado:**
+- `pytest`: 103 pruebas pasando (incluye eliminación de EXIF/GPS, rechazo de archivos falsos y permisos entre
+  propietarios).
+- Recorrido completo con un usuario y un negocio temporales contra el servidor real: información, horario, fecha
+  especial, productos (uno oculto), fotos; capturas en escritorio y celular. Subida de fotos probada desde el
+  navegador con `FormData`. Datos y archivos de prueba eliminados después.
+
+**Problemas encontrados y solución:**
+- En Windows una prueba no podía borrar la foto porque seguía abierta → la prueba cierra la imagen (`with`) y el
+  borrado tolera archivos bloqueados.
+- Un id de negocio no numérico en la URL mostraba un error técnico en inglés → ahora dice "Este negocio no existe".
 
 ## Convención de commits
 
