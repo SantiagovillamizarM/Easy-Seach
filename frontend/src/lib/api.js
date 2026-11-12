@@ -86,4 +86,12 @@ export const api = {
   me: (opts) => request("/auth/me", opts),
   updateMe: (data) => request("/auth/me", { method: "PATCH", body: data }),
   changePassword: (data) => request("/auth/change-password", { method: "POST", body: data }),
+  // Favoritos e historial (del usuario con sesión)
+  favorites: (opts) => request("/me/favorites", opts),
+  favoriteIds: (opts) => request("/me/favorites/ids", opts),
+  addFavorite: (id) => request(`/me/favorites/${id}`, { method: "PUT" }),
+  removeFavorite: (id) => request(`/me/favorites/${id}`, { method: "DELETE" }),
+  history: (params = {}, opts) => request(`/me/history?${new URLSearchParams(params)}`, opts),
+  deleteHistoryItem: (id) => request(`/me/history/${id}`, { method: "DELETE" }),
+  clearHistory: () => request("/me/history", { method: "DELETE" }),
 };

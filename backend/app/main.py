@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, auth, catalog, health, search
+from app.api.routes import admin, auth, catalog, health, me, search
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -46,3 +46,4 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(catalog.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
+app.include_router(me.router, prefix="/api")

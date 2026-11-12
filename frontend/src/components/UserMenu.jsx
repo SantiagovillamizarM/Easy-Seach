@@ -1,10 +1,13 @@
-import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, Heart, History, LogOut, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
-// Enlaces del menú. Los bloques siguientes agregan Favoritos e Historial.
-export const ACCOUNT_LINKS = [{ to: "/perfil", label: "Mi perfil", icon: UserRound }];
+export const ACCOUNT_LINKS = [
+  { to: "/favoritos", label: "Mis favoritos", icon: Heart },
+  { to: "/historial", label: "Mi historial", icon: History },
+  { to: "/perfil", label: "Mi perfil", icon: UserRound },
+];
 
 export default function UserMenu() {
   const { user, logout } = useAuth();

@@ -1,6 +1,7 @@
 import { BadgeCheck, MapPin, Navigation, Sparkles, Star, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistance, formatPriceRange } from "../lib/format.js";
+import FavoriteButton from "./FavoriteButton.jsx";
 import HoursBadge from "./HoursBadge.jsx";
 
 const GAP_LABELS = { precios: "precios", horario: "horario", "reseñas": "reseñas", "descripción": "descripción" };
@@ -44,15 +45,18 @@ export default function ResultCard({ result, index, active, onHover, recommendat
       onMouseLeave={() => onHover?.(null)}
       className={`card group relative flex gap-4 p-4 transition hover:border-brand-200 ${active ? "border-brand-400 ring-4 ring-brand-100" : ""}`}
     >
-      <div
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700"
-        aria-hidden="true"
-      >
-        {index + 1}
-      </div>
+      {index !== undefined && (
+        <div
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700"
+          aria-hidden="true"
+        >
+          {index + 1}
+        </div>
+      )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1">
           <h3 className="text-base font-bold leading-snug">
             {/* El enlace cubre toda la tarjeta (patrón "stretched link") */}
             <Link to={`/lugar/${result.slug}`} className="after:absolute after:inset-0 after:rounded-2xl focus:outline-none">
@@ -69,6 +73,8 @@ export default function ResultCard({ result, index, active, onHover, recommendat
               <span className="font-normal text-ink-soft">({result.rating_count})</span>
             </span>
           )}
+          </div>
+          <FavoriteButton establishmentId={result.id} name={result.name} className="-mr-1 -mt-1 shrink-0" />
         </div>
 
         <p className="mt-0.5 text-sm text-ink-soft">{result.categories.map((c) => c.name).join(" · ")}</p>

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import FavoriteButton from "../components/FavoriteButton.jsx";
 import HoursBadge from "../components/HoursBadge.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
@@ -154,6 +155,7 @@ export default function EstablishmentPage() {
 
         <div className="mt-5 flex flex-wrap gap-2">
           <ActionLink href={directions} icon={Navigation} primary>Cómo llegar</ActionLink>
+          <FavoriteButton establishmentId={est.id} name={est.name} withLabel className="px-4 py-2.5" />
           <ActionLink href={est.phone ? `tel:${est.phone.replace(/[^\d+]/g, "")}` : null} icon={Phone}>Llamar</ActionLink>
           <ActionLink href={wa ? `https://wa.me/${wa}` : null} icon={MessageCircle}>WhatsApp</ActionLink>
           <ActionLink href={safeExternalUrl(est.website)} icon={Globe}>Sitio web</ActionLink>

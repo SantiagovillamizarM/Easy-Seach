@@ -17,7 +17,6 @@ from decimal import Decimal
 
 from app.core.text import normalize
 from app.models import Establishment
-from app.services.catalog import hours_status
 from app.services.llm import LLMError, LLMProvider
 from app.services.query_parser import QueryIntent, _LRU
 
@@ -52,7 +51,6 @@ def _money(value) -> str:
 
 def facts_for(est: Establishment, reviews: list[str] | None = None) -> dict:
     """Solo datos reales. Lo que no existe NO aparece (la IA no tiene de dónde inventarlo)."""
-    status = hours_status(est)
     facts: dict = {
         "id": est.id,
         "nombre": est.name,
@@ -75,7 +73,7 @@ def facts_for(est: Establishment, reviews: list[str] | None = None) -> dict:
         facts["calificacion"] = f"{float(est.rating_avg):.1f} de 5 ({est.rating_count} reseñas)"
     if reviews:
         facts["resenas"] = [r[:240] for r in reviews[:3]]
-    facts["estado_horario"] = status.label if status.state != "unknown" else "sin información de horario"
+    # El horario NO se incluye: la interfaz ya lo muestra con su advertencia de verificación.
     if est.is_verified:
         facts["perfil_verificado"] = True
     return facts

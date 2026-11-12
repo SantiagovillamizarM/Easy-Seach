@@ -3,6 +3,8 @@ import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import { LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
 import EstablishmentPage from "./pages/EstablishmentPage.jsx";
+import FavoritesPage from "./pages/FavoritesPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />
         <Route path="perfil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="favoritos" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
+        <Route path="historial" element={<RequireAuth><HistoryPage /></RequireAuth>} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
