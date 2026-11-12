@@ -1,6 +1,7 @@
 """Adaptador para Google Gemini (API REST generateContent con salida JSON estructurada)."""
 import json
 import logging
+import time
 
 import httpx
 
@@ -9,6 +10,10 @@ from app.services.llm.base import LLMError
 logger = logging.getLogger(__name__)
 
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+# Si un modelo responde 429 (cuota agotada) o 503 (saturado), se salta durante este tiempo
+# para no hacer esperar al usuario con una petición que va a fallar.
+COOLDOWN_SECONDS = 60
 
 
 class GeminiProvider:
@@ -19,6 +24,7 @@ class GeminiProvider:
         self.model = model
         self.fallback_model = fallback_model
         self._timeout = timeout
+        self._cooldown_until: dict[str, float] = {}
 
     def _call(self, model: str, body: dict) -> dict:
         try:
@@ -36,6 +42,8 @@ class GeminiProvider:
                 status = r.json().get("error", {}).get("status", "")
             except ValueError:
                 status = ""
+            if r.status_code in (429, 503):
+                self._cooldown_until[model] = time.monotonic() + COOLDOWN_SECONDS
             raise LLMError(f"Gemini respondió HTTP {r.status_code} {status}".strip())
         return r.json()
 
@@ -54,6 +62,9 @@ class GeminiProvider:
         models = [self.model] + ([self.fallback_model] if self.fallback_model else [])
         last_error: LLMError | None = None
         for model in models:
+            if self._cooldown_until.get(model, 0) > time.monotonic():
+                last_error = LLMError(f"{model} en pausa por cuota agotada o saturación")
+                continue
             try:
                 data = self._call(model, body)
                 text = data["candidates"][0]["content"]["parts"][0]["text"]

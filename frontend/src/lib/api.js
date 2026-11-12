@@ -43,6 +43,7 @@ async function request(path, { method = "GET", body, token, signal } = {}) {
 
 export const api = {
   search: (payload, opts) => request("/search", { method: "POST", body: payload, ...opts }),
+  recommendations: (payload, opts) => request("/recommendations", { method: "POST", body: payload, ...opts }),
   establishment: (slug, opts) => request(`/establishments/${encodeURIComponent(slug)}`, opts),
   categories: (opts) => request("/categories", opts),
   places: (params = {}, opts) => request(`/places?${new URLSearchParams(params)}`, opts),
