@@ -1,0 +1,31 @@
+# Variables de entorno (contienen credenciales: NUNCA se suben)
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+dist/
+*.log
+
+# Archivos subidos por usuarios (fotos)
+backend/uploads/
+
+# Editor / sistema
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Copia local de las descargas de OpenStreetMap (se regenera con el script de importación)
+backend/data/osm_cache/

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Tokens de diseño de Easy Search (se ampliarán en la Fase 4) */
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-ink: #0f172a;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+body {
+  @apply bg-slate-50 text-ink antialiased;
+}
