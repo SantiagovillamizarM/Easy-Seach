@@ -59,6 +59,30 @@ CATEGORIES: dict[str, tuple[str, str, dict[str, set[str]]]] = {
     "otros-comercios": ("Otros comercios", "Otros tipos de comercio", {"shop": set()}),  # comodín
 }
 
+# Grupos de categorías afines. Si la búsqueda pide llantas, un taller o un almacén de repuestos es "afín";
+# una tienda de ropa no.
+CATEGORY_GROUPS: list[set[str]] = [
+    {"restaurantes", "comida-rapida", "cafeterias", "bares", "heladerias", "panaderias", "mercados-tiendas",
+     "centros-comerciales"},
+    {"llantas", "talleres-mecanicos", "repuestos-vehiculos", "lavaderos", "estaciones-servicio"},
+    {"farmacias", "salud"},
+    {"mascotas"},
+    {"ferreterias", "hogar", "oficios"},
+    {"ropa-calzado", "belleza", "centros-comerciales"},
+    {"tecnologia", "papelerias"},
+    {"deportes"},
+]
+
+
+def related_categories(slugs: set[str]) -> set[str]:
+    """Categorías afines a las dadas (incluyéndolas)."""
+    related = set(slugs)
+    for group in CATEGORY_GROUPS:
+        if group & slugs:
+            related |= group
+    return related
+
+
 # Valores de OSM que no representan un comercio útil
 IGNORED_SHOP_VALUES = {"vacant", "no", "disused"}
 

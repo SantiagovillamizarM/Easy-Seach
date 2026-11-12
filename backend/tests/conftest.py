@@ -6,8 +6,11 @@ deshace al final, así las pruebas no dependen unas de otras.
 """
 import hashlib
 import math
+import os
 
-import pytest
+os.environ["APP_ENV"] = "test"  # evita precargar el modelo real de embeddings durante las pruebas
+
+import pytest  # noqa: E402
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -21,6 +24,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models import User
 from app.services.embeddings import get_embedder
+from app.services.llm import get_llm
 
 BACKEND_DIR = ROOT_DIR / "backend"
 
@@ -101,6 +105,7 @@ def fake_embedder():
 def client(db, fake_embedder):
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
+    app.dependency_overrides[get_llm] = lambda: None  # las pruebas NUNCA llaman a la IA real
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

@@ -5,7 +5,8 @@
 | Tema | Decisión |
 |---|---|
 | Fuente de datos | OpenStreetMap + información manual y de propietarios |
-| Proveedor de LLM | Pendiente (Gemini o Claude). Se implementará detrás de una interfaz intercambiable |
+| Proveedor de LLM | Google Gemini (`gemini-2.5-flash-lite`, respaldo `gemini-2.5-flash`) detrás de una interfaz intercambiable |
+| Publicación | Plesk, después de que todo funcione en local |
 | Infraestructura | Docker Desktop local |
 | Entrega | 25 de noviembre de 2026 |
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
@@ -18,7 +19,7 @@
 | 0 — Entorno de desarrollo | ✅ Completada |
 | 1 — Modelo de datos y autenticación | ✅ Completada |
 | 2 — Establecimientos, horarios y embeddings | ✅ Completada |
-| 3 — Motor de búsqueda inteligente | ⏳ Pendiente |
+| 3 — Motor de búsqueda inteligente | ✅ Completada |
 | 4 — Frontend de búsqueda | ⏳ Pendiente |
 | 5 — Recomendaciones IA y cuenta de usuario | ⏳ Pendiente |
 | 6 — Reseñas y panel comercial | ⏳ Pendiente |
@@ -125,6 +126,52 @@ Además: 4 municipios y 260 barrios con coordenadas reales.
   combina con búsqueda por palabras clave y filtros.
 - Los festivos (`PH`) de OSM se ignoran porque no hay un calendario de festivos por establecimiento; se
   manejan con horarios especiales.
+
+## Fase 3 — Motor de búsqueda inteligente
+
+**Hecho:**
+- Capa de IA intercambiable (`services/llm`) con adaptador para Gemini (API REST, salida JSON con esquema,
+  modelo de respaldo si el principal está saturado). La clave va en un encabezado, nunca en la URL.
+- Selección del modelo con pruebas reales: `gemini-2.5-flash-lite` interpretó correctamente en 1,3 s;
+  `gemini-3.5-flash-lite` tardó 9,6 s; `gemini-3.8-flash` estaba saturado.
+- Intérprete de consultas: Gemini primero, reglas como respaldo (presupuesto en formatos "25 mil", "25.000",
+  "$25000", "20k"; "cerca" vs "cerca de <lugar>"; abierto ahora; barato; bien calificado; categorías).
+  **Antiinvención:** se descarta un presupuesto o lugar que la IA devuelva sin que el usuario lo haya escrito.
+  Caché en memoria para no gastar cuota con consultas repetidas.
+- Resolución de lugares contra la tabla `places` (municipios, barrios, alias como "bga" o "Cabecera"). Las
+  coordenadas siempre salen de la base de datos.
+- Búsqueda híbrida en una sola petición:
+  - vectorial con pgvector (índice HNSW + `hnsw.iterative_scan` para no perder resultados al filtrar),
+  - full-text en español sin tildes, ignorando palabras genéricas,
+  - fusión con Reciprocal Rank Fusion, más ajustes por categoría, calificación, cercanía, presupuesto y verificación,
+  - descarte de resultados que solo "se parecen" pero no son de una categoría afín.
+- Ubicación: lugar escrito → filtro por municipio; "cerca" + GPS → radio de 3 km (se amplía a 8 km si hay
+  pocos resultados); "cerca" sin GPS → se pide la ubicación; GPS sin pedir lugar → se prioriza lo cercano.
+- Filtros: presupuesto (solo excluye lo que se sabe que es más caro), calificación mínima, categoría y
+  abierto ahora (oculta lo que no tiene horario y lo avisa).
+- `POST /api/search` (coordenadas en el cuerpo, no en la URL). Guarda historial **sin coordenadas**.
+- El modelo de embeddings se precarga al iniciar el servidor (la primera búsqueda ya no tarda 30 s).
+- `/api/semantic-preview` queda solo para administradores.
+- Script `scripts.eval_search` para evaluar con los ejemplos de la propuesta.
+
+**Verificado:**
+- `pytest`: 60 pruebas pasando (21 nuevas: presupuestos, cercanía, respaldo ante fallo de la IA,
+  antiinvención, caché, filtros por lugar/presupuesto/radio/horario, historial sin coordenadas, validaciones).
+  Las pruebas nunca llaman a la IA real.
+- Evaluación real (Gemini + pgvector + OSM):
+  - "Hamburguesa en Piedecuesta" → Pancha comida, Lis Burger, Garroteros (hamburgueserías de Piedecuesta).
+  - "Mecánico que arregle llantas de busetas en Bucaramanga" → Clínica de Llantas y Rines + talleres.
+  - "Hamburguesas en Bucaramanga, máximo 25.000" → hamburgueserías + aviso de precios no registrados.
+  - "Comprar llantas para una buseta" → Clínica de Llantas y Rines + talleres y repuestos (sin ruido).
+  - "Algo rico, no tan caro, cerca" con GPS en Piedecuesta → restaurantes a 0,1–0,7 km; sin GPS → pide ubicación.
+  - "hamburguesas" con GPS en Piedecuesta → primero las 3 de Piedecuesta (< 1 km), luego Bucaramanga.
+- Servidor real: ~2 s por búsqueda con Gemini.
+
+**Limitaciones:**
+- Con los datos actuales de OSM no hay precios, así que el filtro de presupuesto casi nunca puede confirmar
+  "dentro del presupuesto". Se avisa al usuario. Mejora con la carga manual (CSV) y el panel de propietarios.
+- "en la cancha" puede confundirse con el barrio "La Cancha" (nombre genérico en OSM).
+- Plan gratuito de Gemini: si se agota la cuota, la búsqueda sigue funcionando con reglas.
 
 ## Convención de commits
 

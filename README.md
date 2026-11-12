@@ -48,8 +48,12 @@ Todos los comandos se ejecutan en **PowerShell** desde la carpeta del proyecto.
 Copy-Item .env.example .env
 ```
 
-Abre `.env` y cambia `cambia_esta_clave` por una contraseña propia **en las dos líneas** donde aparece
-(`POSTGRES_PASSWORD` y `DATABASE_URL`).
+Abre `.env` y:
+- Cambia `cambia_esta_clave` por una contraseña propia **en las dos líneas** donde aparece
+  (`POSTGRES_PASSWORD` y `DATABASE_URL`).
+- Cambia `SECRET_KEY` por una clave aleatoria (el comando para generarla está en el mismo archivo).
+- Pega tu clave de Gemini en `GEMINI_API_KEY` (créala en https://aistudio.google.com/apikey). Sin clave,
+  la búsqueda funciona igual con el intérprete por reglas, pero entiende menos.
 
 > Usa `127.0.0.1` y no `localhost` en `DATABASE_URL`: en Windows, `localhost` intenta primero IPv6 y la
 > conexión puede tardar más de 2 minutos.
@@ -144,6 +148,16 @@ cd backend
 
 (La base de datos debe estar encendida.) Las pruebas usan una base de datos separada, `easysearch_test`, que se
 crea sola; tus datos de desarrollo no se modifican.
+
+### Probar la búsqueda desde la terminal
+
+```powershell
+cd backend
+# Los ejemplos de la propuesta (usa Gemini, pgvector y los datos reales; no guarda historial)
+.\.venv\Scripts\python -m scripts.eval_search
+# Una consulta propia
+.\.venv\Scripts\python -m scripts.eval_search "pizza en Cabecera abierta ahora"
+```
 
 ## Comandos útiles de base de datos
 

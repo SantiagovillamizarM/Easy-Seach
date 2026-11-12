@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     # --- Embeddings ---
     embedding_dimensions: int = 384
 
+    # --- IA generativa (Gemini) ---
+    # Sin clave, la búsqueda sigue funcionando con el intérprete por reglas.
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash-lite"
+    gemini_fallback_model: str = "gemini-2.5-flash"
+    llm_timeout_seconds: float = 12.0
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

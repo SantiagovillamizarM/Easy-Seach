@@ -8,7 +8,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_roles
 from app.core.text import normalize, slugify
@@ -20,7 +20,6 @@ from app.schemas.catalog import (
     EstablishmentDetail,
     EstablishmentSummary,
     EstablishmentUpdate,
-    HoursStatusOut,
     OfferingIn,
     OfferingOut,
     OfferingUpdate,
@@ -29,35 +28,15 @@ from app.schemas.catalog import (
     SpecialHourOut,
     WeeklyHoursIn,
 )
-from app.services.catalog import hours_status
+from app.services.catalog import LOAD_OPTIONS, to_summary
 from app.services.embeddings import Embedder, get_embedder, sync_establishments
 
 router = APIRouter(tags=["catalog"])
 
-# Relaciones que se cargan junto con el establecimiento (evita cientos de consultas pequeñas)
-_LOAD = (
-    selectinload(Establishment.opening_hours),
-    selectinload(Establishment.special_hours),
-    selectinload(Establishment.photos),
-    selectinload(Establishment.offerings),
-)
+_LOAD = LOAD_OPTIONS
 
 
 # ------------------------------- Conversión a respuesta ---------------------------------
-
-def to_summary(est: Establishment) -> dict:
-    status_ = hours_status(est)
-    return {
-        "id": est.id, "slug": est.slug, "name": est.name, "address": est.address,
-        "neighborhood": est.neighborhood,
-        "municipality": est.municipality.name if est.municipality else None,
-        "latitude": est.latitude, "longitude": est.longitude,
-        "categories": est.categories,
-        "price_min": est.price_min, "price_max": est.price_max, "price_level": est.price_level,
-        "rating_avg": est.rating_avg, "rating_count": est.rating_count, "is_verified": est.is_verified,
-        "photo_url": est.photos[0].url if est.photos else None,
-        "hours_status": HoursStatusOut(**status_.__dict__),
-    }
 
 
 def to_detail(est: Establishment) -> dict:
@@ -324,7 +303,7 @@ def delete_offering(
 
 # ------------------------------- Vista previa semántica ---------------------------------
 
-@router.get("/semantic-preview")
+@router.get("/semantic-preview", dependencies=[Depends(require_roles("admin"))])
 def semantic_preview(
     q: str = Query(min_length=2, max_length=300),
     limit: int = Query(10, ge=1, le=50),
