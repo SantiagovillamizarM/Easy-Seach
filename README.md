@@ -132,7 +132,7 @@ cd frontend
 npm run dev
 ```
 
-Abre http://127.0.0.1:5173 en el navegador.
+Abre http://127.0.0.1:5173 en el navegador. Páginas: inicio (`/`), resultados (`/buscar?q=...`) y detalle de un lugar (`/lugar/<slug>`).
 
 > Si el navegador muestra `ERR_CONNECTION_REFUSED`, revisa que la terminal 2 siga abierta y muestre
 > `VITE ... ready`. La página solo existe mientras `npm run dev` está corriendo.

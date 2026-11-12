@@ -1,15 +1,121 @@
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
-/* Tokens de diseño de Easy Search (se ampliarán en la Fase 4) */
+/* ============================================================
+   Sistema de diseño de Easy Search
+   Tecnología + confianza: tinta azul profundo, índigo eléctrico
+   como color de marca y un verde menta para "abierto".
+   ============================================================ */
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-ink: #0f172a;
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", "Segoe UI", system-ui, sans-serif;
+
+  --color-ink: #0b1224;          /* textos principales */
+  --color-ink-soft: #475069;     /* textos secundarios */
+  --color-line: #e3e7f0;         /* bordes */
+  --color-canvas: #f6f7fb;       /* fondo general */
+
+  --color-brand-50: #eef0ff;
+  --color-brand-100: #dfe3ff;
+  --color-brand-200: #c3caff;
+  --color-brand-400: #7b84ff;
+  --color-brand-500: #5b5cf6;
+  --color-brand-600: #4a3fe0;
+  --color-brand-700: #3b31b8;
+  --color-brand-900: #1b1660;
+
+  --color-open: #0f9d74;
+  --color-open-bg: #e6f7f0;
+  --color-closed: #c2410c;
+  --color-closed-bg: #fdeee6;
+
+  --shadow-card: 0 1px 2px rgb(11 18 36 / 0.04), 0 4px 16px rgb(11 18 36 / 0.06);
+  --shadow-float: 0 10px 40px rgb(27 22 96 / 0.18);
 }
 
-body {
-  @apply bg-slate-50 text-ink antialiased;
+/* Estilos base dentro de la capa "base": así las clases de Tailwind pueden sobrescribirlos */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  /* Foco visible y consistente para navegación con teclado */
+  :focus-visible {
+    outline: 3px solid var(--color-brand-400);
+    outline-offset: 2px;
+  }
+}
+
+/* Componentes reutilizables (en Tailwind v4 se declaran con @utility para poder combinarlos) */
+@utility card {
+  @apply rounded-2xl border border-line bg-white shadow-[var(--shadow-card)];
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+    disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand-600 text-white hover:bg-brand-700;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-white text-ink hover:border-brand-200 hover:bg-brand-50;
+}
+@utility chip {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium
+    text-ink-soft;
+}
+@utility input {
+  @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/70
+    focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100;
+}
+
+/* Fondo "malla" sutil del inicio */
+.hero-mesh {
+  background:
+    radial-gradient(60rem 30rem at 15% -10%, rgb(91 92 246 / 0.16), transparent 60%),
+    radial-gradient(50rem 30rem at 100% 0%, rgb(15 157 116 / 0.10), transparent 60%),
+    linear-gradient(180deg, #fbfbff 0%, var(--color-canvas) 100%);
+}
+
+/* Marcadores del mapa */
+.es-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px 9999px 9999px 2px;
+  transform: rotate(-45deg);
+  background: var(--color-brand-600);
+  border: 2px solid white;
+  box-shadow: 0 4px 10px rgb(27 22 96 / 0.35);
+}
+.es-marker span {
+  transform: rotate(45deg);
+  color: white;
+  font: 700 12px/1 var(--font-sans);
+}
+.es-marker.is-active {
+  background: var(--color-ink);
+}
+.es-user-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2563eb;
+  border: 3px solid white;
+  box-shadow: 0 0 0 6px rgb(37 99 235 / 0.25);
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
