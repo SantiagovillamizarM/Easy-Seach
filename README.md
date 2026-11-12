@@ -87,6 +87,8 @@ cd backend
 .\.venv\Scripts\python -m alembic upgrade head
 # Importa municipios, barrios y establecimientos reales desde OpenStreetMap (tarda unos minutos)
 .\.venv\Scripts\python -m scripts.import_osm
+# Genera los embeddings (vectores semánticos). La primera vez descarga el modelo (~470 MB)
+.\.venv\Scripts\python -m scripts.reindex_embeddings
 # Crea tu usuario administrador (te pedirá la contraseña)
 .\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
 cd ..
@@ -95,6 +97,9 @@ cd ..
 > Si la importación muestra "servidores ocupados", es normal: el script reintenta solo. Las descargas se
 > guardan en `backend/data/osm_cache/`, así que si la vuelves a ejecutar no descarga de nuevo
 > (usa `--refresh` para forzar la descarga).
+
+Para completar negocios con descripción, menú y precios reales, sigue la
+[guía de carga manual](docs/CARGA_MANUAL.md).
 
 ### 5. Frontend
 

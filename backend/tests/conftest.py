@@ -4,6 +4,9 @@ Las pruebas usan una base de datos SEPARADA ("<nombre>_test") que se crea y se m
 para no tocar los datos de desarrollo. Cada prueba se ejecuta dentro de una transacción que se
 deshace al final, así las pruebas no dependen unas de otras.
 """
+import hashlib
+import math
+
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -17,6 +20,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models import User
+from app.services.embeddings import get_embedder
 
 BACKEND_DIR = ROOT_DIR / "backend"
 
@@ -63,9 +67,40 @@ def db(engine):
     connection.close()
 
 
+class FakeEmbedder:
+    """Embedder rápido y determinista para pruebas (no carga el modelo real).
+
+    `calls` guarda los textos procesados, para comprobar cuándo se regeneran vectores.
+    """
+
+    model_name = "fake-embedder"
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def _vector(self, text: str) -> list[float]:
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        values = [digest[i % len(digest)] / 255 + 0.01 for i in range(384)]
+        norm = math.sqrt(sum(v * v for v in values))
+        return [v / norm for v in values]
+
+    def encode_passages(self, texts: list[str]) -> list[list[float]]:
+        self.calls.extend(texts)
+        return [self._vector(t) for t in texts]
+
+    def encode_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+
 @pytest.fixture()
-def client(db):
+def fake_embedder():
+    return FakeEmbedder()
+
+
+@pytest.fixture()
+def client(db, fake_embedder):
     app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_embedder] = lambda: fake_embedder
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

@@ -17,7 +17,7 @@
 |---|---|
 | 0 — Entorno de desarrollo | ✅ Completada |
 | 1 — Modelo de datos y autenticación | ✅ Completada |
-| 2 — Establecimientos, horarios y embeddings | ⏳ Pendiente |
+| 2 — Establecimientos, horarios y embeddings | ✅ Completada |
 | 3 — Motor de búsqueda inteligente | ⏳ Pendiente |
 | 4 — Frontend de búsqueda | ⏳ Pendiente |
 | 5 — Recomendaciones IA y cuenta de usuario | ⏳ Pendiente |
@@ -92,6 +92,39 @@ Además: 4 municipios y 260 barrios con coordenadas reales.
 - OSM no tiene precios ni descripciones, y solo el ~10 % de los establecimientos tiene teléfono u horario.
   Hay que completar datos a mano o desde el panel de propietarios.
 - Los servidores públicos de Overpass se saturan con frecuencia: la importación puede tardar unos 15 minutos.
+
+## Fase 2 — Establecimientos, horarios y embeddings
+
+**Hecho:**
+- Intérprete del formato `opening_hours` de OSM: rangos de días, listas, horarios partidos, reglas que se
+  sobrescriben, reglas aditivas, `24/7`, `24:00`, cruces de medianoche, `off`. Lo que no se entiende con
+  seguridad (ej. `sunrise-sunset`) queda como "sin información".
+- Cálculo de **abierto / cerrado / sin información** en la zona horaria del establecimiento, con excepciones
+  por fecha, próxima apertura y hora de cierre. Indica si el horario fue verificado por una persona.
+- Embeddings locales con `intfloat/multilingual-e5-small` (384 dimensiones). Texto canónico con nombre,
+  categorías, cocina traducida al español, descripción, productos y ubicación. Se recalcula solo si cambia
+  el hash del texto.
+- API del catálogo: categorías, lugares (autocompletar), listado, detalle, crear (admin), editar,
+  horario semanal, horarios especiales, productos y servicios (admin o propietario del establecimiento).
+  Cada edición regenera los embeddings afectados.
+- `GET /api/semantic-preview`: búsqueda vectorial pura con pgvector, para verificar (no es la búsqueda final).
+- Scripts: `reindex_embeddings`, `import_csv` (con `--dry-run`) y guía `docs/CARGA_MANUAL.md`.
+
+**Verificado:**
+- `pytest`: 39 pruebas pasando (16 de horarios, 9 de catálogo, permisos y regeneración de embeddings).
+- 112 de 113 horarios reales de OSM interpretados (el restante es `sunrise-sunset`).
+- 1.161 vectores generados en 110 s; segunda ejecución: 0 regenerados (1 s).
+- Búsqueda vectorial real: "quiero comer una hamburguesa" → hamburgueserías; "mecánico que arregle llantas de
+  busetas" → Clínica de Llantas y Rines; "tomar café y desayunar" → cafeterías; "medicamentos para la gripa"
+  → droguerías.
+- `import_csv --dry-run`: acepta las filas válidas y rechaza con mensaje claro municipio, slug, rango de
+  precios, horario y categoría inválidos.
+
+**Limitaciones:**
+- La similitud vectorial sola trae algo de ruido (ej. "welcome — Deportes" al buscar llantas). En la Fase 3 se
+  combina con búsqueda por palabras clave y filtros.
+- Los festivos (`PH`) de OSM se ignoran porque no hay un calendario de festivos por establecimiento; se
+  manejan con horarios especiales.
 
 ## Convención de commits
 

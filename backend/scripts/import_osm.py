@@ -26,6 +26,7 @@ from app.core.text import normalize, slugify
 from app.data.categories import categories_for_tags, ensure_categories
 from app.db.session import SessionLocal
 from app.models import Establishment, Place
+from app.services.catalog import apply_opening_hours_text
 
 # Municipios del área metropolitana de Bucaramanga: nombre -> id de la relación administrativa en OSM
 MUNICIPALITIES: dict[str, int] = {
@@ -215,6 +216,9 @@ def import_municipality(db: Session, name: str, relation_id: int, refresh: bool,
         est.facebook = first(tags, "contact:facebook", "facebook")
         est.osm_tags = tags
         est.categories = [categories[s] for s in slugs]
+        # Horario de OSM (si se puede interpretar). hours_verified_at queda vacío: no está confirmado.
+        if not apply_opening_hours_text(est, tags.get("opening_hours")):
+            est.opening_hours = []
         db.flush()
 
     print(f"  Barrios: {barrios} | Establecimientos nuevos: {created}, actualizados: {updated}, "
@@ -240,6 +244,7 @@ def main() -> None:
                 totals[k] += result[k]
         print(f"\nTOTAL → nuevos: {totals['created']}, actualizados: {totals['updated']}, "
               f"omitidos: {totals['skipped']}, barrios: {totals['barrios']}")
+        print("Siguiente paso: generar los embeddings con  python -m scripts.reindex_embeddings")
     except Exception as exc:
         db.rollback()
         print(f"\nERROR: {exc}", file=sys.stderr)

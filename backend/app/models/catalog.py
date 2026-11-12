@@ -26,6 +26,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.models.place import Place  # noqa: F401  (usado en la relación "municipality")
 
 EMBEDDING_DIM = 384  # dimensiones del modelo multilingual-e5-small
 
@@ -111,6 +112,7 @@ class Establishment(TimestampMixin, Base):
     osm_id: Mapped[int | None] = mapped_column(BigInteger)
     osm_tags: Mapped[dict | None] = mapped_column(JSONB)
 
+    municipality: Mapped["Place | None"] = relationship(lazy="joined")
     categories: Mapped[list[Category]] = relationship(secondary=establishment_categories, lazy="selectin")
     offerings: Mapped[list["Offering"]] = relationship(
         back_populates="establishment", cascade="all, delete-orphan"
