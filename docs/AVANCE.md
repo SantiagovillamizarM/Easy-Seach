@@ -21,7 +21,7 @@
 | 2 — Establecimientos, horarios y embeddings | ✅ Completada |
 | 3 — Motor de búsqueda inteligente | ✅ Completada |
 | 4 — Frontend de búsqueda | ✅ Completada |
-| 5 — Recomendaciones IA y cuenta de usuario | ⏳ Pendiente |
+| 5 — Recomendaciones IA y cuenta de usuario | ✅ Completada |
 | 6 — Reseñas y panel comercial | ⏳ Pendiente |
 | 7 — Panel administrativo | ⏳ Pendiente |
 | 8 — Calidad y seguridad | ⏳ Pendiente |
@@ -211,6 +211,48 @@ Rama: `feature/fase-4-frontend`.
 
 **Pendiente para fases siguientes:** recomendaciones de IA en los resultados (Fase 5), iniciar sesión, favoritos e
 historial (Fase 5), reseñas (Fase 6).
+
+## Fase 5 — Recomendaciones IA y cuenta de usuario
+
+Rama: `feature/fase-5-cuenta-recomendaciones` (3 bloques, un commit por bloque).
+
+**Bloque 1 — Recomendaciones con IA:**
+- `POST /api/recommendations`: recibe la consulta y hasta 6 ids; el servidor vuelve a leer los datos de la base
+  (no confía en el navegador) y reutiliza la interpretación en caché (no gasta otra llamada a Gemini).
+- Ficha de hechos por establecimiento: solo datos guardados (categorías, cocina, descripción, precios, productos,
+  calificación, reseñas aprobadas). El horario NO se envía a la IA: la interfaz ya lo muestra con su advertencia.
+- **Validación anti-invención:** se eliminan las frases con precios, horas o calificaciones que no estén en la
+  ficha. Si todo se elimina o la IA falla, se usa una recomendación por plantillas.
+- Las carencias de información (precios, horario, reseñas, descripción) se calculan sin IA y siempre se muestran.
+- Gemini: si un modelo responde 429 (cuota agotada) o 503, se salta 60 s y se usa el de respaldo.
+- Frontend: los resultados se muestran primero y las recomendaciones llegan después (no retrasan la búsqueda).
+
+**Bloque 2 — Cuenta:**
+- `PATCH /api/auth/me` (nombre) y `POST /api/auth/change-password` (exige la contraseña actual).
+- Páginas `/ingresar`, `/registro` y `/perfil`; menú de usuario en el encabezado; rutas protegidas que regresan a
+  la página original después del login (solo redirecciones internas).
+- Sesión: token en `localStorage` con verificación de expiración; si el servidor responde 401, la sesión se cierra.
+
+**Bloque 3 — Favoritos e historial:**
+- `GET/PUT/DELETE /api/me/favorites[/{id}]`, `GET /api/me/favorites/ids`, `GET /api/me/history`,
+  `DELETE /api/me/history[/{id}]`. Las rutas no reciben un `user_id`: solo operan sobre el usuario del token.
+- Borrar del historial **desvincula** la búsqueda de la cuenta (queda anónima para estadísticas).
+- Corazón de favorito en resultados y detalle (cambio optimista que se revierte si falla); páginas `/favoritos` e
+  `/historial` (agrupado por día, "Buscar de nuevo", eliminar uno o todo con confirmación).
+
+**Verificado:**
+- `pytest`: 75 pruebas pasando (8 de recomendaciones, 2 de perfil y contraseña, 6 de favoritos e historial,
+  incluidas las de privacidad entre usuarios).
+- Recomendaciones reales con Gemini en ~2 s, sin deducciones a partir del nombre del negocio.
+- Recorrido completo con un usuario temporal contra el servidor real: login, perfil, favoritos, historial y
+  corazones marcados en los resultados (usuario eliminado después).
+
+**Problemas encontrados y solución:**
+- Cuota gratuita de `gemini-2.5-flash-lite` agotada (HTTP 429) → pausa de 60 s y modelo de respaldo.
+- La IA deducía especialidades a partir del nombre ("Unifrenos se especializa en frenos") → instrucciones más
+  estrictas.
+- Tras `git pull`, Git en Windows dejó archivos con saltos de línea CRLF y algunos reemplazos automáticos no se
+  aplicaron (la app quedó en blanco) → detectado en la consola del navegador y corregido.
 
 ## Convención de commits
 

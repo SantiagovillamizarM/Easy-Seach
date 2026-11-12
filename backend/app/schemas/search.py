@@ -69,6 +69,24 @@ class SearchHitOut(EstablishmentSummary):
     relevance: Literal["alta", "relacionada"]
 
 
+class RecommendationsRequest(BaseModel):
+    q: str = Field(min_length=2, max_length=300)
+    establishment_ids: list[int] = Field(min_length=1, max_length=6)
+
+
+class RecommendationOut(BaseModel):
+    establishment_id: int
+    text: str
+    data_gaps: list[str]
+    source: Literal["gemini", "reglas"]
+
+
+class RecommendationsResponse(BaseModel):
+    summary: str | None
+    source: Literal["gemini", "reglas"]
+    items: list[RecommendationOut]
+
+
 class SearchResponse(BaseModel):
     query: str
     interpretation: InterpretationOut

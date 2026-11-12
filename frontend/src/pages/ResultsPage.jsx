@@ -1,4 +1,4 @@
-import { AlertTriangle, Info, List, LocateFixed, Map as MapIcon, SearchX, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Info, List, LocateFixed, Map as MapIcon, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
@@ -8,6 +8,7 @@ import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
 
 const ResultsMap = lazy(() => import("../components/ResultsMap.jsx"));
+const RECOMMENDED_COUNT = 6; // la IA explica los primeros resultados
 
 function buildPayload(params, coords) {
   const num = (k) => (params.get(k) ? Number(params.get(k)) : undefined);
@@ -43,6 +44,7 @@ export default function ResultsPage() {
   const [mobileView, setMobileView] = useState("list"); // list | map
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [recs, setRecs] = useState({ summary: null, byId: {}, loading: false });
 
   const q = params.get("q") ?? "";
   const paramsKey = params.toString();
@@ -74,6 +76,30 @@ export default function ResultsPage() {
       });
     return () => controller.abort();
   }, [paramsKey, q, coords, retry]);
+
+  // Recomendaciones: se piden DESPUÉS de mostrar los resultados para no retrasarlos
+  useEffect(() => {
+    const ids = (data?.results ?? []).slice(0, RECOMMENDED_COUNT).map((r) => r.id);
+    if (!data || ids.length === 0) {
+      setRecs({ summary: null, byId: {}, loading: false });
+      return;
+    }
+    const controller = new AbortController();
+    setRecs({ summary: null, byId: {}, loading: true });
+    api
+      .recommendations({ q: data.query, establishment_ids: ids }, { signal: controller.signal })
+      .then((res) =>
+        setRecs({
+          summary: res.summary,
+          byId: Object.fromEntries(res.items.map((item) => [item.establishment_id, item])),
+          loading: false,
+        }),
+      )
+      .catch((err) => {
+        if (err.name !== "AbortError") setRecs({ summary: null, byId: {}, loading: false });
+      });
+    return () => controller.abort();
+  }, [data]);
 
   const applyFilters = useCallback(
     (values) => {
@@ -191,11 +217,25 @@ export default function ResultsPage() {
             </div>
           )}
 
+          {!loading && !error && results.length > 0 && recs.summary && (
+            <p className="mb-3 flex gap-2 rounded-2xl bg-ink p-4 text-sm leading-relaxed text-white">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-200" aria-hidden="true" />
+              {recs.summary}
+            </p>
+          )}
+
           {!loading && !error && results.length > 0 && (
             <ol className="space-y-3">
               {results.map((r, i) => (
                 <li key={r.id}>
-                  <ResultCard result={r} index={i} active={r.id === activeId} onHover={setActiveId} />
+                  <ResultCard
+                    result={r}
+                    index={i}
+                    active={r.id === activeId}
+                    onHover={setActiveId}
+                    recommendation={recs.byId[r.id]}
+                    recommendationLoading={recs.loading && i < RECOMMENDED_COUNT}
+                  />
                 </li>
               ))}
             </ol>

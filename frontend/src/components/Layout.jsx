@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
+import UserMenu from "./UserMenu.jsx";
 
 function Header() {
   const { pathname } = useLocation();
@@ -9,11 +10,16 @@ function Header() {
     <header className="sticky top-0 z-[1000] border-b border-line/70 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
         <Logo />
-        {!isHome && (
+        {!isHome ? (
           <div className="hidden flex-1 md:block">
             <SearchBar compact />
           </div>
+        ) : (
+          <div className="flex-1" />
         )}
+        <div className="ml-auto md:ml-0">
+          <UserMenu />
+        </div>
       </div>
       {!isHome && (
         <div className="px-4 pb-3 md:hidden">

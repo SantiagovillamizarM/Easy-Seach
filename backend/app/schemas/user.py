@@ -4,6 +4,19 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
+def check_name(v: str) -> str:
+    v = " ".join(v.split())
+    if len(v) < 2:
+        raise ValueError("El nombre es demasiado corto")
+    return v
+
+
+def check_password(v: str) -> str:
+    if not any(c.isalpha() for c in v) or not any(c.isdigit() for c in v):
+        raise ValueError("La contraseña debe tener al menos una letra y un número")
+    return v
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -17,17 +30,12 @@ class UserCreate(BaseModel):
     @field_validator("full_name")
     @classmethod
     def clean_name(cls, v: str) -> str:
-        v = " ".join(v.split())
-        if len(v) < 2:
-            raise ValueError("El nombre es demasiado corto")
-        return v
+        return check_name(v)
 
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        if not any(c.isalpha() for c in v) or not any(c.isdigit() for c in v):
-            raise ValueError("La contraseña debe tener al menos una letra y un número")
-        return v
+        return check_password(v)
 
 
 class UserOut(BaseModel):
@@ -45,3 +53,22 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class UserUpdate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=120)
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_name(cls, v: str) -> str:
+        return check_name(v)
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return check_password(v)
