@@ -10,7 +10,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useApiData(fetcher, deps) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
   const controllerRef = useRef(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Intencional: quien usa el hook declara de qué depende la carga (como en useEffect)
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo
   const load = useCallback(fetcher, deps);
 
   const reload = useCallback(() => {

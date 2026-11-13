@@ -31,6 +31,18 @@ def test_rules_near_me_vs_near_a_place():
     assert parse_with_rules("bar cerca de Cabecera").near_me is False
 
 
+def test_rules_keywords_match_only_at_word_start():
+    """Errores encontrados con el benchmark de búsqueda (Fase 8)."""
+    vet = parse_with_rules("veterinaria para mi perro en floridablanca").category_slugs
+    assert vet == ["mascotas"]                                  # antes: comida-rapida (perro) y llantas ("rin")
+    assert "restaurantes" not in parse_with_rules("centro comercial en girón").category_slugs  # "comer"cial
+    assert "belleza" not in parse_with_rules("unas hamburguesas baratas").category_slugs       # "unas" artículo
+    # Las raíces siguen funcionando al inicio de palabra
+    assert parse_with_rules("rines para mi carro").category_slugs == ["llantas"]
+    assert parse_with_rules("quiero comer perros calientes").category_slugs[:2] == ["comida-rapida", "restaurantes"]
+    assert parse_with_rules("arreglarme las uñas").category_slugs == ["belleza"]
+
+
 def test_rules_open_cheap_rating_and_categories():
     intent = parse_with_rules("restaurante barato abierto ahora bien calificado")
     assert intent.open_now and intent.price_preference == "low" and intent.min_rating == 4.0

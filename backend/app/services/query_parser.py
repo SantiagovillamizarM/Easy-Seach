@@ -54,16 +54,21 @@ hagan venda vendan ofrezca ofrezcan atienda atiendan tenga tengan sean favor dam
 
 # palabra (sin tildes, raíz) -> categoría
 _CATEGORY_WORDS = {
-    "hamburgues": "comida-rapida", "burger": "comida-rapida", "pizza": "comida-rapida", "perro": "comida-rapida",
+    # "perro" solo no: puede ser la mascota ("veterinaria para mi perro")
+    "hamburgues": "comida-rapida", "burger": "comida-rapida", "pizza": "comida-rapida",
+    "perro caliente": "comida-rapida", "perros caliente": "comida-rapida", "hot dog": "comida-rapida",
     "comida rapida": "comida-rapida", "salchipapa": "comida-rapida", "pollo": "restaurantes",
     "restaurante": "restaurantes", "almorzar": "restaurantes", "almuerzo": "restaurantes", "cenar": "restaurantes",
-    "comer": "restaurantes", "comida": "restaurantes", "corrientazo": "restaurantes",
+    "comer ": "restaurantes", "comida": "restaurantes", "corrientazo": "restaurantes",  # "comer " ≠ "comercial"
     "cafe": "cafeterias", "desayun": "cafeterias", "tinto": "cafeterias",
     "llanta": "llantas", "montallanta": "llantas", "despinch": "llantas", "rin": "llantas",
     "mecanic": "talleres-mecanicos", "taller": "talleres-mecanicos",
     "repuesto": "repuestos-vehiculos", "drogueria": "farmacias", "farmacia": "farmacias", "medicament": "farmacias",
     "ferreteria": "ferreterias", "herramienta": "ferreterias", "peluquer": "belleza", "barber": "belleza",
-    "unas": "belleza", "veterinari": "mascotas", "mascota": "mascotas", "perro y gato": "mascotas",
+    # "unas" (uñas) solo no: también es el artículo ("unas hamburguesas")
+    "las unas": "belleza", "manicur": "belleza", "pedicur": "belleza",
+    "veterinari": "mascotas", "mascota": "mascotas", "perro y gato": "mascotas", "mi perro": "mascotas",
+    "mi gato": "mascotas", "concentrado para": "mascotas",
     "gasolina": "estaciones-servicio", "tanquear": "estaciones-servicio", "lavadero": "lavaderos",
     "cerveza": "bares", "trago": "bares", "rumba": "bares", "bar ": "bares", "helado": "heladerias",
     "panaderia": "panaderias", "pan ": "panaderias", "torta": "panaderias", "celular": "tecnologia",
@@ -72,6 +77,11 @@ _CATEGORY_WORDS = {
     "papeleria": "papelerias", "libro": "papelerias", "bicicleta": "deportes", "mueble": "hogar",
     "medico": "salud", "odontolog": "salud", "dentista": "salud", "optica": "salud",
 }
+
+# Cada palabra clave debe coincidir al INICIO de una palabra (es una raíz: "llanta" → "llantas"),
+# nunca en medio de otra: "rin" no debe activarse con "veterinaria".
+_CATEGORY_PATTERNS = [(re.compile(r"(?<![a-z0-9])" + re.escape(word)), slug)
+                      for word, slug in _CATEGORY_WORDS.items()]
 
 _NUMBER = r"(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mil|k|lucas|barras|millon(?:es)?)?"
 _MAX_WORDS = r"(?:maximo|max|hasta|menos de|no mas de|tengo|presupuesto(?: de)?|por debajo de|alcanza(?: para)?|cuenta con)"
@@ -123,8 +133,9 @@ def parse_with_rules(query: str, place_text: str | None = None) -> QueryIntent:
     budget_min, budget_max = extract_budget(norm)
 
     categories = []
-    for word, slug in _CATEGORY_WORDS.items():
-        if word in f" {norm} " and slug not in categories:
+    padded = f" {norm} "
+    for pattern, slug in _CATEGORY_PATTERNS:
+        if slug not in categories and pattern.search(padded):
             categories.append(slug)
 
     # Texto de la necesidad: quitar el lugar y las cifras de dinero

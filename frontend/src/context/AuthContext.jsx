@@ -13,6 +13,13 @@ function readStored() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw);
+    // Datos corruptos o de una versión anterior: se descartan (si no, la app fallaría en cada recarga)
+    const u = session?.user;
+    const validUser = u && typeof u.id === "number" && [u.email, u.full_name, u.role].every((v) => typeof v === "string");
+    if (typeof session?.token !== "string" || !validUser) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
     // Revisar la fecha de expiración incluida en el token (sin verificar firma: eso lo hace el servidor)
     const payload = JSON.parse(atob(session.token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     if (payload.exp * 1000 < Date.now()) return null;

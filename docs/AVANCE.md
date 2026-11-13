@@ -24,7 +24,7 @@
 | 5 — Recomendaciones IA y cuenta de usuario | ✅ Completada |
 | 6 — Reseñas y panel comercial | ✅ Completada |
 | 7 — Panel administrativo | ✅ Completada |
-| 8 — Calidad y seguridad | ⏳ Pendiente |
+| 8 — Calidad y seguridad | ✅ Completada |
 | 9 — Documentación y cierre | ⏳ Pendiente |
 
 ## Fase 0 — Entorno de desarrollo
@@ -334,6 +334,45 @@ Rama: `feature/fase-7-panel-admin` (2 commits: API y la interfaz).
 - El parámetro `q` de la URL del panel se mostraba en la barra de búsqueda del encabezado → se renombró a `texto`.
 - Abrir una búsqueda desde las estadísticas habría registrado una búsqueda nueva y alterado los datos → las búsquedas
   se muestran como texto, sin enlace.
+
+## Fase 8 — Calidad y seguridad
+
+Rama: `feature/fase-8-calidad-seguridad` (2 commits: seguridad y calidad).
+
+**Bloque A — Seguridad:**
+- Límite de intentos en memoria (ventana deslizante, `app/core/rate_limit.py`), con respuesta 429 y `Retry-After`:
+  login 20/5 min por IP y 5 fallos/15 min por correo (mismo trato si la cuenta no existe), registro 5/hora por IP,
+  búsqueda 60/min y recomendaciones 30/min por IP, cambio de contraseña 5/15 min, solicitudes 5/día, reportes
+  20/hora y fotos 30/hora por usuario.
+- Cambiar la contraseña invalida los tokens anteriores (`users.password_changed_at`, migración `3d2139ad04b6`) y
+  devuelve un token nuevo para el dispositivo actual.
+- Cabeceras: `nosniff`, `X-Frame-Options: DENY`, CSP restrictiva en la API, `Permissions-Policy`, COOP y HSTS en
+  producción. Peticiones de más de 6 MB → 413. Errores no previstos → mensaje genérico (detalle solo en el log).
+- En producción la app no arranca con `SECRET_KEY` de ejemplo o corta, ni con CORS `*` o `http://`; `/docs` se apaga.
+  CORS sin cookies y solo con los métodos y cabeceras usados.
+
+**Bloque B — Calidad:**
+- ESLint (`npm run lint`) con reglas de React Hooks; las reglas que dieron falsos positivos quedaron documentadas en
+  `eslint.config.js`.
+- Pantalla de error (ErrorBoundary) en la raíz y por página: nunca más una página en blanco; detecta también cuando
+  hay una versión nueva publicada y pide recargar.
+- Auditoría de dependencias: npm sin vulnerabilidades; Pillow 12.3 tenía vulnerabilidades conocidas (procesa las fotos
+  que suben los usuarios) → actualizado a 13.0; pytest → 9.2.
+- Benchmark de búsqueda (`scripts/benchmark_search.py`, 22 consultas etiquetadas, modo solo reglas):
+  precisión@5 88 %, **encontrados/disponibles 99 %**, municipio correcto 100 %, 0 consultas sin resultados,
+  mediana 232 ms / p95 288 ms. Los casos con baja precisión son de datos escasos (p. ej. 1 sola veterinaria en
+  Floridablanca en OSM), no del algoritmo.
+
+**Verificado:**
+- `pytest`: 127 pruebas pasando (12 de seguridad, 1 de regresión del intérprete).
+- Contra el servidor real: cabeceras presentes, bloqueo tras 5 fallos (incluso con la clave correcta), token viejo
+  rechazado tras cambiar la contraseña, petición de 7 MB rechazada con 413.
+
+**Problemas encontrados y solución:**
+- El benchmark reveló que las palabras clave del intérprete coincidían dentro de otras palabras: "rin" (rines) en
+  "vete**rin**aria", "comer" en "**comer**cial", "unas" (uñas) en el artículo "unas"; y "perro" se tomaba como perro
+  caliente → ahora solo coinciden al inicio de una palabra y se ajustaron las palabras ambiguas.
+- Una sesión corrupta guardada en el navegador hacía fallar la app en cada recarga → se valida su forma y se descarta.
 
 ## Convención de commits
 
