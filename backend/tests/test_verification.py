@@ -137,5 +137,13 @@ def test_register_and_login_require_captcha(client, db, outbox, captcha_on):
     assert client.post("/api/auth/login", data={**login, "captcha_token": "token-humano"}).status_code == 200
 
 
+def test_verification_email_content_and_escaping():
+    subject, text, html = email_service.build_verification_email("<b>Hacker</b> Pérez", "482913", 15)
+    assert subject.startswith("482913")
+    assert "482913" in text and "15 minutos" in text
+    assert all(f">{d}</div>" in html for d in "482913")       # un recuadro por número
+    assert "<b>Hacker</b>" not in html and "&lt;b&gt;Hacker&lt;/b&gt;" in html   # el nombre no inyecta HTML
+
+
 def test_captcha_config_exposes_only_public_key(client):
     assert client.get("/api/auth/captcha-config").json() == {"site_key": None}   # desactivado en pruebas

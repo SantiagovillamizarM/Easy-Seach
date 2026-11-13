@@ -8,9 +8,9 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr
-from html import escape as html_escape
 
 from app.core.config import get_settings
+from app.services.email_templates import build_verification_email
 
 logger = logging.getLogger("easysearch.email")
 
@@ -55,16 +55,5 @@ def send_email(to: str, subject: str, text: str, html: str | None = None) -> Non
 
 
 def send_verification_code(to: str, name: str, code: str, minutes: int) -> None:
-    first = name.split()[0] if name else ""
-    first_html = html_escape(first)  # el nombre lo escribe el usuario: nunca se inserta HTML sin escapar
-    text = (f"Hola {first},\n\nTu código para confirmar tu cuenta de Easy Search es: {code}\n\n"
-            f"Vence en {minutes} minutos. Si no creaste una cuenta, ignora este correo.\n")
-    html = f"""<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#0b1224">
-  <h2 style="color:#4a3fe0;margin-bottom:4px">Easy Search</h2>
-  <p>Hola {first_html},</p>
-  <p>Tu código para confirmar tu cuenta es:</p>
-  <p style="font-size:32px;font-weight:bold;letter-spacing:8px;background:#eef0ff;padding:16px;text-align:center;
-            border-radius:12px">{code}</p>
-  <p style="color:#475069;font-size:13px">Vence en {minutes} minutos. Si no creaste una cuenta, ignora este correo.</p>
-</div>"""
-    send_email(to, f"Tu código de Easy Search: {code}", text, html)
+    subject, text, html = build_verification_email(name, code, minutes)
+    send_email(to, subject, text, html)
