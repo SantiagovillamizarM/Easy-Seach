@@ -5,10 +5,14 @@ Nunca se escriben credenciales en el código: todo valor sensible viene del arch
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Carpeta raíz del repositorio (donde está el archivo .env)
 ROOT_DIR = Path(__file__).resolve().parents[3]
+
+# Valores de ejemplo que nunca deben usarse en producción
+_PLACEHOLDER_SECRETS = {"cambia_esta_clave_secreta", "changeme", "secret", "secret_key"}
 
 
 class Settings(BaseSettings):
@@ -45,6 +49,28 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash-lite"
     gemini_fallback_model: str = "gemini-2.5-flash"
     llm_timeout_seconds: float = 12.0
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+    @model_validator(mode="after")
+    def safe_for_production(self):
+        """En producción la app se niega a arrancar con una configuración insegura."""
+        if not self.is_production:
+            return self
+        problems = []
+        if len(self.secret_key) < 32 or self.secret_key in _PLACEHOLDER_SECRETS:
+            problems.append("SECRET_KEY debe ser aleatoria y tener al menos 32 caracteres "
+                            "(genera una con: python -c \"import secrets; print(secrets.token_urlsafe(48))\")")
+        if "*" in self.cors_origins_list:
+            problems.append("CORS_ORIGINS no puede ser '*': indica el dominio real (https://...)")
+        if any(o.startswith("http://") and "127.0.0.1" not in o and "localhost" not in o
+               for o in self.cors_origins_list):
+            problems.append("CORS_ORIGINS debe usar https:// en producción")
+        if problems:
+            raise ValueError("Configuración insegura para producción:\n- " + "\n- ".join(problems))
+        return self
 
     @property
     def cors_origins_list(self) -> list[str]:

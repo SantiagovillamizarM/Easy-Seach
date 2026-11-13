@@ -86,9 +86,15 @@ export function AuthProvider({ children }) {
 
   const updateUser = useCallback((user) => setSession((s) => (s ? { ...s, user } : s)), []);
 
+  // Tras cambiar la contraseña el servidor invalida los tokens anteriores y entrega uno nuevo
+  const replaceSession = useCallback(
+    (res) => applySession({ token: res.access_token, user: res.user }),
+    [applySession],
+  );
+
   const value = useMemo(
-    () => ({ user: session?.user ?? null, checking, login, register, logout, updateUser }),
-    [session, checking, login, register, logout, updateUser],
+    () => ({ user: session?.user ?? null, checking, login, register, logout, updateUser, replaceSession }),
+    [session, checking, login, register, logout, updateUser, replaceSession],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

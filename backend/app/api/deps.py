@@ -24,10 +24,15 @@ def _user_from_token(token: str, db: Session) -> User:
     try:
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError):
+        issued_at = int(payload["iat"])
+    except (jwt.PyJWTError, KeyError, ValueError, TypeError):
         raise _credentials_error
     user = db.get(User, user_id)
     if user is None or not user.is_active:
+        raise _credentials_error
+    # Token anterior al último cambio de contraseña: esa sesión quedó cerrada.
+    # (iat viene en segundos enteros, por eso se compara contra el segundo truncado)
+    if user.password_changed_at and issued_at < int(user.password_changed_at.timestamp()):
         raise _credentials_error
     return user
 

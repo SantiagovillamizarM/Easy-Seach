@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_user
+from app.core.rate_limit import limit_by_ip
 from app.data.categories import CATEGORIES
 from app.db.session import get_db
 from app.models import Establishment, Review, SearchHistory, User
@@ -24,7 +25,7 @@ from app.services.search import SearchParams, search
 router = APIRouter(tags=["search"])
 
 
-@router.post("/search", response_model=SearchResponse)
+@router.post("/search", response_model=SearchResponse, dependencies=[Depends(limit_by_ip("search", 60, 60))])
 def smart_search(
     data: SearchRequest,
     db: Session = Depends(get_db),
@@ -72,7 +73,8 @@ def smart_search(
     }
 
 
-@router.post("/recommendations", response_model=RecommendationsResponse)
+@router.post("/recommendations", response_model=RecommendationsResponse,
+             dependencies=[Depends(limit_by_ip("recommendations", 30, 60))])
 def recommendations(
     data: RecommendationsRequest,
     db: Session = Depends(get_db),

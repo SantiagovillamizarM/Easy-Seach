@@ -18,7 +18,7 @@ function Success({ message }) {
 }
 
 export default function ProfilePage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser, logout, replaceSession } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState(user.full_name);
   const [nameState, setNameState] = useState({ loading: false, error: null, ok: null });
@@ -48,9 +48,10 @@ export default function ProfilePage() {
     }
     setPwState({ loading: true, error: null, ok: null });
     try {
-      await api.changePassword({ current_password: pw.current_password, new_password: pw.new_password });
+      const res = await api.changePassword({ current_password: pw.current_password, new_password: pw.new_password });
+      replaceSession(res); // este dispositivo sigue conectado con el token nuevo
       setPw({ current_password: "", new_password: "", confirm: "" });
-      setPwState({ loading: false, error: null, ok: "Contraseña actualizada." });
+      setPwState({ loading: false, error: null, ok: "Contraseña actualizada. Cerramos tu sesión en los demás dispositivos." });
     } catch (err) {
       setPwState({ loading: false, error: err.message, ok: null });
     }
