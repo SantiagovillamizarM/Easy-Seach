@@ -36,7 +36,8 @@ function MapFallback() {
 
 export default function ResultsPage() {
   const [params, setParams] = useSearchParams();
-  const { coords, request, status: locationStatus } = useUserLocation();
+  const { coords, request, status: locationStatus, showHint, dismissHint } = useUserLocation();
+  const locating = locationStatus === "auto"; // obteniendo la ubicación guardada al abrir la app
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +60,12 @@ export default function ResultsPage() {
       setLoading(false);
       return;
     }
+    // Si la app está obteniendo la ubicación, se espera (máx. ~8 s): buscar antes y otra vez al llegar
+    // la ubicación gastaría dos consultas a la IA
+    if (locating) {
+      setLoading(true);
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -75,7 +82,7 @@ export default function ResultsPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [paramsKey, q, coords, retry]);
+  }, [paramsKey, q, coords, retry, locating]);
 
   // Recomendaciones: se piden DESPUÉS de mostrar los resultados para no retrasarlos
   useEffect(() => {
@@ -125,11 +132,44 @@ export default function ResultsPage() {
           <div className="flex flex-col gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center">
             <LocateFixed className="h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
             <p className="flex-1 text-sm">
-              Para mostrarte lo más cercano necesitamos tu ubicación. Solo se usa para esta búsqueda y no se guarda.
+              Para mostrarte lo más cercano necesitamos tu ubicación. Solo se usa para ordenar los resultados: nunca se
+              guarda ni se comparte.
             </p>
             <button type="button" className="btn-primary" onClick={request} disabled={locationStatus === "requesting"}>
               {locationStatus === "requesting" ? "Obteniendo ubicación…" : "Usar mi ubicación"}
             </button>
+          </div>
+        )}
+
+        {/* Sugerencia de una sola vez, después de la primera búsqueda sin ubicación */}
+        {data && !data.needs_location && showHint && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50">
+              <LocateFixed className="h-5 w-5 text-brand-600" aria-hidden="true" />
+            </span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Obtén mejores resultados compartiendo tu ubicación</p>
+              <p className="text-xs text-ink-soft">
+                Verás primero lo más cercano y la distancia a cada lugar. Solo te lo preguntamos una vez; tu ubicación
+                nunca se guarda ni se comparte.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-primary px-3 py-2 text-sm"
+                disabled={locationStatus === "requesting"}
+                onClick={() => {
+                  dismissHint();
+                  request();
+                }}
+              >
+                {locationStatus === "requesting" ? "Obteniendo…" : "Usar mi ubicación"}
+              </button>
+              <button type="button" className="btn-ghost px-3 py-2 text-sm" onClick={dismissHint}>
+                Ahora no
+              </button>
+            </div>
           </div>
         )}
 
