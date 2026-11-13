@@ -66,7 +66,7 @@ def test_location_is_snapped_to_200m_grid():
 
 
 def test_provider_only_receives_the_rounded_location(searcher, place):
-    fake = FakeTraffic(Route(travel_seconds=1500, no_traffic_seconds=900))
+    fake = FakeTraffic(Route(travel_seconds=1500, typical_seconds=900))
     _use(fake)
     _post(searcher, place)
     assert fake.destinations == [snap_to_grid(*USER)]
@@ -75,15 +75,28 @@ def test_provider_only_receives_the_rounded_location(searcher, place):
 # ------------------------------- Aviso ---------------------------------------------------
 
 def test_jam_gives_range_and_streets(searcher, place):
-    _use(FakeTraffic(Route(travel_seconds=1500, no_traffic_seconds=900, jammed_streets=["Carrera 27"])))
+    _use(FakeTraffic(Route(travel_seconds=1500, typical_seconds=900, jammed_streets=["Carrera 27"])))
     body = _post(searcher, place).json()
     assert body["available"] is True
     assert body["report"] == {"delay_min": 10, "delay_max": 15, "streets": ["Carrera 27"]}
 
 
 def test_small_delay_gives_no_notice(searcher, place):
-    _use(FakeTraffic(Route(travel_seconds=780, no_traffic_seconds=600)))   # 3 minutos: no vale la pena
+    _use(FakeTraffic(Route(travel_seconds=780, typical_seconds=600)))   # 3 minutos: no vale la pena
     assert _post(searcher, place).json()["report"] is None
+
+
+def test_only_traffic_worse_than_usual_counts():
+    """Casos reales de TomTom (9 a. m.): la ruta iba igual o más rápida que lo normal → sin aviso."""
+    from app.services.traffic import extra_delay
+    # Cabecera → Cañaveral: 19 min ahora, 21 lo normal, sin trancones reportados
+    assert extra_delay(Route(travel_seconds=1154, typical_seconds=1259)) == 0
+    # Piedecuesta → Cabecera: 33 min ahora, 35 lo normal, un trancón de 2,6 min
+    assert extra_delay(Route(travel_seconds=1989, typical_seconds=2079, jam_delay_seconds=155)) == 155
+    # 8 minutos peor de lo normal: sí cuenta, aunque TomTom no marque tramos
+    assert extra_delay(Route(travel_seconds=1800, typical_seconds=1320)) == 480
+    # Un trancón grande reportado cuenta aunque no se sepa lo normal
+    assert extra_delay(Route(travel_seconds=1500, jam_delay_seconds=420)) == 420
 
 
 def test_without_key_or_on_failure_there_is_no_notice(searcher, place):
@@ -95,7 +108,7 @@ def test_without_key_or_on_failure_there_is_no_notice(searcher, place):
 
 
 def test_same_zone_reuses_cached_result(searcher, place):
-    fake = FakeTraffic(Route(travel_seconds=1500, no_traffic_seconds=900))
+    fake = FakeTraffic(Route(travel_seconds=1500, typical_seconds=900))
     _use(fake)
     _post(searcher, place)
     _post(searcher, place, (USER[0] + 0.0001, USER[1]))   # vecino a ~11 m
@@ -103,7 +116,7 @@ def test_same_zone_reuses_cached_result(searcher, place):
 
 
 def test_too_close_or_too_far_is_not_queried(searcher, place):
-    fake = FakeTraffic(Route(travel_seconds=1500, no_traffic_seconds=900))
+    fake = FakeTraffic(Route(travel_seconds=1500, typical_seconds=900))
     _use(fake)
     _post(searcher, place, LOCAL)                 # en el mismo local
     _post(searcher, place, (4.7110, -74.0721))    # Bogotá
@@ -112,7 +125,7 @@ def test_too_close_or_too_far_is_not_queried(searcher, place):
 
 def test_daily_budget_stops_queries(searcher, place, monkeypatch):
     monkeypatch.setattr(traffic.get_settings(), "tomtom_daily_limit", 1)
-    fake = FakeTraffic(Route(travel_seconds=1500, no_traffic_seconds=900))
+    fake = FakeTraffic(Route(travel_seconds=1500, typical_seconds=900))
     _use(fake)
     _post(searcher, place)
     _post(searcher, place, (7.0900, -73.1000))    # otra zona: necesitaría otra consulta
@@ -134,19 +147,23 @@ def test_unknown_establishment_is_404(searcher):
 
 def test_parse_tomtom_response():
     data = {"routes": [{
-        "summary": {"travelTimeInSeconds": 1500, "noTrafficTravelTimeInSeconds": 900, "trafficDelayInSeconds": 540},
+        # Fragmento real (Piedecuesta → Cabecera): TomTom llama "Floridablanca" a la autopista
+        "summary": {"travelTimeInSeconds": 1989, "noTrafficTravelTimeInSeconds": 1421,
+                    "historicTrafficTravelTimeInSeconds": 2079, "trafficDelayInSeconds": 155},
         "guidance": {"instructions": [
-            {"pointIndex": 0, "street": "Calle 45"},
-            {"pointIndex": 10, "street": "Carrera 27"},
-            {"pointIndex": 40, "street": "Autopista Floridablanca"},
+            {"pointIndex": 0, "street": "Calle 10"},
+            {"pointIndex": 62, "street": "Intercambiador Guatiguará"},
+            {"pointIndex": 301, "street": "Floridablanca"},
+            {"pointIndex": 399, "street": "Floridablanca"},
+            {"pointIndex": 411, "street": "Carrera 27"},
+            {"pointIndex": 447, "street": "Calle 42"},
         ]},
         "sections": [
             {"sectionType": "TRAVEL_MODE", "startPointIndex": 0},
-            {"sectionType": "TRAFFIC", "simpleCategory": "JAM", "startPointIndex": 15, "delayInSeconds": 400},
-            {"sectionType": "TRAFFIC", "simpleCategory": "JAM", "startPointIndex": 45, "delayInSeconds": 120},
-            {"sectionType": "TRAFFIC", "simpleCategory": "JAM", "startPointIndex": 20, "delayInSeconds": 60},
+            {"sectionType": "TRAFFIC", "simpleCategory": "JAM", "startPointIndex": 386, "endPointIndex": 423,
+             "delayInSeconds": 155},
         ],
     }]}
     route = parse_tomtom(data)
-    assert (route.travel_seconds, route.no_traffic_seconds) == (1500, 900)
-    assert route.jammed_streets == ["Carrera 27", "Autopista Floridablanca"]   # de mayor a menor demora, sin repetir
+    assert (route.travel_seconds, route.typical_seconds, route.jam_delay_seconds) == (1989, 2079, 155)
+    assert route.jammed_streets == ["la vía a Floridablanca", "Carrera 27"]   # donde empieza y por donde sigue

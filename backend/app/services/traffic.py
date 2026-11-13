@@ -1,7 +1,8 @@
 """Aviso de tráfico: "Hay trancón en la Carrera 27; si vas a pedir a domicilio, puede demorar X–Y minutos más".
 
 Se calcula la ruta del LOCAL hacia el USUARIO (el camino de un domicilio) con el tráfico en vivo de TomTom
-(capa gratuita: ~2.500 consultas al día) y se compara con el tiempo sin tráfico.
+(capa gratuita: ~2.500 consultas al día) y se compara con lo NORMAL para ese día y hora: solo se avisa
+cuando hoy está peor de lo habitual (un trancón), no por el tráfico de todos los días.
 
 Privacidad:
 - La ubicación se redondea a una cuadrícula de ~200 m ANTES de salir del servidor: TomTom conoce la zona,
@@ -36,8 +37,9 @@ CACHE_MAX_ENTRIES = 5000
 @dataclass
 class Route:
     """Lo que devuelve el proveedor: tiempos en segundos y las vías con trancón (de mayor a menor demora)."""
-    travel_seconds: int
-    no_traffic_seconds: int
+    travel_seconds: int                     # con el tráfico de este momento
+    typical_seconds: int | None = None      # lo normal para este día y hora
+    jam_delay_seconds: int = 0              # lo que suman los trancones reportados ahora mismo
     jammed_streets: list[str] = field(default_factory=list)
 
 
@@ -81,7 +83,7 @@ class TomTomTraffic:
         url = self.URL.format(o_lat=origin[0], o_lng=origin[1], d_lat=destination[0], d_lng=destination[1])
         params = {
             "key": self._key, "traffic": "true", "travelMode": "car", "routeType": "fastest",
-            "computeTravelTimeFor": "all",       # incluye el tiempo sin tráfico para comparar
+            "computeTravelTimeFor": "all",       # incluye el tiempo normal para esta hora, para comparar
             "sectionType": "traffic",            # tramos con trancón
             "instructionsType": "text", "language": "es-ES",   # nombres de las vías
         }
@@ -101,10 +103,9 @@ class TomTomTraffic:
 def parse_tomtom(data: dict) -> Route:
     route = data["routes"][0]
     summary = route["summary"]
-    travel = int(summary["travelTimeInSeconds"])
-    free = int(summary.get("noTrafficTravelTimeInSeconds") or travel - int(summary.get("trafficDelayInSeconds", 0)))
+    typical = summary.get("historicTrafficTravelTimeInSeconds")
 
-    # Nombre de la vía de cada tramo con trancón: la última instrucción que empieza antes del tramo
+    # Vías de cada tramo con trancón: la que se lleva al empezar el tramo y las que se toman dentro de él
     instructions = sorted((i for i in route.get("guidance", {}).get("instructions", []) if i.get("street")),
                           key=lambda i: i.get("pointIndex", 0))
     jams = sorted((s for s in route.get("sections", []) if s.get("sectionType") == "TRAFFIC"
@@ -112,11 +113,24 @@ def parse_tomtom(data: dict) -> Route:
                   key=lambda s: -int(s.get("delayInSeconds", 0)))
     streets: list[str] = []
     for jam in jams:
-        start = jam.get("startPointIndex", 0)
-        street = next((i["street"] for i in reversed(instructions) if i.get("pointIndex", 0) <= start), None)
-        if street and street not in streets:
-            streets.append(street)
-    return Route(travel_seconds=travel, no_traffic_seconds=free, jammed_streets=streets[:2])
+        start, end = jam.get("startPointIndex", 0), jam.get("endPointIndex", 0)
+        at_start = next((i["street"] for i in reversed(instructions) if i.get("pointIndex", 0) <= start), None)
+        inside = [i["street"] for i in instructions if start < i.get("pointIndex", 0) <= end]
+        for street in [at_start, *inside]:
+            name = street_label(street) if street else None
+            if name and name not in streets:
+                streets.append(name)
+    return Route(travel_seconds=int(summary["travelTimeInSeconds"]),
+                 typical_seconds=int(typical) if typical else None,
+                 jam_delay_seconds=int(summary.get("trafficDelayInSeconds") or 0), jammed_streets=streets[:2])
+
+
+_TOWNS = {"bucaramanga", "floridablanca", "giron", "girón", "piedecuesta"}
+
+
+def street_label(street: str) -> str:
+    """TomTom llama a las autopistas con el nombre del municipio ("Floridablanca"): se dice "la vía a …"."""
+    return f"la vía a {street}" if street.strip().lower() in _TOWNS else street
 
 
 @lru_cache
@@ -183,6 +197,14 @@ def delay_range(delay_seconds: int) -> tuple[int, int]:
     return low, max(low + 2, math.ceil(minutes * 1.5))
 
 
+def extra_delay(route: Route) -> int:
+    """Segundos de MÁS respecto a lo normal para esta hora: lo que suman los trancones reportados, o cuánto
+    más lenta va la ruta que de costumbre (lo mayor). El tráfico de todos los días no cuenta: un domicilio ya
+    lo tiene en cuenta en su tiempo habitual."""
+    worse_than_usual = route.travel_seconds - route.typical_seconds if route.typical_seconds else 0
+    return max(route.jam_delay_seconds, worse_than_usual, 0)
+
+
 def traffic_report(establishment_id: int, origin: tuple[float, float], user: tuple[float, float],
                    provider: TrafficProvider | None) -> TrafficReport | None:
     """Aviso de trancón entre el local y el usuario, o None si no hay trancón (o no se puede saber)."""
@@ -205,8 +227,8 @@ def traffic_report(establishment_id: int, origin: tuple[float, float], user: tup
         logger.warning("No se pudo consultar el tráfico: %s", exc)
         return None   # no se guarda en caché: el próximo intento puede funcionar
 
-    delay = route.travel_seconds - route.no_traffic_seconds
     report = None
+    delay = extra_delay(route)
     if delay >= MIN_DELAY_MINUTES * 60:
         low, high = delay_range(delay)
         report = TrafficReport(delay_min=low, delay_max=high, streets=route.jammed_streets)
