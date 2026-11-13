@@ -138,4 +138,29 @@ export const api = {
     return request(`/establishments/${id}/photos`, { method: "POST", multipart: data });
   },
   deletePhoto: (id, photoId) => request(`/establishments/${id}/photos/${photoId}`, { method: "DELETE" }),
+  // Panel administrativo (solo admin)
+  admin: {
+    overview: (opts) => request("/admin/overview", opts),
+    reviews: (params, opts) => request(`/admin/reviews?${qs(params)}`, opts),
+    approveReview: (id) => request(`/admin/reviews/${id}/approve`, { method: "POST" }),
+    rejectReview: (id, reason) => request(`/admin/reviews/${id}/reject`, { method: "POST", body: { reason } }),
+    claims: (status, opts) => request(`/admin/claims?${qs({ status })}`, opts),
+    approveClaim: (id, note) => request(`/admin/claims/${id}/approve`, { method: "POST", body: { note } }),
+    rejectClaim: (id, note) => request(`/admin/claims/${id}/reject`, { method: "POST", body: { note } }),
+    establishments: (params, opts) => request(`/admin/establishments?${qs(params)}`, opts),
+    updateEstablishment: (id, data) => request(`/admin/establishments/${id}`, { method: "PATCH", body: data }),
+    removeOwner: (id) => request(`/admin/establishments/${id}/owner`, { method: "DELETE" }),
+    duplicates: (opts) => request("/admin/duplicates", opts),
+    dismissDuplicate: (aId, bId) => request("/admin/duplicates/dismiss", { method: "POST", body: { a_id: aId, b_id: bId } }),
+    users: (params, opts) => request(`/admin/users?${qs(params)}`, opts),
+    updateUser: (id, data) => request(`/admin/users/${id}`, { method: "PATCH", body: data }),
+    categories: (opts) => request("/admin/categories", opts),
+    searchStats: (days, opts) => request(`/admin/search-stats?${qs({ days })}`, opts),
+  },
 };
+
+// Parámetros de consulta sin valores vacíos: { q: "", page: 2 } -> "page=2"
+function qs(params = {}) {
+  const clean = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  return new URLSearchParams(clean).toString();
+}

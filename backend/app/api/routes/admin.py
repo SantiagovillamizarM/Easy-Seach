@@ -283,6 +283,8 @@ def _admin_items(db: Session, ests: list[Establishment]) -> list[dict]:
         owner = owners.get(est.owner_id)
         items.append({
             **to_summary(est),
+            # Los objetos Category se convierten a dict (estos endpoints no usan response_model)
+            "categories": [{"id": c.id, "name": c.name, "slug": c.slug} for c in est.categories],
             "status": est.status, "source": est.source, "duplicate_of_id": est.duplicate_of_id,
             "phone": est.phone, "updated_at": est.updated_at,
             "owner": {"id": owner.id, "name": owner.full_name, "email": owner.email} if owner else None,

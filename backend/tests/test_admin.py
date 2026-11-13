@@ -118,6 +118,10 @@ def test_remove_owner(client, db, muni, admin_headers):
 
 def test_duplicates_detection_and_dismiss(client, db, muni, admin_headers):
     a = _est(db, muni, "Tienda Don Pepe", "don-pepe", lat=7.1190, lng=-73.1220)
+    cat = Category(name="Supermercados y tiendas", slug="mercados-tiendas")
+    db.add(cat)
+    a.categories = [cat]  # con categoría: la respuesta debe poder convertirse a JSON
+    db.flush()
     b = _est(db, muni, "Tienda Don Pepe", "don-pepe-osm", lat=7.1192, lng=-73.1221)   # ~25 m
     _est(db, muni, "Tienda Don Pepe", "don-pepe-lejos", lat=7.1400, lng=-73.1220)     # ~2 km: no
     _est(db, muni, "Barbería Estilo", "estilo", lat=7.1190, lng=-73.1221)             # cerca, otro nombre: no
@@ -128,6 +132,9 @@ def test_duplicates_detection_and_dismiss(client, db, muni, admin_headers):
     assert len(pairs) == 1
     assert {pairs[0]["a"]["id"], pairs[0]["b"]["id"]} == {a.id, b.id}
     assert pairs[0]["similarity"] == 1.0 and pairs[0]["distance_m"] < 50
+    assert pairs[0]["a"]["categories"][0]["slug"] == "mercados-tiendas"
+    listed = client.get("/api/admin/establishments?q=don pepe", headers=admin_headers)
+    assert listed.status_code == 200 and listed.json()["total"] == 3
     assert client.get("/api/admin/overview", headers=admin_headers).json()["pending"]["duplicates"] == 1
 
     # Se envía en desorden: el servidor ordena el par. Repetirlo no es un error.
