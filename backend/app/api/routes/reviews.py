@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_verified_user
 from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
 from app.models import Establishment, Report, Review, User
@@ -83,7 +83,7 @@ def my_review(establishment_id: int, user: User = Depends(get_current_user), db:
 def create_review(
     establishment_id: int,
     data: ReviewIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
 ):
@@ -118,7 +118,7 @@ def _own_review(db: Session, review_id: int, user: User, allow_admin: bool = Fal
 def update_review(
     review_id: int,
     data: ReviewIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
 ):
@@ -149,7 +149,7 @@ def delete_review(review_id: int, user: User = Depends(get_current_user), db: Se
 
 @router.post("/reviews/{review_id}/report", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(limit_by_user("reports", 20, 3600))])
-def report_review(review_id: int, data: ReportIn, user: User = Depends(get_current_user),
+def report_review(review_id: int, data: ReportIn, user: User = Depends(get_verified_user),
                   db: Session = Depends(get_db)) -> dict:
     """Cualquier usuario puede reportar una reseña inapropiada. Un reporte por usuario y reseña."""
     review = db.get(Review, review_id)

@@ -21,6 +21,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=2, max_length=120)
+    captcha_token: str | None = Field(None, max_length=2048, description="Token de Cloudflare Turnstile")
 
     @field_validator("email")
     @classmethod
@@ -38,6 +39,10 @@ class UserCreate(BaseModel):
         return check_password(v)
 
 
+class VerifyEmailIn(BaseModel):
+    code: str = Field(pattern=r"^\s*\d{6}\s*$", description="Código de 6 dígitos enviado al correo")
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,6 +51,7 @@ class UserOut(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    email_verified: bool = False
     created_at: datetime
 
 

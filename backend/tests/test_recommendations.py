@@ -9,6 +9,13 @@ from app.services.recommendations import data_gaps, facts_for, recommend, valida
 INTENT = QueryIntent(need="hamburguesas", budget_max=25000)
 
 
+@pytest.fixture(autouse=True)
+def _logged_in(request):
+    """Las recomendaciones exigen sesión con correo confirmado."""
+    if "client" in request.fixturenames:
+        request.getfixturevalue("searcher")
+
+
 @pytest.fixture()
 def burger(db):
     place = Place(name="Piedecuesta", normalized_name="piedecuesta", kind="municipio", latitude=6.98, longitude=-73.05)

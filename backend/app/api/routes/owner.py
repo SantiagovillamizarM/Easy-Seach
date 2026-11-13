@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import get_current_user, get_verified_user, require_roles
 from app.api.routes.catalog import get_editable_establishment, to_detail
 from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
@@ -31,7 +31,7 @@ def claim_out(claim: OwnershipClaim, est: Establishment) -> dict:
 
 @router.post("/establishments/{establishment_id}/claims", response_model=ClaimOut,
              status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_by_user("claims", 5, 24 * 3600))])
-def create_claim(establishment_id: int, data: ClaimIn, user: User = Depends(get_current_user),
+def create_claim(establishment_id: int, data: ClaimIn, user: User = Depends(get_verified_user),
                  db: Session = Depends(get_db)):
     """Un usuario solicita administrar un establecimiento. Un administrador la aprueba o rechaza."""
     est = db.get(Establishment, establishment_id)

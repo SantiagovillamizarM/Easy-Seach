@@ -143,7 +143,21 @@ def test_production_rejects_weak_config():
         Settings(**BASE, app_env="production", secret_key="x" * 48, cors_origins="*")
 
 
+PROD_OK = {"smtp_host": "smtp.gmail.com", "smtp_user": "app@gmail.com", "smtp_password": "x" * 16,
+           "turnstile_site_key": "0x4AAAAreal", "turnstile_secret_key": "0x4AAAAsecretareal"}
+
+
+def test_production_requires_email_and_real_captcha():
+    with pytest.raises(ValidationError, match="SMTP_HOST"):
+        Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co",
+                 **{**PROD_OK, "smtp_password": None})
+    with pytest.raises(ValidationError, match="PRUEBA"):
+        Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co",
+                 **{**PROD_OK, "turnstile_secret_key": "1x0000000000000000000000000000000AA"})
+
+
 def test_production_accepts_good_config_and_dev_is_relaxed():
-    ok = Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co")
+    ok = Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co",
+                  **PROD_OK)
     assert ok.is_production
     assert Settings(**BASE, app_env="development", secret_key="corta").app_env == "development"

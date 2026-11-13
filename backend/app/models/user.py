@@ -1,7 +1,7 @@
 """Usuarios y roles."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -27,3 +27,13 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Los tokens emitidos antes de esta fecha dejan de ser válidos (cierra las demás sesiones al cambiar la clave)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Confirmación del correo con un código de 6 dígitos. Se guarda solo el hash del código (nunca el código).
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_code_hash: Mapped[str | None] = mapped_column(String(64))
+    verification_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None

@@ -9,6 +9,14 @@ from app.services.llm import LLMError
 from app.services.query_parser import extract_budget, parse_query, parse_with_rules
 from tests.conftest import _make_user, _token
 
+
+@pytest.fixture(autouse=True)
+def _logged_in(request):
+    """La búsqueda exige sesión con correo confirmado: toda prueba que use el cliente inicia sesión."""
+    if "client" in request.fixturenames:
+        request.getfixturevalue("searcher")
+
+
 # ------------------------------- Intérprete por reglas -----------------------------------
 
 
@@ -201,5 +209,6 @@ def test_search_validation(client):
 
 
 def test_semantic_preview_is_admin_only(client, admin_headers):
-    assert client.get("/api/semantic-preview", params={"q": "pizza"}).status_code == 401
+    # El cliente tiene la sesión de un usuario normal (fixture automática): no es admin → 403
+    assert client.get("/api/semantic-preview", params={"q": "pizza"}).status_code == 403
     assert client.get("/api/semantic-preview", params={"q": "pizza"}, headers=admin_headers).status_code == 200

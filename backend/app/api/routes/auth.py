@@ -1,38 +1,103 @@
-"""Registro, inicio de sesión y datos del usuario actual."""
-from datetime import datetime, timezone
+"""Registro, inicio de sesión, confirmación de correo y datos del usuario actual."""
+import logging
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.rate_limit import limit_by_ip, limit_by_user, limiter, too_many
+from app.core.config import get_settings
+from app.core.rate_limit import client_ip, limit_by_ip, limit_by_user, limiter, too_many
 from app.core.security import DUMMY_HASH, create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import User
-from app.schemas.user import PasswordChange, Token, UserCreate, UserOut, UserUpdate
+from app.schemas.user import PasswordChange, Token, UserCreate, UserOut, UserUpdate, VerifyEmailIn
+from app.services import email as email_service
+from app.services.captcha import verify_captcha
+from app.services.verification import CODE_TTL_MINUTES, check_code, issue_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger("easysearch.auth")
+UNVERIFIED_TTL = timedelta(hours=1)
+
+
+def _require_captcha(token: str | None, request: Request) -> None:
+    if not verify_captcha(token, client_ip(request)):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            detail="No pudimos comprobar que no eres un robot. Intenta de nuevo.",
+                            headers={"X-Error-Code": "captcha_failed"})
+
+
+def _send_code_safely(email: str, name: str, code: str) -> None:
+    """Se ejecuta en segundo plano (no hace esperar al usuario). Si falla, puede pedir otro código."""
+    try:
+        email_service.send_verification_code(email, name, code, CODE_TTL_MINUTES)
+    except email_service.EmailError:
+        logger.error("Falló el envío del código de confirmación")
+
+
+@router.get("/captcha-config")
+def captcha_config() -> dict:
+    """Clave PÚBLICA del widget anti-robots (la secreta nunca sale del servidor). null = desactivado."""
+    s = get_settings()
+    return {"site_key": s.turnstile_site_key if s.turnstile_secret_key else None}
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(limit_by_ip("register", 5, 60 * 60))])
-def register(data: UserCreate, db: Session = Depends(get_db)) -> Token:
-    """Crea una cuenta con rol "user". Nadie puede registrarse como admin u owner."""
-    if db.scalar(select(User.id).where(User.email == data.email)):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail="Ya existe una cuenta con ese correo")
+def register(data: UserCreate, request: Request, background: BackgroundTasks,
+             db: Session = Depends(get_db)) -> Token:
+    """Crea una cuenta con rol "user" y envía un código de 6 dígitos para confirmar el correo.
 
-    user = User(
-        email=data.email,
-        password_hash=hash_password(data.password),
-        full_name=data.full_name,
-        role="user",
-    )
+    La sesión queda iniciada, pero buscar, usar la IA o publicar exige confirmar el correo primero.
+    """
+    _require_captcha(data.captcha_token, request)
+    existing = db.scalar(select(User).where(User.email == data.email))
+    if existing:
+        # Una cuenta que nunca se confirmó (p. ej. alguien escribió mal SU correo y quedó el de otra persona)
+        # no puede bloquear ese correo para siempre: pasada 1 hora se reemplaza.
+        stale = (not existing.email_verified and existing.role == "user"
+                 and existing.created_at < datetime.now(timezone.utc) - UNVERIFIED_TTL)
+        if not stale:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="Ya existe una cuenta con ese correo")
+        db.delete(existing)
+        db.flush()
+
+    user = User(email=data.email, password_hash=hash_password(data.password), full_name=data.full_name, role="user")
     db.add(user)
+    db.flush()
+    code = issue_code(user)
     db.commit()
     db.refresh(user)
+    background.add_task(_send_code_safely, user.email, user.full_name, code)
     return Token(access_token=create_access_token(user.id, user.role), user=UserOut.model_validate(user))
+
+
+@router.post("/verify-email", response_model=UserOut,
+             dependencies=[Depends(limit_by_user("verify-email", 10, 15 * 60))])
+def verify_email(data: VerifyEmailIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    error = check_code(user, data.code)
+    db.commit()  # guarda también los intentos fallidos
+    if error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=error)
+    db.refresh(user)
+    return user
+
+
+@router.post("/resend-code", status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(limit_by_user("resend-code-min", 1, 60)),
+                           Depends(limit_by_user("resend-code", 5, 60 * 60))])
+def resend_code(background: BackgroundTasks, user: User = Depends(get_current_user),
+                db: Session = Depends(get_db)) -> dict:
+    """Envía un código nuevo (máximo 1 por minuto y 5 por hora)."""
+    if user.email_verified:
+        return {"detail": "Tu correo ya está confirmado."}
+    code = issue_code(user)
+    db.commit()
+    background.add_task(_send_code_safely, user.email, user.full_name, code)
+    return {"detail": f"Te enviamos un código nuevo a {user.email}."}
 
 
 LOGIN_FAILS_PER_EMAIL = 5      # fallos permitidos por correo…
@@ -40,12 +105,15 @@ LOGIN_FAILS_WINDOW = 15 * 60   # …cada 15 minutos
 
 
 @router.post("/login", response_model=Token, dependencies=[Depends(limit_by_ip("login", 20, 5 * 60))])
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> Token:
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(),
+          captcha_token: str | None = Form(None, max_length=2048), db: Session = Depends(get_db)) -> Token:
     """Inicia sesión. El campo "username" es el correo electrónico.
 
-    Usa el formato estándar OAuth2 (form-data) para que funcione el botón "Authorize" de /docs.
+    Usa el formato estándar OAuth2 (form-data). Si el anti-robots está activo, exige `captcha_token`
+    (por eso el botón "Authorize" de /docs solo funciona cuando Turnstile está desactivado).
     Protección contra fuerza bruta: 20 intentos por IP cada 5 min y 5 fallos por correo cada 15 min.
     """
+    _require_captcha(captcha_token, request)
     email = form.username.strip().lower()
     fails_key = f"login-fails:{email}"
     retry = limiter.retry_after(fails_key, LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_WINDOW)

@@ -50,6 +50,23 @@ class Settings(BaseSettings):
     gemini_fallback_model: str = "gemini-2.5-flash"
     llm_timeout_seconds: float = 12.0
 
+    # --- Correo (códigos de confirmación). Gmail gratis con "contraseña de aplicación" ---
+    # Sin SMTP en desarrollo, el código se muestra en la terminal del backend en lugar de enviarse.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_name: str = "Easy Search"
+    smtp_timeout_seconds: float = 15.0
+
+    # --- Anti-robots: Cloudflare Turnstile (gratis). Sin clave secreta en desarrollo, no se exige ---
+    turnstile_site_key: str | None = None      # pública: la usa el navegador para mostrar el widget
+    turnstile_secret_key: str | None = None    # privada: solo el servidor la usa para verificar
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_user and self.smtp_password)
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -68,6 +85,12 @@ class Settings(BaseSettings):
         if any(o.startswith("http://") and "127.0.0.1" not in o and "localhost" not in o
                for o in self.cors_origins_list):
             problems.append("CORS_ORIGINS debe usar https:// en producción")
+        if not self.smtp_configured:
+            problems.append("Configura SMTP_HOST, SMTP_USER y SMTP_PASSWORD: sin correo nadie puede confirmar su cuenta")
+        if not (self.turnstile_site_key and self.turnstile_secret_key):
+            problems.append("Configura TURNSTILE_SITE_KEY y TURNSTILE_SECRET_KEY (protección contra robots)")
+        elif self.turnstile_secret_key.startswith(("1x000", "2x000", "3x000")):
+            problems.append("TURNSTILE_SECRET_KEY es una clave de PRUEBA de Cloudflare: usa la clave real")
         if problems:
             raise ValueError("Configuración insegura para producción:\n- " + "\n- ".join(problems))
         return self

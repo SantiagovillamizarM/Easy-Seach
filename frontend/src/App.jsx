@@ -12,6 +12,7 @@ import OwnerEditorPage from "./pages/OwnerEditorPage.jsx";
 import OwnerPanelPage from "./pages/OwnerPanelPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ResultsPage from "./pages/ResultsPage.jsx";
+import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 
 // Panel administrativo: se descarga solo cuando un administrador entra (no pesa para los demás usuarios)
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
@@ -35,7 +36,9 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="buscar" element={<ResultsPage />} />
+        {/* Buscar exige cuenta con correo confirmado: protege la cuota de la IA frente a robots */}
+        <Route path="buscar" element={<RequireAuth verified><ResultsPage /></RequireAuth>} />
+        <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
         <Route path="lugar/:slug" element={<EstablishmentPage />} />
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />

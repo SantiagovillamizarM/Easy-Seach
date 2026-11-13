@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_optional_user
-from app.core.rate_limit import limit_by_ip
+from app.api.deps import get_verified_user
+from app.core.rate_limit import limit_by_ip, limit_by_user
 from app.data.categories import CATEGORIES
 from app.db.session import get_db
 from app.models import Establishment, Review, SearchHistory, User
@@ -25,20 +25,22 @@ from app.services.search import SearchParams, search
 router = APIRouter(tags=["search"])
 
 
-@router.post("/search", response_model=SearchResponse, dependencies=[Depends(limit_by_ip("search", 60, 60))])
+@router.post("/search", response_model=SearchResponse,
+             dependencies=[Depends(limit_by_ip("search", 120, 60)), Depends(limit_by_user("search", 30, 60))])
 def smart_search(
     data: SearchRequest,
     db: Session = Depends(get_db),
     embedder: Embedder = Depends(get_embedder),
     llm: LLMProvider | None = Depends(get_llm),
-    user: User | None = Depends(get_optional_user),
+    user: User = Depends(get_verified_user),
 ):
+    """Exige cuenta con correo confirmado: protege la cuota de la IA frente a robots y abusos."""
     result = search(db, SearchParams(**data.model_dump()), embedder, llm)
     intent = result.intent
 
     # Historial: se guarda el texto y la interpretación, NUNCA las coordenadas del usuario.
     db.add(SearchHistory(
-        user_id=user.id if user else None,
+        user_id=user.id,
         query_text=data.q,
         parsed_query=intent.model_dump(),
         location_label=result.location.label if result.location else None,
@@ -74,11 +76,13 @@ def smart_search(
 
 
 @router.post("/recommendations", response_model=RecommendationsResponse,
-             dependencies=[Depends(limit_by_ip("recommendations", 30, 60))])
+             dependencies=[Depends(limit_by_ip("recommendations", 120, 60)),
+                           Depends(limit_by_user("recommendations", 20, 60))])
 def recommendations(
     data: RecommendationsRequest,
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
+    _user: User = Depends(get_verified_user),
 ):
     """Explica por qué cada resultado encaja con la búsqueda, usando solo datos de la base de datos.
 

@@ -8,6 +8,7 @@ La contraseña se pide por teclado (no se escribe en el comando ni queda en el h
 import argparse
 import getpass
 import sys
+from datetime import datetime, timezone
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -30,6 +31,7 @@ def main() -> None:
         user = db.scalar(select(User).where(User.email == email))
         if user:
             user.role = "admin"
+            user.email_verified_at = user.email_verified_at or datetime.now(timezone.utc)
             db.commit()
             print(f"El usuario {email} ya existía: ahora es administrador.")
             return
@@ -42,8 +44,9 @@ def main() -> None:
         except ValidationError as exc:
             sys.exit("Datos inválidos:\n" + "\n".join(f"- {e['loc'][0]}: {e['msg']}" for e in exc.errors()))
 
+        # Lo crea quien administra el servidor: el correo se da por confirmado
         db.add(User(email=data.email, password_hash=hash_password(data.password),
-                    full_name=data.full_name, role="admin"))
+                    full_name=data.full_name, role="admin", email_verified_at=datetime.now(timezone.utc)))
         db.commit()
         print(f"Administrador {data.email} creado.")
     finally:

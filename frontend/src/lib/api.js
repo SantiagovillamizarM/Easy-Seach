@@ -36,6 +36,7 @@ const FIELD_NAMES = {
   price_max: "Precio máximo",
   description: "Descripción",
   date: "Fecha",
+  code: "Código",
 };
 
 function errorMessage(status, body) {
@@ -94,8 +95,15 @@ export const api = {
   categories: (opts) => request("/categories", opts),
   places: (params = {}, opts) => request(`/places?${new URLSearchParams(params)}`, opts),
   // Cuenta
-  login: (email, password) => request("/auth/login", { method: "POST", form: { username: email, password } }),
+  login: (email, password, captchaToken) =>
+    request("/auth/login", {
+      method: "POST",
+      form: { username: email, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) },
+    }),
   register: (data) => request("/auth/register", { method: "POST", body: data }),
+  captchaConfig: (opts) => request("/auth/captcha-config", opts),
+  verifyEmail: (code) => request("/auth/verify-email", { method: "POST", body: { code } }),
+  resendCode: () => request("/auth/resend-code", { method: "POST" }),
   me: (opts) => request("/auth/me", opts),
   updateMe: (data) => request("/auth/me", { method: "PATCH", body: data }),
   changePassword: (data) => request("/auth/change-password", { method: "POST", body: data }),
