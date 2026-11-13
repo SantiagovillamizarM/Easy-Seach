@@ -70,10 +70,12 @@ CATEGORIES: dict[str, tuple[str, str, dict[str, set[str]]]] = {
     "bancos": ("Bancos y cajeros", "Bancos, cajeros automáticos, casas de cambio y giros",
                {"amenity": {"bank", "atm", "bureau_de_change", "money_transfer", "payment_centre"},
                 "shop": {"money_lender", "pawnbroker"}}),
-    "educacion": ("Educación y cursos", "Colegios, universidades, institutos, academias de idiomas, música y "
-                  "escuelas de conducción",
-                  {"amenity": {"school", "college", "university", "language_school", "music_school",
-                               "driving_school", "kindergarten", "training", "prep_school"}}),
+    # Sin colegios ni jardines infantiles (amenity=school/kindergarten): eran cientos y tapaban los cursos y
+    # academias, que es lo que la gente busca aquí.
+    "educacion": ("Educación y cursos", "Universidades, institutos, preuniversitarios, academias de idiomas, "
+                  "música y escuelas de conducción",
+                  {"amenity": {"college", "university", "language_school", "music_school",
+                               "driving_school", "training", "prep_school"}}),
     "entretenimiento": ("Entretenimiento", "Cines, teatros, salas de eventos, bolos, juegos y parques recreativos",
                         {"amenity": {"cinema", "theatre", "arts_centre", "events_venue", "casino", "community_centre"},
                          "leisure": {"amusement_arcade", "bowling_alley", "escape_game", "water_park",
@@ -143,12 +145,14 @@ def categories_for_tags(tags: dict[str, str]) -> list[str]:
 
 
 def ensure_categories(db: Session) -> dict[str, Category]:
-    """Crea las categorías que falten y devuelve un diccionario slug -> Category."""
+    """Crea las categorías que falten (y actualiza su descripción) y devuelve un diccionario slug -> Category."""
     existing = {c.slug: c for c in db.scalars(select(Category))}
     for slug, (name, description, _mapping) in CATEGORIES.items():
         if slug not in existing:
             category = Category(slug=slug, name=name, description=description)
             db.add(category)
             existing[slug] = category
+        elif existing[slug].description != description:
+            existing[slug].description = description   # el panel admin no las edita: manda este archivo
     db.flush()
     return existing

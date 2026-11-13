@@ -192,7 +192,7 @@ def import_municipality(db: Session, name: str, relation_id: int, refresh: bool,
         tags = el.get("tags", {})
         position = coords(el)
         slugs = categories_for_tags(tags)
-        if position is None or not slugs:
+        if position is None or not slugs or not useful_name(tags.get("name", "")):
             skipped += 1
             continue
 
@@ -228,9 +228,29 @@ def import_municipality(db: Session, name: str, relation_id: int, refresh: bool,
             est.opening_hours = []
         db.flush()
 
+    hidden = hide_unmatched(db, municipality.id)
     print(f"  Barrios: {barrios} | Establecimientos nuevos: {created}, actualizados: {updated}, "
-          f"omitidos: {skipped}")
-    return {"created": created, "updated": updated, "skipped": skipped, "barrios": barrios}
+          f"omitidos: {skipped}, ocultados: {hidden}")
+    return {"created": created, "updated": updated, "skipped": skipped, "barrios": barrios, "hidden": hidden}
+
+
+def useful_name(name: str) -> bool:
+    """Una sola letra ("G", "K") es un bloque de un campus, no un negocio. "D1" sí es válido."""
+    return len(name.strip()) >= 2
+
+
+def hide_unmatched(db: Session, municipality_id: int) -> int:
+    """Oculta los locales de OSM que ya no se importarían: sin categoría (ej. colegios, que se dejaron de
+    importar) o con nombre inútil. Los editados por un propietario o admin no se tocan, y nada se borra."""
+    hidden = 0
+    for est in db.scalars(select(Establishment).where(Establishment.municipality_id == municipality_id,
+                                                      Establishment.source == "osm",
+                                                      Establishment.status == "active")):
+        if not categories_for_tags(est.osm_tags or {}) or not useful_name(est.name):
+            est.status = "hidden"
+            hidden += 1
+    db.flush()
+    return hidden
 
 
 def main() -> None:
@@ -243,14 +263,14 @@ def main() -> None:
     db = SessionLocal()
     try:
         categories = ensure_categories(db)
-        totals = {"created": 0, "updated": 0, "skipped": 0, "barrios": 0}
+        totals = {"created": 0, "updated": 0, "skipped": 0, "barrios": 0, "hidden": 0}
         for name, relation_id in targets.items():
             result = import_municipality(db, name, relation_id, args.refresh, categories)
             db.commit()  # se guarda municipio por municipio
             for k in totals:
                 totals[k] += result[k]
         print(f"\nTOTAL → nuevos: {totals['created']}, actualizados: {totals['updated']}, "
-              f"omitidos: {totals['skipped']}, barrios: {totals['barrios']}")
+              f"omitidos: {totals['skipped']}, barrios: {totals['barrios']}, ocultados: {totals['hidden']}")
         print("Siguiente paso: generar los embeddings con  python -m scripts.reindex_embeddings")
     except Exception as exc:
         db.rollback()

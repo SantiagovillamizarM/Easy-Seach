@@ -29,3 +29,6 @@ Thumbs.db
 
 # Copia local de las descargas de OpenStreetMap (se regenera con el script de importación)
 backend/data/osm_cache/
+
+# Menús y documentos de referencia de los locales (los datos ya están en backend/data)
+/Menu_*.pdf

@@ -92,8 +92,9 @@ _CATEGORY_WORDS = {
     "clases de baile": "gimnasios",
     # Hospedaje, dinero, estudio, diversión, profesionales y oficios
     "hotel": "hoteles", "hostal": "hoteles", "hospedaje": "hoteles", "motel": "hoteles", "dormir": "hoteles",
-    "banco": "bancos", "cajero": "bancos", "casa de cambio": "bancos", "giro ": "bancos", "giros ": "bancos",  # con espacio: "giro" ≠ "Girón" "cambiar dolares": "bancos",
-    "colegio": "educacion", "universidad": "educacion", "academia": "educacion", "curso": "educacion",
+    "banco": "bancos", "cajero": "bancos", "casa de cambio": "bancos", "giro ": "bancos", "giros ": "bancos",  # con espacio: "giro" ≠ "Girón"
+    "cambiar dolares": "bancos",
+    "universidad": "educacion", "preicfes": "educacion", "instituto": "educacion", "academia": "educacion", "curso": "educacion",
     "clases de ingles": "educacion", "escuela de conduccion": "educacion", "pase de conduccion": "educacion",
     "cine": "entretenimiento", "teatro": "entretenimiento", "bolos": "entretenimiento", "museo": "entretenimiento",
     "evento": "entretenimiento", "parque de diversion": "entretenimiento",
