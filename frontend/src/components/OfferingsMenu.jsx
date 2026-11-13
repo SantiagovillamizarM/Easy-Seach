@@ -22,16 +22,46 @@ export function groupOfferings(offerings) {
   return [...groups.entries()].map(([title, items]) => ({ title, items }));
 }
 
+const LONG_DESCRIPTION = 80; // caracteres: a partir de aquí la descripción se recorta y se puede desplegar
+
 function Item({ o }) {
-  return (
-    <li className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-slate-50">
+  const [open, setOpen] = useState(false);
+  const long = (o.description?.length ?? 0) > LONG_DESCRIPTION;
+
+  const content = (
+    <>
       <div className="min-w-0">
         <p className="text-sm font-semibold leading-snug">{o.name}</p>
-        {o.description && <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-ink-soft">{o.description}</p>}
+        {o.description && (
+          <p className={`mt-0.5 text-xs leading-relaxed text-ink-soft ${long && !open ? "line-clamp-2" : ""}`}>
+            {o.description}
+          </p>
+        )}
+        {long && (
+          <span className="mt-0.5 inline-block text-xs font-semibold text-brand-700">{open ? "Ver menos" : "Ver más"}</span>
+        )}
       </div>
       <span className="shrink-0 text-sm font-bold tabular-nums">
         {formatPrice(o.price) ?? <span className="font-normal italic text-ink-soft">—</span>}
       </span>
+    </>
+  );
+
+  return (
+    <li>
+      {long ? (
+        // Toda la fila es un botón: tocar en cualquier parte despliega la descripción completa
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50"
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-slate-50">{content}</div>
+      )}
     </li>
   );
 }
