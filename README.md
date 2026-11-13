@@ -93,6 +93,8 @@ cd backend
 .\.venv\Scripts\python -m scripts.import_osm
 # Genera los embeddings (vectores semánticos). La primera vez descarga el modelo (~470 MB)
 .\.venv\Scripts\python -m scripts.reindex_embeddings
+# Carga los locales que el equipo completó a mano (descripciones, productos, precios, horarios…)
+.\.venv\Scripts\python -m scripts.import_csv
 # Crea tu usuario administrador (te pedirá la contraseña)
 .\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
 cd ..

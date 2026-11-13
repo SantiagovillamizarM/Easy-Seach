@@ -6,38 +6,52 @@ cómo completar esa información **con datos reales** usando un archivo CSV que 
 > Regla del proyecto: solo se cargan datos verificados (visitaste el lugar, viste su menú, su página oficial
 > o su Instagram). Easy Search nunca debe mostrar información inventada.
 
-## Pasos
+## Locales del proyecto (compartidos en el repositorio)
 
-1. Copia la plantilla `backend/data/plantilla_establecimientos.csv` con otro nombre, por ejemplo
-   `backend/data/mis_negocios.csv`.
-2. Ábrela en Excel y llena una fila por establecimiento.
+`backend/data/locales_easysearch.csv` contiene los locales que el equipo completó a mano. Está en Git: quien
+clone el proyecto obtiene los mismos datos ejecutando (después de `import_osm`):
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.import_csv
+```
+
+Se puede ejecutar **todas las veces que quieras**: los locales se actualizan, nunca se duplican.
+
+## Pasos para agregar locales
+
+1. Abre `backend/data/locales_easysearch.csv` en Excel (o usa la plantilla
+   `backend/data/plantilla_establecimientos.csv` para un archivo aparte).
+2. Llena una fila por establecimiento.
 3. Guarda como **CSV UTF-8 (delimitado por comas)**. El separador punto y coma de Excel en español también
    funciona.
 4. Valida sin guardar:
    ```powershell
    cd backend
-   .\.venv\Scripts\python -m scripts.import_csv data\mis_negocios.csv --dry-run
+   .\.venv\Scripts\python -m scripts.import_csv --dry-run
    ```
 5. Corrige las líneas marcadas con ✗ y, cuando todo esté en ✓, guarda:
    ```powershell
-   .\.venv\Scripts\python -m scripts.import_csv data\mis_negocios.csv
+   .\.venv\Scripts\python -m scripts.import_csv
    ```
 
 ## ¿Completar uno existente o crear uno nuevo?
 
-- **Completar uno existente (importado de OSM):** escribe su `slug` y llena solo las columnas que quieras
-  cambiar. Las columnas vacías no modifican nada.
-  Para encontrar el slug, abre en el navegador (con el backend encendido):
-  `http://127.0.0.1:8010/api/establishments?name=nombre del negocio`
-- **Crear uno nuevo:** deja `slug` vacío y llena al menos `nombre`, `municipio`, `latitud` y `longitud`.
-  Para obtener las coordenadas: en Google Maps, clic derecho sobre el lugar → copia los dos números
+- **Completar uno de OpenStreetMap:** escribe su referencia en la columna `osm` (ej. `node/123456` o
+  `way/987`) y llena solo las columnas que quieras cambiar; las vacías no modifican nada.
+  Usa `osm` y no `slug`: el slug de un local de OSM puede ser distinto en otra computadora
+  (ej. `terpel-bucaramanga-3`), la referencia OSM no.
+- **Crear uno nuevo:** inventa un `slug` fijo (minúsculas, números y guiones, ej. `burger-house-floridablanca`)
+  y llena al menos `nombre`, `municipio`, `latitud` y `longitud`. La primera carga lo crea; las siguientes lo
+  actualizan. Para obtener las coordenadas: en Google Maps, clic derecho sobre el lugar → copia los dos números
   (el primero es la latitud y el segundo la longitud).
 
 ## Columnas
 
 | Columna | Ejemplo | Notas |
 |---|---|---|
-| `slug` | `al-rock-burguer-bucaramanga` | Vacío = crear nuevo |
+| `osm` | `node/123456` | Solo para locales que vinieron de OpenStreetMap |
+| `slug` | `burger-house-floridablanca` | Fijo para locales nuevos (así no se duplican) |
 | `nombre` | `Al Rock Burguer` | |
 | `municipio` | `Bucaramanga` | Bucaramanga, Floridablanca, Girón o Piedecuesta |
 | `latitud` / `longitud` | `7.1193` / `-73.1227` | Usa punto decimal |
