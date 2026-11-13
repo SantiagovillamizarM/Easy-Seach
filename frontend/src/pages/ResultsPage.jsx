@@ -132,8 +132,8 @@ export default function ResultsPage() {
           <div className="flex flex-col gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center">
             <LocateFixed className="h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
             <p className="flex-1 text-sm">
-              Para mostrarte lo más cercano necesitamos tu ubicación. Solo se usa para ordenar los resultados: nunca se
-              guarda ni se comparte.
+              Para mostrarte lo más cercano necesitamos tu ubicación. Solo se usa para ordenar los resultados y avisarte
+              si hay trancón: nunca se guarda.
             </p>
             <button type="button" className="btn-primary" onClick={request} disabled={locationStatus === "requesting"}>
               {locationStatus === "requesting" ? "Obteniendo ubicación…" : "Usar mi ubicación"}
@@ -151,7 +151,7 @@ export default function ResultsPage() {
               <p className="text-sm font-semibold">Obtén mejores resultados compartiendo tu ubicación</p>
               <p className="text-xs text-ink-soft">
                 Verás primero lo más cercano y la distancia a cada lugar. Solo te lo preguntamos una vez; tu ubicación
-                nunca se guarda ni se comparte.
+                nunca se guarda.
               </p>
             </div>
             <div className="flex gap-2">

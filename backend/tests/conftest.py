@@ -14,6 +14,7 @@ os.environ["APP_ENV"] = "test"  # evita precargar el modelo real de embeddings d
 os.environ["TURNSTILE_SITE_KEY"] = ""
 os.environ["TURNSTILE_SECRET_KEY"] = ""
 os.environ["SMTP_HOST"] = ""
+os.environ["TOMTOM_API_KEY"] = ""   # ni a TomTom (tráfico)
 
 import pytest  # noqa: E402
 from alembic import command
@@ -31,6 +32,7 @@ from app.main import app
 from app.models import User
 from app.services.embeddings import get_embedder
 from app.services.llm import get_llm
+from app.services.traffic import get_traffic_provider
 
 BACKEND_DIR = ROOT_DIR / "backend"
 
@@ -120,6 +122,7 @@ def client(db, fake_embedder):
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
     app.dependency_overrides[get_llm] = lambda: None  # las pruebas NUNCA llaman a la IA real
+    app.dependency_overrides[get_traffic_provider] = lambda: None  # ni al servicio de tráfico
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

@@ -119,7 +119,7 @@ export default function HomePage() {
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-open" aria-hidden="true" />
           <p className="text-sm text-ink">
             <strong>Información real, sin inventos.</strong> Si no conocemos el precio o el horario de un lugar, te lo
-            decimos. Tu ubicación solo se usa para la búsqueda y nunca se guarda.
+            decimos. Tu ubicación solo se usa para la búsqueda y los avisos de trancón, y nunca se guarda.
           </p>
         </div>
       </section>

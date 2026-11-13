@@ -19,6 +19,7 @@ import HoursBadge from "../components/HoursBadge.jsx";
 import OfferingsMenu from "../components/OfferingsMenu.jsx";
 import OwnerClaimCard from "../components/OwnerClaimCard.jsx";
 import ReviewsSection from "../components/ReviewsSection.jsx";
+import TrafficNotice from "../components/TrafficNotice.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -166,6 +167,8 @@ export default function EstablishmentPage() {
           <ActionLink href={safeExternalUrl(est.website)} icon={Globe}>Sitio web</ActionLink>
           <ActionLink href={instagramUrl(est.instagram)} icon={AtSign}>Instagram</ActionLink>
         </div>
+
+        <TrafficNotice establishmentId={est.id} />
       </header>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">

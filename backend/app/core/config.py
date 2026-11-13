@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     turnstile_site_key: str | None = None      # pública: la usa el navegador para mostrar el widget
     turnstile_secret_key: str | None = None    # privada: solo el servidor la usa para verificar
 
+    # --- Tráfico en vivo: TomTom (gratis ~2.500 consultas/día). Sin clave, no se muestran avisos de trancón ---
+    tomtom_api_key: str | None = None
+    tomtom_daily_limit: int = 2300             # margen por debajo de la capa gratuita
+
     @property
     def smtp_configured(self) -> bool:
         return bool(self.smtp_host and self.smtp_user and self.smtp_password)

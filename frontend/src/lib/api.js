@@ -94,6 +94,7 @@ export const api = {
   establishment: (slug, opts) => request(`/establishments/${encodeURIComponent(slug)}`, opts),
   categories: (opts) => request("/categories", opts),
   places: (params = {}, opts) => request(`/places?${new URLSearchParams(params)}`, opts),
+  traffic: (id, coords, opts) => request(`/establishments/${id}/traffic`, { method: "POST", body: coords, ...opts }),
   // Cuenta
   login: (email, password, captchaToken) =>
     request("/auth/login", {
