@@ -2,14 +2,16 @@ import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../lib/api.js";
 import { formatPrice } from "../../lib/format.js";
+import { groupOfferings } from "../OfferingsMenu.jsx";
 import { Notice, PanelField, SaveButton, useAction } from "./common.jsx";
 
-const EMPTY = { kind: "product", name: "", description: "", price: "", is_available: true };
+const EMPTY = { kind: "product", section: "", name: "", description: "", price: "", is_available: true };
 
-function OfferingForm({ initial, onSubmit, onCancel, loading }) {
+function OfferingForm({ initial, onSubmit, onCancel, loading, sections = [] }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY,
     ...initial,
+    section: initial?.section ?? "",
     description: initial?.description ?? "",
     price: initial?.price != null ? String(Number(initial.price)) : "",
   }));
@@ -22,6 +24,7 @@ function OfferingForm({ initial, onSubmit, onCancel, loading }) {
         e.preventDefault();
         onSubmit({
           kind: form.kind,
+          section: form.section.trim() || null,
           name: form.name.trim(),
           description: form.description.trim() || null,
           price: form.price === "" ? null : Number(form.price),
@@ -44,6 +47,20 @@ function OfferingForm({ initial, onSubmit, onCancel, loading }) {
           ))}
         </div>
       </fieldset>
+      <PanelField
+        id={`off-section-${idp}`}
+        className="sm:col-span-2"
+        label="Sección de la carta (opcional)"
+        maxLength={60}
+        list={`sections-${idp}`}
+        value={form.section}
+        onChange={set("section")}
+        placeholder="Ej: Hamburguesas, Bebidas, Postres"
+        hint="Agrupa tu carta en pestañas. Elige una existente o escribe una nueva."
+      />
+      <datalist id={`sections-${idp}`}>
+        {sections.map((s) => <option key={s} value={s} />)}
+      </datalist>
       <PanelField id={`off-name-${idp}`} label="Nombre" required minLength={2} maxLength={200} value={form.name} onChange={set("name")} placeholder="Ej: Hamburguesa sencilla" />
       <PanelField id={`off-price-${idp}`} label="Precio (COP)" type="number" min={0} step={100} inputMode="numeric" value={form.price} onChange={set("price")} hint="Déjalo vacío si el precio varía." />
       <PanelField id={`off-desc-${idp}`} className="sm:col-span-2" label="Descripción (opcional)" multiline rows={2} maxLength={1000} value={form.description} onChange={set("description")} />
@@ -83,10 +100,9 @@ export default function OfferingsEditor({ establishment, onSaved }) {
     if ((await run(() => api.deleteOffering(o.id), `“${o.name}” eliminado.`)) !== undefined) onSaved();
   }
 
-  const groups = [
-    { title: "Productos", items: offerings.filter((o) => o.kind === "product") },
-    { title: "Servicios", items: offerings.filter((o) => o.kind === "service") },
-  ].filter((g) => g.items.length > 0);
+  // Agrupado por sección de la carta (o Productos / Servicios si no hay secciones), en el orden de la carta
+  const groups = groupOfferings(offerings);
+  const sections = [...new Set(offerings.map((o) => o.section).filter(Boolean))];
 
   return (
     <section className="card p-5">
@@ -107,7 +123,7 @@ export default function OfferingsEditor({ establishment, onSaved }) {
 
       {editing === "new" && (
         <div className="mb-4">
-          <OfferingForm onSubmit={create} onCancel={() => setEditing(null)} loading={state.loading} />
+          <OfferingForm onSubmit={create} onCancel={() => setEditing(null)} loading={state.loading} sections={sections} />
         </div>
       )}
 
@@ -124,7 +140,7 @@ export default function OfferingsEditor({ establishment, onSaved }) {
             {group.items.map((o) =>
               editing === o.id ? (
                 <li key={o.id} className="py-3">
-                  <OfferingForm initial={o} onSubmit={(data) => update(o.id, data, "Cambios guardados.")} onCancel={() => setEditing(null)} loading={state.loading} />
+                  <OfferingForm initial={o} onSubmit={(data) => update(o.id, data, "Cambios guardados.")} onCancel={() => setEditing(null)} loading={state.loading} sections={sections} />
                 </li>
               ) : (
                 <li key={o.id} className={`flex flex-wrap items-start justify-between gap-3 py-3 ${o.is_available ? "" : "opacity-60"}`}>

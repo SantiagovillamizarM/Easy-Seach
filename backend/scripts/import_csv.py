@@ -13,7 +13,8 @@ Cómo se identifica cada fila (se puede ejecutar varias veces: nunca duplica):
 - Sin `osm` ni `slug`: se crea un local nuevo con un slug automático (evítalo en archivos compartidos).
 - Solo se cambian las columnas que tienen datos.
 - `productos` y `servicios`, si tienen datos, REEMPLAZAN la lista actual.
-  Formato: "Nombre:precio:descripción|Nombre:precio" (precio y descripción opcionales: "Despinche|Alineación:50000").
+  Formato: "#Sección|Nombre:precio:descripción|Nombre:precio" (sección, precio y descripción opcionales:
+  "Despinche|Alineación:50000"). "#Bebidas" agrupa en esa sección los productos que siguen.
 - `horario` usa el formato de OpenStreetMap, ej: "Mo-Fr 08:00-18:00; Sa 08:00-12:00; Su off".
 - Las filas con errores se informan y no se guardan; las demás sí.
 
@@ -61,14 +62,19 @@ class RowError(Exception):
 
 
 def parse_offerings(text: str, kind: str) -> list[Offering]:
-    """"Nombre:precio:descripción|Nombre:precio|Nombre" (precio y descripción opcionales).
+    """"#Sección|Nombre:precio:descripción|Nombre:precio|Nombre" (precio y descripción opcionales).
 
+    "#Hamburguesas" marca la sección de los productos que siguen (agrupa la carta en pestañas).
     La descripción puede llevar ":" (solo se separan los dos primeros), pero no "|".
     """
     items = []
+    section = None
     for part in text.split("|"):
         part = part.strip()
         if not part:
+            continue
+        if part.startswith("#"):
+            section = " ".join(part[1:].split())[:60] or None
             continue
         name, price, description = (part.split(":", 2) + ["", ""])[:3]
         name = name.strip()
@@ -80,7 +86,8 @@ def parse_offerings(text: str, kind: str) -> list[Offering]:
                 value = Decimal(price.strip().replace(".", "").replace(",", "").replace("$", "").replace(" ", ""))
             except InvalidOperation:
                 raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
-        items.append(Offering(kind=kind, name=name[:200], price=value, description=description.strip()[:1000] or None))
+        items.append(Offering(kind=kind, section=section, name=name[:200], price=value,
+                              description=description.strip()[:1000] or None))
     return items
 
 

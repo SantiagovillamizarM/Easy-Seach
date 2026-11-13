@@ -141,6 +141,8 @@ class Offering(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     establishment_id: Mapped[int] = mapped_column(ForeignKey("establishments.id", ondelete="CASCADE"), index=True)
     kind: Mapped[str] = mapped_column(String(10))
+    # Sección de la carta ("Hamburguesas", "Bebidas"…): agrupa menús largos en pestañas. Opcional.
+    section: Mapped[str | None] = mapped_column(String(60))
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
     price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))

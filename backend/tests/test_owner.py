@@ -162,3 +162,13 @@ def test_photo_rejects_fake_images_and_strangers(client, db, shop, user_headers,
     stranger = client.post(f"/api/establishments/{shop.id}/photos", headers=_h(client, "extrano@test.com"),
                            files={"file": ("foto.jpg", _jpeg_with_gps(), "image/jpeg")})
     assert stranger.status_code == 403
+
+
+def test_offering_section_is_cleaned_and_editable(client, db, shop, user_headers, admin_headers):
+    _approve(client, admin_headers, shop.id, user_headers)
+    h = _h(client, "usuario@test.com")
+    r = client.post(f"/api/establishments/{shop.id}/offerings", headers=h,
+                    json={"kind": "product", "name": "Llanta rin 14", "section": "  llantas   nuevas "})
+    assert r.status_code == 201 and r.json()["section"] == "Llantas nuevas"
+    r = client.patch(f"/api/offerings/{r.json()['id']}", headers=h, json={"section": ""})
+    assert r.json()["section"] is None   # vacío = sin sección

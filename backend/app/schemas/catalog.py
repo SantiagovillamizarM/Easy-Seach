@@ -47,6 +47,7 @@ class OfferingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     kind: str
+    section: str | None = None
     name: str
     description: str | None
     price: Decimal | None
@@ -175,20 +176,40 @@ class EstablishmentUpdate(EstablishmentBase):
     category_ids: list[int] | None = Field(None, max_length=10)
 
 
+def _clean_section(v):
+    """'  hamburguesas ' -> 'Hamburguesas'; vacío -> None (sin sección)."""
+    if isinstance(v, str):
+        v = " ".join(v.split())
+        return v[:1].upper() + v[1:] if v else None
+    return v
+
+
 class OfferingIn(BaseModel):
     kind: Literal["product", "service"]
+    section: str | None = Field(None, max_length=60, description="Sección de la carta, ej. 'Hamburguesas'")
     name: str = Field(min_length=2, max_length=200)
     description: str | None = Field(None, max_length=1000)
     price: Decimal | None = Field(None, ge=0, le=100_000_000)
     is_available: bool = True
 
+    @field_validator("section", mode="before")
+    @classmethod
+    def clean_section(cls, v):
+        return _clean_section(v)
+
 
 class OfferingUpdate(BaseModel):
     kind: Literal["product", "service"] | None = None
+    section: str | None = Field(None, max_length=60)
     name: str | None = Field(None, min_length=2, max_length=200)
     description: str | None = Field(None, max_length=1000)
     price: Decimal | None = Field(None, ge=0, le=100_000_000)
     is_available: bool | None = None
+
+    @field_validator("section", mode="before")
+    @classmethod
+    def clean_section(cls, v):
+        return _clean_section(v)
 
 
 class OpeningHourIn(BaseModel):

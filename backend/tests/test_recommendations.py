@@ -107,3 +107,12 @@ def test_recommendations_endpoint(client, burger):
     assert client.post("/api/recommendations", json={"q": "x", "establishment_ids": []}).status_code == 422
     too_many = client.post("/api/recommendations", json={"q": "hamburguesa", "establishment_ids": list(range(1, 9))})
     assert too_many.status_code == 422
+
+
+def test_varied_sample_rotates_between_sections():
+    from types import SimpleNamespace
+    from app.services.recommendations import _varied_sample
+    items = [SimpleNamespace(id=i, section=s) for i, s in enumerate(
+        ["Hamburguesas"] * 10 + ["Bebidas"] * 5 + ["Postres"] * 2, start=1)]
+    sample = _varied_sample(items, 6)
+    assert [o.section for o in sample] == ["Hamburguesas", "Bebidas", "Postres"] * 2

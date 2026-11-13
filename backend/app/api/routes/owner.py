@@ -82,7 +82,7 @@ def my_establishments(user: User = Depends(require_roles("owner", "admin")), db:
 def editable_establishment(est: Establishment = Depends(get_editable_establishment)):
     """Datos para el editor del panel: a diferencia del detalle público, incluye los productos
     marcados como no disponibles (para poder reactivarlos)."""
-    return {**to_detail(est), "offerings": sorted(est.offerings, key=lambda o: (o.kind, o.name.lower()))}
+    return {**to_detail(est), "offerings": sorted(est.offerings, key=lambda o: o.id)}  # orden de la carta
 
 
 # ------------------------------- Fotos ---------------------------------------------------

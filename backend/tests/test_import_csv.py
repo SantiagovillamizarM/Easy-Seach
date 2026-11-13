@@ -31,7 +31,7 @@ def _run(db, ctx, row):
 NEW = _row(slug="burger-house-floridablanca", nombre="Burger House", municipio="Floridablanca",
            latitud="7.0612", longitud="-73.0951", categorias="comida-rapida", precio_min="15000",
            descripcion="Hamburguesas artesanales a la parrilla",
-           productos="Hamburguesa sencilla:15000|Combo doble:25.000:Doble carne: con papas",
+           productos="#Hamburguesas|Hamburguesa sencilla:15000|# Combos |Combo doble:25.000:Doble carne: con papas",
            horario="Mo-Sa 11:00-22:00; Su off")
 
 
@@ -40,6 +40,7 @@ def test_new_local_with_fixed_slug_is_idempotent(db, ctx):
     assert action == "creado" and est.slug == "burger-house-floridablanca" and est.source == "manual"
     assert [o.name for o in est.offerings] == ["Hamburguesa sencilla", "Combo doble"]
     assert est.offerings[1].description == "Doble carne: con papas"   # la descripción puede llevar ":"
+    assert [o.section for o in est.offerings] == ["Hamburguesas", "Combos"]
     assert est.opening_hours and est.categories[0].slug == "comida-rapida"
 
     # Cargar el mismo archivo otra vez (o en otra computadora) actualiza, no duplica
