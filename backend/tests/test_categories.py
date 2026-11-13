@@ -49,3 +49,35 @@ def test_schools_are_no_longer_imported_and_existing_ones_are_hidden(db):
     assert hide_unmatched(db, town.id) == 2
     assert (school.status, edited.status, academy.status) == ("hidden", "active", "active")
     assert (block.status, d1.status) == ("hidden", "active")
+
+
+def test_same_place_drawn_twice_in_osm_is_marked_duplicate(db):
+    """Una Terpel con cada isla de surtidores dibujada aparte: se conserva la de más datos."""
+    from app.models import DuplicateDismissal, Establishment, Place
+    from scripts.import_osm import mark_duplicates
+
+    town = Place(name="Pueblo", normalized_name="pueblo", kind="municipio", latitude=7.1, longitude=-73.1)
+    db.add(town)
+    db.flush()
+
+    def est(slug, name, lat, lng, source="osm", **kw):
+        e = Establishment(name=name, slug=slug, municipality_id=town.id, latitude=lat, longitude=lng,
+                          source=source, **kw)
+        db.add(e)
+        db.flush()
+        return e
+
+    rich = est("terpel-a", "Terpel", 7.10000, -73.10000, phone="300 000 0000")
+    island = est("terpel-b", "TERPEL", 7.10020, -73.10000)          # ~22 m: la misma estación
+    other = est("terpel-c", "Terpel", 7.11000, -73.10000)           # ~1 km: otra estación
+    manual = est("cacique-a", "Cacique", 7.12000, -73.10000, source="manual")
+    osm_copy = est("cacique-b", "Cacique", 7.12010, -73.10000, address="Calle 1")   # el editado a mano gana
+    shop_a = est("cafe-a", "Café", 7.13000, -73.10000)
+    shop_b = est("cafe-b", "Café", 7.13030, -73.10000)              # ~33 m, pero un admin dijo que NO son el mismo
+    db.add(DuplicateDismissal(establishment_a_id=shop_a.id, establishment_b_id=shop_b.id))
+    db.flush()
+
+    assert mark_duplicates(db, town.id) == 2
+    assert (island.status, island.duplicate_of_id) == ("duplicate", rich.id)
+    assert (osm_copy.status, osm_copy.duplicate_of_id) == ("duplicate", manual.id)
+    assert {rich.status, other.status, manual.status, shop_a.status, shop_b.status} == {"active"}
