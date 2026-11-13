@@ -267,3 +267,28 @@ def test_relevance_rules():
     assert _relevance(False, True, False, True, True, False) == "alta"
     # Nadie lo menciona: todo es aproximado
     assert _relevance(True, True, False, True, False, True) == "relacionada"
+
+
+def test_rules_understand_local_food_words():
+    """Encontrado al buscar "pollerías en Girón": comida típica y de barrio que no se reconocía."""
+    for query in ["pollerias giron", "lechona", "cabro", "pepitoria", "piqueteadero", "picadas", "bandeja paisa",
+                  "broaster", "alitas", "ceviche", "shawarma", "pandebono"]:
+        assert set(parse_with_rules(query).category_slugs) & {"restaurantes", "comida-rapida", "panaderias"}, query
+    assert parse_with_rules("discoteca").category_slugs == ["bares"]
+    assert parse_with_rules("jugar billar").category_slugs == ["entretenimiento"]
+    assert parse_with_rules("carniceria").category_slugs == ["mercados-tiendas"]
+
+
+def test_polleria_matches_chicken_places():
+    from app.services.search import _mentions
+    assert _mentions("Pollo Asado", ["pollerias"]) and _mentions("Broaster El Rey", ["polleria"])
+    assert _mentions("Pollería La Granja", ["pollo"])
+    assert not _mentions("Hamburgo 1718", ["pollerias"])
+
+
+def test_far_notice_only_when_searching_near_me(client, world):
+    """Con GPS activo pero escribiendo el lugar ("en Bucaramanga"), no se dice "cerca de ti no hay…"."""
+    gps = {"latitude": 6.9879, "longitude": -73.0503}   # Piedecuesta, a ~16 km de Bucaramanga
+    body = client.post("/api/search", json={"q": "hamburguesas en Bucaramanga", **gps}).json()
+    assert body["location"]["source"] == "texto"
+    assert not any("Cerca de ti" in n for n in body["notices"])

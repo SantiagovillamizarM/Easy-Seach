@@ -206,8 +206,10 @@ def _budget_fit(est: Establishment, budget_max: int | None) -> str:
 
 
 # Equivalencias frecuentes en nombres de locales (muchos usan la palabra en inglés: "Lis Burger")
-_SYNONYMS = {"hamburgues": ["burger"], "perro": ["hotdog"], "pollo": ["chicken"], "helad": ["icecream"],
-             "cafe": ["coffee"], "panaderi": ["bakery"], "cervez": ["beer"]}
+_SYNONYMS = {"hamburgues": ["burger"], "perro": ["hotdog"], "pollo": ["chicken", "broaster"], "helad": ["icecream"],
+             "cafe": ["coffee"], "panaderi": ["bakery"], "cervez": ["beer"],
+             # una pollería se llama "Pollo Asado", "Asadero El Pollo Dorado" o "Broaster…"
+             "poller": ["pollo", "chicken", "broaster", "asadero"], "alita": ["wings"]}
 MENTION_BOOST = 2.5   # en UNIT: mayor que el bono por cercanía (máx. 2.0), así lo que SÍ vende lo buscado va primero
 FAR_KM = 5.0          # con GPS, si lo más cercano que lo menciona está más lejos que esto, se avisa
 
@@ -410,7 +412,9 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
     # Se mide sobre lo que se va a mostrar, para que el aviso coincida con la lista.
     mention_km = [h.distance_km for h in hits[: params.limit]
                   if mentions.get(h.establishment.id) and h.distance_km is not None]
-    if specific and not explicit_type and mention_km and min(mention_km) > FAR_KM:
+    # Solo si se busca "cerca de mí": quien escribió "en Girón" ya eligió dónde, aunque tenga el GPS activo.
+    searching_near_user = location is not None and location.source == "gps"
+    if specific and not explicit_type and searching_near_user and mention_km and min(mention_km) > FAR_KM:
         wanted = ", ".join(f"«{k}»" for k in specific[:3])
         km = f"{min(mention_km):.1f}".replace(".", ",")
         notices.append(f"Cerca de ti no encontramos lugares que mencionen {wanted}; el más cercano está a {km} km.")

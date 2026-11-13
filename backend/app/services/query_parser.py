@@ -71,6 +71,7 @@ _CATEGORY_WORDS = {
     "mi gato": "mascotas", "concentrado para": "mascotas",
     "gasolina": "estaciones-servicio", "tanquear": "estaciones-servicio", "lavadero": "lavaderos",
     "cerveza": "bares", "trago": "bares", "rumba": "bares", "bar ": "bares", "helado": "heladerias",
+    "discoteca": "bares", "karaoke": "bares", "coctel": "bares", "billar": "entretenimiento", "tejo": "entretenimiento",
     "panaderia": "panaderias", "pan ": "panaderias", "torta": "panaderias", "celular": "tecnologia",
     "computador": "tecnologia", "ropa": "ropa-calzado", "zapato": "ropa-calzado", "tenis": "ropa-calzado",
     "supermercado": "mercados-tiendas", "mercado": "mercados-tiendas", "tienda": "mercados-tiendas",
@@ -83,6 +84,20 @@ _CATEGORY_WORDS = {
     "comida tipica": "restaurantes", "mute": "restaurantes", "pescado": "restaurantes", "mariscos": "restaurantes",
     "parrilla": "restaurantes", "carne asada": "restaurantes", "vegetarian": "restaurantes", "vegan": "restaurantes",
     "jugo": "cafeterias", "fruteria": "cafeterias", "postre": "heladerias", "cena": "restaurantes",
+    # Comida típica y de barrio (encontradas al buscar "pollerías en Girón")
+    "polleria": "restaurantes", "broaster": "comida-rapida", "alitas": "comida-rapida", "asado": "restaurantes",
+    "asados": "restaurantes", "piqueteadero": "restaurantes", "fritanga": "restaurantes", "picada": "restaurantes",
+    "lechona": "restaurantes", "cabro": "restaurantes", "pepitoria": "restaurantes", "bandeja paisa": "restaurantes",
+    "sancocho": "restaurantes", "gallina": "restaurantes", "mondongo": "restaurantes", "sopa": "restaurantes",
+    "costilla": "restaurantes", "chicharron": "restaurantes", "bbq": "restaurantes", "ceviche": "restaurantes",
+    "cevicheria": "restaurantes", "tacos": "restaurantes", "burrito": "restaurantes", "pasta": "restaurantes",
+    "ramen": "restaurantes", "wok": "restaurantes", "crepe": "restaurantes", "shawarma": "comida-rapida",
+    "kebab": "comida-rapida", "waffle": "cafeterias", "brunch": "cafeterias", "onces": "cafeterias",
+    "oblea": "cafeterias", "donas": "panaderias", "pandebono": "panaderias", "bunuelo": "panaderias",
+    "buñuelo": "panaderias",
+    # Tiendas de barrio
+    "carniceria": "mercados-tiendas", "fruver": "mercados-tiendas", "salsamentaria": "mercados-tiendas",
+    "licor": "mercados-tiendas",
     # Motos y vehículos
     "moto ": "motos", "motos": "motos", "motocicleta": "motos", "casco": "motos",
     "concesionario": "repuestos-vehiculos", "alquiler de carro": "repuestos-vehiculos",
