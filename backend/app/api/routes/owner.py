@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_roles
 from app.api.routes.catalog import get_editable_establishment, to_detail
+from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
 from app.models import Establishment, EstablishmentPhoto, OwnershipClaim, User
 from app.schemas.catalog import EstablishmentDetail
@@ -29,7 +30,7 @@ def claim_out(claim: OwnershipClaim, est: Establishment) -> dict:
 # ------------------------------- Solicitudes de propiedad --------------------------------
 
 @router.post("/establishments/{establishment_id}/claims", response_model=ClaimOut,
-             status_code=status.HTTP_201_CREATED)
+             status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_by_user("claims", 5, 24 * 3600))])
 def create_claim(establishment_id: int, data: ClaimIn, user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
     """Un usuario solicita administrar un establecimiento. Un administrador la aprueba o rechaza."""
@@ -87,7 +88,7 @@ def editable_establishment(est: Establishment = Depends(get_editable_establishme
 # ------------------------------- Fotos ---------------------------------------------------
 
 @router.post("/establishments/{establishment_id}/photos", response_model=PhotoOut,
-             status_code=status.HTTP_201_CREATED)
+             status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_by_user("photos", 30, 3600))])
 async def upload_photo(
     file: UploadFile = File(...),
     caption: str | None = Form(None, max_length=200),

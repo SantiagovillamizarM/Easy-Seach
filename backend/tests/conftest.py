@@ -19,6 +19,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.core.config import ROOT_DIR, get_settings
+from app.core.rate_limit import limiter
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import app
@@ -94,6 +95,14 @@ class FakeEmbedder:
 
     def encode_query(self, text: str) -> list[float]:
         return self._vector(text)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Todas las pruebas comparten la misma "IP" (testclient): los contadores se reinician en cada una."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture()

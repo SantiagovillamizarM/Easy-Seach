@@ -149,6 +149,30 @@ cd backend
 (La base de datos debe estar encendida.) Las pruebas usan una base de datos separada, `easysearch_test`, que se
 crea sola; tus datos de desarrollo no se modifican.
 
+### Revisar el frontend con ESLint
+
+```powershell
+cd frontend
+npm.cmd run lint
+```
+
+### Medir la calidad de la búsqueda
+
+```powershell
+cd backend
+# 22 consultas etiquetadas: precisión@5, municipio correcto, encontrados/disponibles y tiempos
+.\.venv\Scripts\python -m scripts.benchmark_search
+# Lo mismo, pero interpretando las consultas con Gemini (gasta ~22 llamadas de la cuota)
+.\.venv\Scripts\python -m scripts.benchmark_search --con-ia
+```
+
+### Revisar vulnerabilidades en las dependencias
+
+```powershell
+cd frontend; npm.cmd audit
+cd ..\backend; .\.venv\Scripts\python -m pip install pip-audit; .\.venv\Scripts\python -m pip_audit -r requirements.txt
+```
+
 ### Probar la búsqueda desde la terminal
 
 ```powershell

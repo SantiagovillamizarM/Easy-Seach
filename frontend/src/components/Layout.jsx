@@ -1,4 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
 import UserMenu from "./UserMenu.jsx";
@@ -48,11 +49,15 @@ function Footer() {
 }
 
 export default function Layout() {
+  const { pathname } = useLocation();
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
-        <Outlet />
+        {/* Si una página falla, el encabezado sigue funcionando y al navegar se recupera */}
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <Footer />
     </div>

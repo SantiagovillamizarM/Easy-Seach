@@ -1,5 +1,7 @@
 """Usuarios y roles."""
-from sqlalchemy import Boolean, CheckConstraint, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -23,3 +25,5 @@ class User(TimestampMixin, Base):
     full_name: Mapped[str] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(10), default="user", server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Los tokens emitidos antes de esta fecha dejan de ser válidos (cierra las demás sesiones al cambiar la clave)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

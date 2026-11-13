@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
 from app.models import Establishment, Report, Review, User
 from app.schemas.review import MyReviewOut, ReportIn, ReviewIn, ReviewsPage
@@ -146,7 +147,8 @@ def delete_review(review_id: int, user: User = Depends(get_current_user), db: Se
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/reviews/{review_id}/report", status_code=status.HTTP_201_CREATED)
+@router.post("/reviews/{review_id}/report", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(limit_by_user("reports", 20, 3600))])
 def report_review(review_id: int, data: ReportIn, user: User = Depends(get_current_user),
                   db: Session = Depends(get_db)) -> dict:
     """Cualquier usuario puede reportar una reseña inapropiada. Un reporte por usuario y reseña."""

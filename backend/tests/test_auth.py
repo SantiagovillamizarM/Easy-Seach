@@ -94,7 +94,7 @@ def test_change_password(client, user_headers):
     weak = client.post(url, json={"current_password": "clave1234", "new_password": "sololetras"}, headers=user_headers)
     assert weak.status_code == 422
     ok = client.post(url, json={"current_password": "clave1234", "new_password": "nueva1234"}, headers=user_headers)
-    assert ok.status_code == 204
+    assert ok.status_code == 200 and ok.json()["access_token"]  # token nuevo para seguir conectado
     # La contraseña vieja ya no sirve y la nueva sí
     assert client.post("/api/auth/login", data={"username": "usuario@test.com", "password": "clave1234"}).status_code == 401
     assert client.post("/api/auth/login", data={"username": "usuario@test.com", "password": "nueva1234"}).status_code == 200
