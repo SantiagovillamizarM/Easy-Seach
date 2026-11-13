@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.text import normalize, slugify
-from app.data.categories import categories_for_tags, ensure_categories
+from app.data.categories import CATEGORIES, categories_for_tags, ensure_categories
 from app.db.session import SessionLocal
 from app.models import Establishment, Place
 from app.services.catalog import apply_opening_hours_text
@@ -40,19 +40,26 @@ DEPARTMENT = "Santander"
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "osm_cache"
 USER_AGENT = "EasySearch/0.1 (proyecto academico; importacion de datos OSM)"
 
-AMENITIES = (
-    "restaurant|fast_food|cafe|bar|pub|nightclub|biergarten|ice_cream|food_court|pharmacy|fuel|"
-    "car_wash|veterinary|clinic|doctors|dentist|hospital"
-)
+def _wanted_values(key: str) -> str:
+    """Valores de una etiqueta OSM ("amenity", "leisure"…) que usa alguna categoría, como regex "a|b|c".
+    Así la descarga siempre coincide con las categorías: agregar un tipo en categories.py basta."""
+    values = sorted({v for _n, _d, mapping in CATEGORIES.values() for v in mapping.get(key, set())})
+    return "|".join(values)
+
+
+# shop y craft se descargan completos (cualquier comercio u oficio con nombre); el resto, solo lo que usamos
+FILTERED_KEYS = ("amenity", "leisure", "tourism", "office", "healthcare")
 
 
 def build_query(relation_id: int) -> str:
     area_id = 3_600_000_000 + relation_id  # convención de Overpass para convertir relación en área
+    filtered = "\n".join(f'  nwr(area.a)["name"]["{key}"~"^({_wanted_values(key)})$"];'
+                         for key in FILTERED_KEYS if _wanted_values(key))
     return f"""
-[out:json][timeout:180];
+[out:json][timeout:240];
 area({area_id})->.a;
 (
-  nwr(area.a)["name"]["amenity"~"^({AMENITIES})$"];
+{filtered}
   nwr(area.a)["name"]["shop"];
   nwr(area.a)["name"]["craft"];
 );

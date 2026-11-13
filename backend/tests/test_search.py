@@ -39,6 +39,19 @@ def test_rules_near_me_vs_near_a_place():
     assert parse_with_rules("bar cerca de Cabecera").near_me is False
 
 
+def test_rules_understand_new_business_types():
+    """Fase 9: gimnasios, motos, hoteles, bancos, educación, comidas… (y "giro" no confunde a Girón)."""
+    cases = {"un gym en floridablanca": "gimnasios", "donde comprar una moto": "motos",
+             "hotel barato en bucaramanga": "hoteles", "cajero automatico": "bancos",
+             "almuerzo ejecutivo cerca": "restaurantes", "cerrajero urgente": "oficios",
+             "clases de ingles": "educacion", "un abogado laboral": "servicios-profesionales",
+             "cine en cabecera": "entretenimiento"}
+    for query, slug in cases.items():
+        assert slug in parse_with_rules(query).category_slugs, query
+    assert "bancos" not in parse_with_rules("pizza en girón").category_slugs
+    assert "bancos" in parse_with_rules("hacer un giro a bogota").category_slugs
+
+
 def test_rules_keywords_match_only_at_word_start():
     """Errores encontrados con el benchmark de búsqueda (Fase 8)."""
     vet = parse_with_rules("veterinaria para mi perro en floridablanca").category_slugs

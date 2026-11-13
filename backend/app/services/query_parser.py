@@ -76,6 +76,32 @@ _CATEGORY_WORDS = {
     "supermercado": "mercados-tiendas", "mercado": "mercados-tiendas", "tienda": "mercados-tiendas",
     "papeleria": "papelerias", "libro": "papelerias", "bicicleta": "deportes", "mueble": "hogar",
     "medico": "salud", "odontolog": "salud", "dentista": "salud", "optica": "salud",
+    "laboratorio": "salud", "fisioterap": "salud", "psicolog": "salud", "examen": "salud",
+    # Comidas
+    "asadero": "restaurantes", "comida china": "restaurantes", "sushi": "restaurantes", "arepa": "restaurantes",
+    "empanada": "comida-rapida", "tamal": "restaurantes", "menu del dia": "restaurantes", "ejecutivo": "restaurantes",
+    "comida tipica": "restaurantes", "mute": "restaurantes", "pescado": "restaurantes", "mariscos": "restaurantes",
+    "parrilla": "restaurantes", "carne asada": "restaurantes", "vegetarian": "restaurantes", "vegan": "restaurantes",
+    "jugo": "cafeterias", "fruteria": "cafeterias", "postre": "heladerias", "cena": "restaurantes",
+    # Motos y vehículos
+    "moto ": "motos", "motos": "motos", "motocicleta": "motos", "casco": "motos",
+    "concesionario": "repuestos-vehiculos", "alquiler de carro": "repuestos-vehiculos",
+    # Deporte
+    "gimnasio": "gimnasios", "gym": "gimnasios", "crossfit": "gimnasios", "yoga": "gimnasios",
+    "pilates": "gimnasios", "piscina": "gimnasios", "entrenar": "gimnasios", "artes marciales": "gimnasios",
+    "clases de baile": "gimnasios",
+    # Hospedaje, dinero, estudio, diversión, profesionales y oficios
+    "hotel": "hoteles", "hostal": "hoteles", "hospedaje": "hoteles", "motel": "hoteles", "dormir": "hoteles",
+    "banco": "bancos", "cajero": "bancos", "casa de cambio": "bancos", "giro ": "bancos", "giros ": "bancos",  # con espacio: "giro" ≠ "Girón" "cambiar dolares": "bancos",
+    "colegio": "educacion", "universidad": "educacion", "academia": "educacion", "curso": "educacion",
+    "clases de ingles": "educacion", "escuela de conduccion": "educacion", "pase de conduccion": "educacion",
+    "cine": "entretenimiento", "teatro": "entretenimiento", "bolos": "entretenimiento", "museo": "entretenimiento",
+    "evento": "entretenimiento", "parque de diversion": "entretenimiento",
+    "abogado": "servicios-profesionales", "contador": "servicios-profesionales", "notaria": "servicios-profesionales",
+    "seguro": "servicios-profesionales", "inmobiliaria": "servicios-profesionales",
+    "agencia de viaje": "servicios-profesionales", "arriendo": "servicios-profesionales",
+    "cerrajer": "oficios", "electricista": "oficios", "plomer": "oficios", "carpinter": "oficios",
+    "lavanderia": "oficios", "modist": "oficios", "zapater": "oficios", "arreglo de ropa": "oficios",
 }
 
 # Cada palabra clave debe coincidir al INICIO de una palabra (es una raíz: "llanta" → "llantas"),

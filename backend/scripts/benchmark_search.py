@@ -54,6 +54,13 @@ CASES = [
     ("comprar ropa en bucaramanga", {"ropa-calzado"}, "bucaramanga"),
     ("arreglar el celular en bucaramanga", {"tecnologia"}, "bucaramanga"),
     ("peluquería en piedecuesta", {"belleza"}, "piedecuesta"),
+    # Tipos agregados en la Fase 9
+    ("gimnasio en floridablanca", {"gimnasios"}, "floridablanca"),
+    ("donde comprar una moto en bucaramanga", {"motos"}, "bucaramanga"),
+    ("hotel barato en bucaramanga", {"hoteles"}, "bucaramanga"),
+    ("cajero en piedecuesta", {"bancos"}, "piedecuesta"),
+    ("almuerzo ejecutivo en bucaramanga", FOOD, "bucaramanga"),
+    ("cine en bucaramanga", {"entretenimiento"}, "bucaramanga"),
 ]
 
 

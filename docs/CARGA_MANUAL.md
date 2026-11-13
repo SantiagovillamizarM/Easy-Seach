@@ -65,7 +65,7 @@ Se puede ejecutar **todas las veces que quieras**: los locales se actualizan, nu
 | `precio_min` / `precio_max` | `15000` / `35000` | En pesos, sin puntos ni `$` |
 | `nivel_precio` | `2` | 1 = económico, 2 = moderado, 3 = costoso, 4 = muy costoso |
 | `horario` | `Mo-Fr 08:00-18:00; Sa 08:00-12:00; Su off` | Formato OSM (ver abajo) |
-| `productos` | `Hamburguesa doble:22000\|Papas fritas:8000` | `Nombre:precio`, separados por `\|`; precio opcional |
+| `productos` | `#Hamburguesas\|Doble:22000:Con tocineta\|#Bebidas\|Limonada:6000` | `Nombre:precio:descripción` separados por `\|`; precio y descripción opcionales. `#Sección` agrupa la carta en pestañas |
 | `servicios` | `Despinche:10000\|Alineación` | Igual que productos |
 
 `productos` y `servicios`, si tienen datos, **reemplazan** la lista anterior completa.
@@ -88,21 +88,27 @@ Cuando cargas un horario por CSV, queda marcado como **verificado**.
 
 | Slug | Nombre |
 |---|---|
+| `bancos` | Bancos y cajeros |
 | `bares` | Bares |
 | `belleza` | Belleza y cuidado personal |
 | `cafeterias` | Cafeterías |
 | `centros-comerciales` | Centros comerciales |
 | `comida-rapida` | Comida rápida |
 | `deportes` | Deportes y bicicletas |
+| `educacion` | Educación y cursos |
+| `entretenimiento` | Entretenimiento |
 | `estaciones-servicio` | Estaciones de servicio |
 | `farmacias` | Farmacias y droguerías |
 | `ferreterias` | Ferreterías y construcción |
+| `gimnasios` | Gimnasios |
 | `heladerias` | Heladerías |
 | `hogar` | Hogar y muebles |
+| `hoteles` | Hoteles y hospedaje |
 | `lavaderos` | Lavaderos de vehículos |
 | `llantas` | Llantas y montallantas |
 | `mascotas` | Veterinarias y mascotas |
 | `mercados-tiendas` | Supermercados y tiendas |
+| `motos` | Motos |
 | `oficios` | Oficios y servicios |
 | `otros-comercios` | Otros comercios |
 | `panaderias` | Panaderías y pastelerías |
@@ -111,6 +117,7 @@ Cuando cargas un horario por CSV, queda marcado como **verificado**.
 | `restaurantes` | Restaurantes |
 | `ropa-calzado` | Ropa y calzado |
 | `salud` | Salud |
+| `servicios-profesionales` | Servicios profesionales |
 | `talleres-mecanicos` | Talleres mecánicos |
 | `tecnologia` | Tecnología y celulares |
 
