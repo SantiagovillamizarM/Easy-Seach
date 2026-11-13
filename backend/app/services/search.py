@@ -205,24 +205,53 @@ def _budget_fit(est: Establishment, budget_max: int | None) -> str:
     return "desconocido"
 
 
+# Equivalencias frecuentes en nombres de locales (muchos usan la palabra en inglés: "Lis Burger")
+_SYNONYMS = {"hamburgues": ["burger"], "perro": ["hotdog"], "pollo": ["chicken"], "helad": ["icecream"],
+             "cafe": ["coffee"], "panaderi": ["bakery"], "cervez": ["beer"]}
+MENTION_BOOST = 2.5   # en UNIT: mayor que el bono por cercanía (máx. 2.0), así lo que SÍ vende lo buscado va primero
+FAR_KM = 5.0          # con GPS, si lo más cercano que lo menciona está más lejos que esto, se avisa
+
+
 def _mentions(text: str, keywords: list[str]) -> bool:
     """¿El texto contiene lo buscado? Compara raíces ("hamburguesas" ~ "hamburguesa") y también dentro de
     palabras compuestas ("frenos" ~ "Unifrenos", "pizza" ~ "Pizzería"). Raíces de menos de 4 letras no cuentan."""
-    words = re.findall(r"[a-z0-9ñ]+", normalize(text))
-    stems = [normalize(k)[: max(4, len(normalize(k)) - 2)] for k in keywords]
+    words = re.findall(r"[a-z0-9ñ]+", normalize(text).replace("hot dog", "hotdog").replace("ice cream", "icecream"))
+    stems = []
+    for k in keywords:
+        stem = normalize(k)[: max(4, len(normalize(k)) - 2)]
+        stems.append(stem)
+        stems += [syn for root, syns in _SYNONYMS.items() if stem.startswith(root) for syn in syns]
     return any(len(s) >= 4 and s in w for s in stems for w in words)
 
 
 def _is_business_type(keyword: str) -> bool:
-    """"montallantas", "farmacia", "taller"… son TIPOS de negocio (coinciden con el nombre de una categoría):
-    eso ya lo resuelven las categorías. "pizza" o "frenos" son cosas concretas que el local debe mencionar."""
-    return any(_mentions(name, [keyword]) for name, *_ in CATEGORIES.values())
+    """"montallantas", "farmacia", "taller", "bar"… son TIPOS de negocio (coinciden con el nombre de una
+    categoría): eso ya lo resuelven las categorías. "pizza" o "frenos" son cosas que el local debe mencionar."""
+    key = normalize(keyword.strip())
+    for name, *_ in CATEGORIES.values():
+        words = re.findall(r"[a-z0-9ñ]+", normalize(name))
+        # palabras cortas ("bar"): deben ser el inicio de una palabra de la categoría ("bares")
+        if (len(key) >= 3 and any(w.startswith(key) for w in words)) or _mentions(name, [keyword]):
+            return True
+    return False
+
+
+# Adjetivos y calificativos: describen cómo se quiere algo, no QUÉ se busca ("pizzas grandes" → "pizzas")
+_MODIFIERS = {"grande", "grandes", "pequeno", "pequenos", "pequena", "pequenas", "mediano", "mediana", "barato",
+              "baratos", "barata", "baratas", "economico", "economica", "economicos", "rico", "rica", "ricos",
+              "ricas", "delicioso", "deliciosa", "deliciosos", "mejor", "mejores", "bueno", "buenos", "buenas",
+              "nuevo", "nueva", "bonito", "bonita", "cerca", "cercano", "abierto", "abierta", "abiertos", "caro",
+              "barata", "familiar", "rapido", "rapida",
+              # verbos frecuentes en las consultas: dicen qué se quiere hacer, no qué se vende
+              "tomar", "beber", "comer", "arreglar", "reparar", "quiero", "necesito", "buscar", "busco", "venden",
+              "vendan", "hacer", "pedir", "llevar", "ir", "salir", "compartir"}
 
 
 def _specific_keywords(keywords: list[str]) -> list[str]:
-    """Lo que la persona busca en concreto ("pizza", "frenos"): sin genéricas ("lugar") ni tipos de negocio."""
+    """Lo que la persona busca en concreto ("pizza", "frenos"): sin genéricas ("lugar"), calificativos
+    ("grandes") ni tipos de negocio ("montallantas")."""
     return [k for k in keywords
-            if k.strip() and normalize(k.strip()) not in GENERIC_KEYWORDS and not _is_business_type(k)]
+            if k.strip() and normalize(k.strip()) not in GENERIC_KEYWORDS | _MODIFIERS and not _is_business_type(k)]
 
 
 def _own_text(est: Establishment) -> str:
@@ -232,6 +261,16 @@ def _own_text(est: Establishment) -> str:
     parts += [c.name for c in est.categories]
     parts += [f"{o.section or ''} {o.name} {o.description or ''}" for o in est.offerings if o.is_available]
     return " ".join(parts)
+
+
+def _relevance(text_match: bool, category_match: bool, mentions: bool, has_specific: bool,
+               explicit_type: bool, nothing_mentions_it: bool) -> str:
+    """"alta" = encaja con lo pedido; "relacionada" = solo se parece."""
+    if nothing_mentions_it:
+        return "relacionada"           # nadie menciona lo buscado: todo es aproximado
+    if has_specific and not explicit_type:
+        return "alta" if mentions else "relacionada"   # "pizza": solo lo que la menciona
+    return "alta" if (text_match or category_match or mentions) else "relacionada"
 
 
 def _matched_snippet(entity_type: str, content: str, keywords: list[str]) -> str | None:
@@ -295,6 +334,9 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
     specific = _specific_keywords(intent.keywords)
     mentions = {eid: _mentions(_own_text(e), specific) for eid, e in ests.items()} if specific else {}
     nothing_mentions_it = bool(specific) and not any(mentions.values())
+    # ¿La consulta nombra un TIPO de negocio ("bar para tomar cerveza")? Entonces manda la categoría y lo
+    # mencionado solo ordena dentro de ella. Si solo nombra un producto ("pizza"), manda quién lo vende.
+    explicit_type = any(_is_business_type(k) for k in intent.keywords)
     user_point = (params.latitude, params.longitude) if params.latitude is not None else None
 
     hits: list[SearchHit] = []
@@ -316,6 +358,11 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
             continue
         if category_match:
             score += 0.6 * UNIT
+        # Vende lo que se buscó: va antes que lo cercano que no lo vende.
+        # Con un tipo de negocio pedido, solo entre los de ese tipo (una licorera no le gana a los bares).
+        if mentions.get(eid) and (category_match if explicit_type else
+                                  (allowed_categories is None or allowed_categories & est_categories)):
+            score += MENTION_BOOST * UNIT
         if est.rating_count and est.rating_avg is not None:
             score += 0.3 * UNIT * float(est.rating_avg) / 5
 
@@ -326,6 +373,8 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
             if location and location.source == "gps" and not intent.near_me:
                 # GPS sin pedir lugar: lo cercano y relevante va primero (fuerte en los primeros ~10 km)
                 score += 2.0 * UNIT * max(0.0, 1 - distance_center / 10.0)
+                # …y más allá de 10 km se sigue prefiriendo lo menos lejano (suave, hasta 25 km)
+                score += 1.0 * UNIT * max(0.0, 1 - distance_center / GPS_SOFT_RADIUS_KM)
             else:
                 score += 0.8 * UNIT * max(0.0, 1 - distance_center / (radius or 5.0))
 
@@ -352,12 +401,19 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
             matched_text=_matched_snippet(vec[eid][1], vec[eid][2], specific) if eid in vec else None,
             distance_km=round(distance_user, 2) if distance_user is not None else None,
             budget_fit=fit,
-            # Con algo concreto buscado, "alta" = el local lo menciona (o es del tipo pedido y otros sí lo mencionan)
-            relevance=("alta" if (mentions.get(eid) or (category_match and not nothing_mentions_it)) else "relacionada")
-            if specific else ("alta" if (eid in lex or category_match) else "relacionada"),
+            relevance=_relevance(eid in lex, category_match, mentions.get(eid, False), bool(specific),
+                                 explicit_type, nothing_mentions_it),
         ))
 
     hits.sort(key=lambda h: -h.score)
+    # Con GPS: si lo que SÍ lo vende queda lejos, se dice (en vez de mostrar lo cercano como si sirviera).
+    # Se mide sobre lo que se va a mostrar, para que el aviso coincida con la lista.
+    mention_km = [h.distance_km for h in hits[: params.limit]
+                  if mentions.get(h.establishment.id) and h.distance_km is not None]
+    if specific and not explicit_type and mention_km and min(mention_km) > FAR_KM:
+        wanted = ", ".join(f"«{k}»" for k in specific[:3])
+        km = f"{min(mention_km):.1f}".replace(".", ",")
+        notices.append(f"Cerca de ti no encontramos lugares que mencionen {wanted}; el más cercano está a {km} km.")
     if nothing_mentions_it and hits:
         where = f" en {location.label}" if location and location.source != "gps" else (" cerca de ti" if location else "")
         wanted = ", ".join(f"«{k}»" for k in specific[:3])

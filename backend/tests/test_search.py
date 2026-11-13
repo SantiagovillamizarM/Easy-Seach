@@ -232,3 +232,25 @@ def test_semantic_preview_is_admin_only(client, admin_headers):
     # El cliente tiene la sesión de un usuario normal (fixture automática): no es admin → 403
     assert client.get("/api/semantic-preview", params={"q": "pizza"}).status_code == 403
     assert client.get("/api/semantic-preview", params={"q": "pizza"}, headers=admin_headers).status_code == 200
+
+
+def test_specific_keywords_and_business_types():
+    """Fase 9: "pizza" es un producto concreto; "bar" o "montallantas" son tipos de negocio; "grandes" no cuenta."""
+    from app.services.search import _is_business_type, _specific_keywords
+    assert _is_business_type("bar") and _is_business_type("montallantas") and _is_business_type("droguería")
+    assert not _is_business_type("pizza") and not _is_business_type("frenos")
+    assert _specific_keywords(["pizzerias", "pizzas", "grandes"]) == ["pizzerias", "pizzas"]
+    assert _specific_keywords(["bar", "tomar", "cerveza"]) == ["cerveza"]
+
+
+def test_relevance_rules():
+    from app.services.search import _mentions, _relevance
+    assert _mentions("Lis Burger", ["hamburguesas"])               # sinónimo en inglés
+    assert _mentions("Unifrenos", ["frenos"]) and not _mentions("Picada clásica", ["pizza"])
+    # Producto sin tipo de negocio ("pizza"): solo lo que lo menciona es "alta"
+    assert _relevance(False, True, False, True, False, False) == "relacionada"
+    assert _relevance(False, True, True, True, False, False) == "alta"
+    # Con tipo de negocio ("bar para tomar cerveza"): manda la categoría
+    assert _relevance(False, True, False, True, True, False) == "alta"
+    # Nadie lo menciona: todo es aproximado
+    assert _relevance(True, True, False, True, False, True) == "relacionada"
