@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import Category, Establishment, Place
-from scripts.import_csv import RowError, process_row
+from scripts.import_csv import RowError, process_row, read_rows
 
 
 @pytest.fixture()
@@ -30,7 +30,8 @@ def _run(db, ctx, row):
 
 NEW = _row(slug="burger-house-floridablanca", nombre="Burger House", municipio="Floridablanca",
            latitud="7.0612", longitud="-73.0951", categorias="comida-rapida", precio_min="15000",
-           descripcion="Hamburguesas artesanales a la parrilla", productos="Hamburguesa sencilla:15000|Combo doble:25000",
+           descripcion="Hamburguesas artesanales a la parrilla",
+           productos="Hamburguesa sencilla:15000|Combo doble:25.000:Doble carne: con papas",
            horario="Mo-Sa 11:00-22:00; Su off")
 
 
@@ -38,6 +39,7 @@ def test_new_local_with_fixed_slug_is_idempotent(db, ctx):
     action, est = _run(db, ctx, NEW)
     assert action == "creado" and est.slug == "burger-house-floridablanca" and est.source == "manual"
     assert [o.name for o in est.offerings] == ["Hamburguesa sencilla", "Combo doble"]
+    assert est.offerings[1].description == "Doble carne: con papas"   # la descripción puede llevar ":"
     assert est.opening_hours and est.categories[0].slug == "comida-rapida"
 
     # Cargar el mismo archivo otra vez (o en otra computadora) actualiza, no duplica
@@ -52,6 +54,16 @@ def test_osm_reference_updates_the_right_local(db, ctx):
     assert action == "actualizado" and est.id == ctx["osm"].id
     assert est.description == "Estación con tienda y baños" and est.source == "manual"   # OSM ya no lo sobrescribe
     assert est.name == "Terpel"   # las columnas vacías no se tocan
+
+
+def test_read_rows_keeps_commas_and_apostrophes(tmp_path):
+    for sep in (",", ";"):
+        f = tmp_path / f"locales{sep == ';'}.csv"
+        f.write_text(f'osm{sep}nombre{sep}descripcion\nnode/1{sep}Garrotero\'s Pub{sep}"Hamburguesas, picadas; y cócteles"\n',
+                     encoding="utf-8")
+        rows = read_rows(f)
+        assert rows[0]["nombre"] == "Garrotero's Pub"
+        assert rows[0]["descripcion"] == "Hamburguesas, picadas; y cócteles"
 
 
 def test_invalid_rows_are_reported(db, ctx):

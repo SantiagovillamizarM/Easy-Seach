@@ -12,8 +12,8 @@ Cómo se identifica cada fila (se puede ejecutar varias veces: nunca duplica):
   se CREA con ese slug (así la próxima vez se actualiza en lugar de duplicarse).
 - Sin `osm` ni `slug`: se crea un local nuevo con un slug automático (evítalo en archivos compartidos).
 - Solo se cambian las columnas que tienen datos.
-- `productos` y `servicios`, si tienen datos, REEMPLAZAN la lista actual. Formato: "Nombre:precio|Nombre:precio"
-  (el precio es opcional: "Despinche|Alineación:50000").
+- `productos` y `servicios`, si tienen datos, REEMPLAZAN la lista actual.
+  Formato: "Nombre:precio:descripción|Nombre:precio" (precio y descripción opcionales: "Despinche|Alineación:50000").
 - `horario` usa el formato de OpenStreetMap, ej: "Mo-Fr 08:00-18:00; Sa 08:00-12:00; Su off".
 - Las filas con errores se informan y no se guardan; las demás sí.
 
@@ -21,6 +21,7 @@ Ver la guía completa en docs/CARGA_MANUAL.md
 """
 import argparse
 import csv
+import io
 import re
 import sys
 from datetime import datetime, timezone
@@ -43,12 +44,13 @@ _OSM_REF = re.compile(r"^(node|way|relation)/(\d+)$")
 
 COLUMNS = [
     "osm", "slug", "nombre", "municipio", "latitud", "longitud", "direccion", "barrio", "descripcion", "categorias",
-    "telefono", "whatsapp", "sitio_web", "instagram", "facebook", "precio_min", "precio_max", "nivel_precio",
-    "horario", "productos", "servicios",
+    "telefono", "whatsapp", "correo", "sitio_web", "instagram", "facebook", "precio_min", "precio_max",
+    "nivel_precio", "horario", "productos", "servicios",
 ]
 FIELD_MAP = {  # columna CSV -> campo del modelo
     "nombre": "name", "latitud": "latitude", "longitud": "longitude", "direccion": "address",
     "barrio": "neighborhood", "descripcion": "description", "telefono": "phone", "whatsapp": "whatsapp",
+    "correo": "email",
     "sitio_web": "website", "instagram": "instagram", "facebook": "facebook", "precio_min": "price_min",
     "precio_max": "price_max", "nivel_precio": "price_level",
 }
@@ -59,22 +61,26 @@ class RowError(Exception):
 
 
 def parse_offerings(text: str, kind: str) -> list[Offering]:
+    """"Nombre:precio:descripción|Nombre:precio|Nombre" (precio y descripción opcionales).
+
+    La descripción puede llevar ":" (solo se separan los dos primeros), pero no "|".
+    """
     items = []
     for part in text.split("|"):
         part = part.strip()
         if not part:
             continue
-        name, _, price = part.rpartition(":") if ":" in part else (part, "", "")
+        name, price, description = (part.split(":", 2) + ["", ""])[:3]
         name = name.strip()
         if len(name) < 2:
             raise RowError(f"Nombre de {kind} inválido: '{part}'")
         value = None
         if price.strip():
             try:
-                value = Decimal(price.strip().replace(".", "").replace("$", "").replace(" ", ""))
+                value = Decimal(price.strip().replace(".", "").replace(",", "").replace("$", "").replace(" ", ""))
             except InvalidOperation:
-                raise RowError(f"Precio inválido en '{part}' (usa solo números, ej. 22000)")
-        items.append(Offering(kind=kind, name=name[:200], price=value))
+                raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
+        items.append(Offering(kind=kind, name=name[:200], price=value, description=description.strip()[:1000] or None))
     return items
 
 
@@ -162,6 +168,18 @@ def process_row(db, row: dict, municipalities: dict, categories: dict) -> tuple[
     return action, est
 
 
+def read_rows(path: Path) -> list[dict]:
+    """Lee el CSV. Separador coma o punto y coma (Excel en español usa ";"); comillas dobles estándar.
+
+    No se usa csv.Sniffer: "adivinaba" mal las comillas con textos como "Garrotero's" y partía las
+    descripciones que tienen comas.
+    """
+    text = path.read_text(encoding="utf-8-sig")  # utf-8-sig: soporta archivos guardados por Excel
+    header = text.split("\n", 1)[0]
+    delimiter = ";" if header.count(";") > header.count(",") else ","
+    return list(csv.DictReader(io.StringIO(text), delimiter=delimiter))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Carga establecimientos desde CSV")
     parser.add_argument("archivo", type=Path, nargs="?", default=DEFAULT_FILE,
@@ -171,9 +189,7 @@ def main() -> None:
 
     if not args.archivo.exists():
         sys.exit(f"No existe el archivo {args.archivo}")
-    text = args.archivo.read_text(encoding="utf-8-sig")  # utf-8-sig: soporta archivos guardados por Excel
-    dialect = csv.Sniffer().sniff(text.splitlines()[0], delimiters=",;")
-    rows = list(csv.DictReader(text.splitlines(), dialect=dialect))
+    rows = read_rows(args.archivo)
     if not rows:
         print(f"{args.archivo.name} no tiene locales todavía (solo encabezados). Nada que cargar.")
         return
