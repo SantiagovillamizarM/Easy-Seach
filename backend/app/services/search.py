@@ -11,6 +11,7 @@ Pasos:
    calificación, cercanía y presupuesto.
 6. Calcular horario (abierto/cerrado) y aplicar el filtro "abierto ahora".
 """
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -204,10 +205,45 @@ def _budget_fit(est: Establishment, budget_max: int | None) -> str:
     return "desconocido"
 
 
-def _matched_snippet(entity_type: str, content: str) -> str | None:
-    if entity_type == "offering":
-        return content.split(". Ofrecido por")[0]  # "Producto: Hamburguesa doble"
-    return None
+def _mentions(text: str, keywords: list[str]) -> bool:
+    """¿El texto contiene lo buscado? Compara raíces ("hamburguesas" ~ "hamburguesa") y también dentro de
+    palabras compuestas ("frenos" ~ "Unifrenos", "pizza" ~ "Pizzería"). Raíces de menos de 4 letras no cuentan."""
+    words = re.findall(r"[a-z0-9ñ]+", normalize(text))
+    stems = [normalize(k)[: max(4, len(normalize(k)) - 2)] for k in keywords]
+    return any(len(s) >= 4 and s in w for s in stems for w in words)
+
+
+def _is_business_type(keyword: str) -> bool:
+    """"montallantas", "farmacia", "taller"… son TIPOS de negocio (coinciden con el nombre de una categoría):
+    eso ya lo resuelven las categorías. "pizza" o "frenos" son cosas concretas que el local debe mencionar."""
+    return any(_mentions(name, [keyword]) for name, *_ in CATEGORIES.values())
+
+
+def _specific_keywords(keywords: list[str]) -> list[str]:
+    """Lo que la persona busca en concreto ("pizza", "frenos"): sin genéricas ("lugar") ni tipos de negocio."""
+    return [k for k in keywords
+            if k.strip() and normalize(k.strip()) not in GENERIC_KEYWORDS and not _is_business_type(k)]
+
+
+def _own_text(est: Establishment) -> str:
+    """Lo que el propio local dice de sí mismo. NO incluye la descripción genérica de la categoría
+    ("Hamburguesas, perros, pizza…"): con ella, cualquier local de comida rápida "mencionaría" pizza."""
+    parts = [est.name, est.description or "", (est.osm_tags or {}).get("cuisine", "").replace(";", " ").replace("_", " ")]
+    parts += [c.name for c in est.categories]
+    parts += [f"{o.section or ''} {o.name} {o.description or ''}" for o in est.offerings if o.is_available]
+    return " ".join(parts)
+
+
+def _matched_snippet(entity_type: str, content: str, keywords: list[str]) -> str | None:
+    """Etiqueta "Coincide: …" solo si el producto realmente menciona lo buscado.
+
+    Sin esta condición, una coincidencia solo semántica mostraba cosas engañosas
+    (buscar "pizza" → "Coincide: Picada clásica", porque las palabras se parecen).
+    """
+    if entity_type != "offering":
+        return None
+    snippet = content.split(". Ofrecido por")[0]  # "Producto: Hamburguesa doble (Hamburguesas)"
+    return snippet if keywords and _mentions(snippet, keywords) else None
 
 
 # ======================================================================================
@@ -254,6 +290,11 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
     ests = {e.id: e for e in db.scalars(select(Establishment).options(*LOAD_OPTIONS)
                                         .where(Establishment.id.in_(candidate_ids)))}
     best_similarity = max((1 - d for d, _, _ in vec.values()), default=0)
+    # Si se buscó algo concreto ("pizza") y NINGÚN lugar de la zona lo menciona, los resultados son solo
+    # parecidos: no se marcan como relevancia "alta" y se avisa con honestidad.
+    specific = _specific_keywords(intent.keywords)
+    mentions = {eid: _mentions(_own_text(e), specific) for eid, e in ests.items()} if specific else {}
+    nothing_mentions_it = bool(specific) and not any(mentions.values())
     user_point = (params.latitude, params.longitude) if params.latitude is not None else None
 
     hits: list[SearchHit] = []
@@ -308,13 +349,20 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
             score=score,
             similarity=round(similarity, 4) if similarity is not None else None,
             text_match=eid in lex,
-            matched_text=_matched_snippet(vec[eid][1], vec[eid][2]) if eid in vec else None,
+            matched_text=_matched_snippet(vec[eid][1], vec[eid][2], specific) if eid in vec else None,
             distance_km=round(distance_user, 2) if distance_user is not None else None,
             budget_fit=fit,
-            relevance="alta" if (eid in lex or category_match) else "relacionada",
+            # Con algo concreto buscado, "alta" = el local lo menciona (o es del tipo pedido y otros sí lo mencionan)
+            relevance=("alta" if (mentions.get(eid) or (category_match and not nothing_mentions_it)) else "relacionada")
+            if specific else ("alta" if (eid in lex or category_match) else "relacionada"),
         ))
 
     hits.sort(key=lambda h: -h.score)
+    if nothing_mentions_it and hits:
+        where = f" en {location.label}" if location and location.source != "gps" else (" cerca de ti" if location else "")
+        wanted = ", ".join(f"«{k}»" for k in specific[:3])
+        notices.append(f"Ningún lugar{where} menciona {wanted} en su información. Te mostramos opciones "
+                       f"relacionadas; confirma con el lugar antes de ir.")
 
     # ---- Horario: "abierto ahora" ----
     final: list[SearchHit] = []

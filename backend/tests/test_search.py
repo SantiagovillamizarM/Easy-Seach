@@ -146,6 +146,26 @@ def _names(response):
     return [r["name"] for r in response.json()["results"]]
 
 
+def test_nothing_mentions_the_product_gives_honest_notice(client, world):
+    """Buscar "pizza" donde ningún lugar la menciona: solo resultados relacionados y un aviso (Fase 9)."""
+    body = client.post("/api/search", json={"q": "pizza en Piedecuesta"}).json()
+    assert body["results"], "se muestran opciones de comida rápida relacionadas"
+    assert all(r["relevance"] == "relacionada" for r in body["results"])
+    assert any("Ningún lugar en Piedecuesta menciona «pizza»" in n for n in body["notices"])
+    assert all(r["matched_text"] is None for r in body["results"])   # sin "Coincide: …" engañoso
+    # Cuando sí se menciona, la relevancia es alta y no hay aviso
+    body = client.post("/api/search", json={"q": "hamburguesas en Piedecuesta"}).json()
+    assert body["results"][0]["relevance"] == "alta"
+    assert not any("Ningún lugar" in n for n in body["notices"])
+
+
+def test_matched_snippet_requires_the_searched_word():
+    from app.services.search import _matched_snippet
+    content = "Producto: Picada clásica (2 personas) (Picadas). Ofrecido por Garrotero's Pub."
+    assert _matched_snippet("offering", content, ["pizza"]) is None
+    assert _matched_snippet("offering", content, ["picadas"]) == "Producto: Picada clásica (2 personas) (Picadas)"
+
+
 def test_search_filters_by_written_location(client, world):
     r = client.post("/api/search", json={"q": "quiero una hamburguesa en Piedecuesta"})
     assert r.status_code == 200
