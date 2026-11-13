@@ -5,6 +5,7 @@ import HoursEditor from "../components/panel/HoursEditor.jsx";
 import InfoForm from "../components/panel/InfoForm.jsx";
 import OfferingsEditor from "../components/panel/OfferingsEditor.jsx";
 import PhotosEditor from "../components/panel/PhotosEditor.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 
 const TABS = [
@@ -16,6 +17,7 @@ const TABS = [
 
 export default function OwnerEditorPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const [est, setEst] = useState(null);
   const [error, setError] = useState(null);
@@ -66,11 +68,12 @@ export default function OwnerEditorPage() {
   }
 
   const ActiveComponent = active.Component;
+  const adminEditing = user?.role === "admin" && est.owner_id !== user.id;
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      <Link to="/panel" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-ink">
+      <Link to={adminEditing ? "/admin/negocios" : "/panel"} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-ink">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Mi panel
+        {adminEditing ? "Negocios (administración)" : "Mi panel"}
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-3">

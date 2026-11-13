@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, History, LogOut, Store, UserRound } from "lucide-react";
+import { ChevronDown, Heart, History, LogOut, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -11,6 +11,13 @@ export const ACCOUNT_LINKS = [
 
 // Solo para quienes administran negocios
 const OWNER_LINK = { to: "/panel", label: "Panel comercial", icon: Store };
+const ADMIN_LINK = { to: "/admin", label: "Panel administrativo", icon: ShieldCheck };
+
+function linksFor(role) {
+  if (role === "admin") return [ADMIN_LINK, OWNER_LINK, ...ACCOUNT_LINKS];
+  if (role === "owner") return [OWNER_LINK, ...ACCOUNT_LINKS];
+  return ACCOUNT_LINKS;
+}
 
 export default function UserMenu() {
   const { user, logout } = useAuth();
@@ -61,7 +68,7 @@ export default function UserMenu() {
       {open && (
         <div role="menu" className="card absolute right-0 z-[1200] mt-2 w-56 p-1.5">
           <p className="truncate px-3 py-2 text-xs text-ink-soft">{user.email}</p>
-          {(user.role === "owner" || user.role === "admin" ? [OWNER_LINK, ...ACCOUNT_LINKS] : ACCOUNT_LINKS).map(({ to, label, icon: Icon }) => (
+          {linksFor(user.role).map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-brand-50">
               <Icon className="h-4 w-4 text-ink-soft" aria-hidden="true" />
               {label}

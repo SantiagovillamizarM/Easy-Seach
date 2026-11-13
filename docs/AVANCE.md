@@ -23,7 +23,7 @@
 | 4 — Frontend de búsqueda | ✅ Completada |
 | 5 — Recomendaciones IA y cuenta de usuario | ✅ Completada |
 | 6 — Reseñas y panel comercial | ✅ Completada |
-| 7 — Panel administrativo | ⏳ Pendiente |
+| 7 — Panel administrativo | ✅ Completada |
 | 8 — Calidad y seguridad | ⏳ Pendiente |
 | 9 — Documentación y cierre | ⏳ Pendiente |
 
@@ -295,6 +295,45 @@ Rama: `feature/fase-6-resenas-panel-comercial` (3 commits: reseñas, solicitudes
 - En Windows una prueba no podía borrar la foto porque seguía abierta → la prueba cierra la imagen (`with`) y el
   borrado tolera archivos bloqueados.
 - Un id de negocio no numérico en la URL mostraba un error técnico en inglés → ahora dice "Este negocio no existe".
+
+## Fase 7 — Panel administrativo
+
+Rama: `feature/fase-7-panel-admin` (2 commits: API y la interfaz).
+
+**Bloque A — API (`/api/admin/*`, solo rol admin):**
+- `overview`: tareas pendientes (reseñas, reportes, solicitudes, duplicados) y completitud de los datos.
+- Moderación de reseñas (`reviews`, `approve`, `reject`): recalcula la calificación, cierra los reportes y
+  conserva `updated_at` (moderar no marca la reseña como "editada").
+- Negocios: búsqueda sin tildes, filtros, ocultar/reactivar, marcar como duplicado de otro, verificar y quitar dueño.
+  Ocultar no borra nada; todas las vistas públicas ya filtraban por `status = 'active'`.
+- Duplicados: nombre parecido (trigramas de `pg_trgm`, ≥ 0,45) a menos de 200 m; se descartan los pares cuyo nombre
+  solo cambia en un número o letra ("Cabecera II Etapa" vs "III Etapa"). Tabla nueva `duplicate_dismissals`
+  (migración `5d46ac6b4e8a`) para los pares marcados como "no son duplicados".
+- Usuarios: búsqueda, cambio de rol (al pasar a "usuario" sus negocios quedan sin dueño) y desactivación. Un admin no
+  puede quitarse su propio rol ni desactivarse.
+- Categorías: solo lectura con conteos (se definen en `app/data/categories.py` porque el buscador usa sus palabras
+  clave). Estadísticas de búsqueda: por día, más buscadas, sin resultados y categorías.
+
+**Bloque B — Interfaz `/admin`** (carga diferida: no pesa para los demás usuarios):
+- Resumen, Reseñas (por revisar / reportadas / rechazadas / publicadas, con motivos predefinidos), Solicitudes,
+  Negocios (el botón Editar reutiliza el editor del panel comercial), Duplicados (lado a lado, con sugerencia de cuál
+  conservar), Usuarios, Búsquedas (gráfica SVG por día con tooltip y tabla para lectores de pantalla) y Categorías.
+- Contadores de pendientes en el menú lateral; enlace "Panel administrativo" en el menú de usuario.
+
+**Verificado:**
+- `pytest`: 114 pruebas pasando (11 del panel admin).
+- Con datos reales: 71 pares de posibles duplicados en ~300 ms (muchas estaciones Terpel/Primax duplicadas en OSM).
+- Recorrido con un admin, usuarios y un negocio temporales: capturas de todas las secciones y acciones ejecutadas desde
+  el navegador con el `api.js` real (aprobar, rechazar con motivo, aprobar solicitud, ocultar, autoprotección del
+  admin). Datos de prueba eliminados.
+
+**Problemas encontrados y solución:**
+- `/admin/duplicates` y `/admin/establishments` daban error 500 con datos reales: las categorías eran objetos de
+  SQLAlchemy dentro de un `dict` (las pruebas no lo detectaron porque sus negocios no tenían categoría) → se convierten
+  a dict y la prueba ahora incluye una categoría.
+- El parámetro `q` de la URL del panel se mostraba en la barra de búsqueda del encabezado → se renombró a `texto`.
+- Abrir una búsqueda desde las estadísticas habría registrado una búsqueda nueva y alterado los datos → las búsquedas
+  se muestran como texto, sin enlace.
 
 ## Convención de commits
 
