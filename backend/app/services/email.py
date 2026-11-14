@@ -19,7 +19,8 @@ class EmailError(RuntimeError):
     pass
 
 
-def send_email(to: str, subject: str, text: str, html: str | None = None) -> None:
+def send_email(to: str, subject: str, text: str, html: str | None = None,
+               headers: dict[str, str] | None = None) -> None:
     settings = get_settings()
     if not settings.smtp_configured:
         if settings.is_production:
@@ -32,6 +33,8 @@ def send_email(to: str, subject: str, text: str, html: str | None = None) -> Non
     msg["Subject"] = subject
     msg["From"] = formataddr((settings.smtp_from_name, settings.smtp_user))
     msg["To"] = to
+    for name, value in (headers or {}).items():   # p. ej. List-Unsubscribe en los avisos
+        msg[name] = value
     msg.set_content(text)
     if html:
         msg.add_alternative(html, subtype="html")

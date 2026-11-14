@@ -227,8 +227,10 @@ def _stars(rating: int) -> str:
 
 
 def _notice_layout(*, title_tag: str, preheader: str, badge: str, title: str, subtitle: str, body: str,
-                   footer: str) -> str:
+                   footer: str, unsubscribe_url: str | None = None) -> str:
     """Esqueleto de los avisos (encabezado con degradado + cuerpo + pie). Todo lo recibido ya viene escapado."""
+    unsubscribe = (f'<br><a href="{html_escape(unsubscribe_url)}" style="color:#a5adc2;text-decoration:underline">'
+                   'Dejar de recibir estos avisos</a>' if unsubscribe_url else "")
     return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
@@ -268,12 +270,16 @@ def _notice_layout(*, title_tag: str, preheader: str, badge: str, title: str, su
     <p style="margin:6px 0 0;font-family:{FONT};font-size:12px;line-height:1.6;color:#a5adc2">
       Bucaramanga &middot; Floridablanca &middot; Girón &middot; Piedecuesta</p>
     <p style="margin:12px 0 0;font-family:{FONT};font-size:11px;line-height:1.6;color:#6b7390">
-      {footer}</p>
+      {footer}{unsubscribe}</p>
   </td></tr>
 </table>
 </td></tr>
 </table>
 </body></html>"""
+
+
+def _unsubscribe_text(url: str | None) -> str:
+    return f"\nPara dejar de recibir estos avisos: {url}\n" if url else ""
 
 
 def _greeting(first: str, intro: str) -> str:
@@ -340,7 +346,7 @@ def _tip(color: str, label: str, text: str) -> str:
 # ------------------------------- Aviso al propietario: reseña nueva --------------------------
 
 def build_new_review_email(owner_name: str, place: str, author: str, rating: int, comment: str | None,
-                           url: str) -> tuple[str, str, str]:
+                           url: str, unsubscribe_url: str | None = None) -> tuple[str, str, str]:
     """Correo al propietario cuando se publica una reseña de su negocio. Devuelve (asunto, texto plano, HTML).
 
     Todo lo que escriben los usuarios (nombre, reseña, nombre del negocio) se escapa: nunca se inserta HTML.
@@ -351,7 +357,8 @@ def build_new_review_email(owner_name: str, place: str, author: str, rating: int
     text = (f"Hola {first},\n\n{author} calificó {place} con {rating} {word}.\n\n"
             + (f"«{comment}»\n\n" if comment else "Dejó solo la calificación, sin comentario.\n\n")
             + f"Respóndela desde tu panel: {url}\n\n"
-            "Responder rápido muestra a otros clientes que te importa su experiencia." + _SIGNATURE)
+            "Responder rápido muestra a otros clientes que te importa su experiencia." + _SIGNATURE
+            + _unsubscribe_text(unsubscribe_url))
 
     e = html_escape
     good = rating >= 4
@@ -367,20 +374,22 @@ def build_new_review_email(owner_name: str, place: str, author: str, rating: int
     html = _notice_layout(
         title_tag=e(subject), preheader=f"{e(author)} calificó {e(place)} con {rating} {word}.",
         badge="Nueva reseña", title="Un cliente opinó sobre tu negocio", subtitle=e(place), body=body,
-        footer=f"Recibiste este correo porque administras {e(place)} en Easy Search.")
+        footer=f"Recibiste este correo porque administras {e(place)} en Easy Search.",
+        unsubscribe_url=unsubscribe_url)
     return subject, text, html
 
 
 # ------------------------------- Aviso al cliente: el negocio respondió ----------------------
 
 def build_owner_reply_email(user_name: str, place: str, rating: int, comment: str | None, reply: str,
-                            url: str) -> tuple[str, str, str]:
+                            url: str, unsubscribe_url: str | None = None) -> tuple[str, str, str]:
     """Correo al autor de una reseña cuando el negocio la responde. Devuelve (asunto, texto plano, HTML)."""
     first = user_name.split()[0] if user_name else ""
     subject = f"{place} respondió tu reseña"
     text = (f"Hola {first},\n\n{place} respondió la reseña que escribiste en Easy Search.\n\n"
             + (f"Tu reseña: «{comment}»\n\n" if comment else "")
-            + f"Respuesta de {place}: «{reply}»\n\nVer en Easy Search: {url}" + _SIGNATURE)
+            + f"Respuesta de {place}: «{reply}»\n\nVer en Easy Search: {url}" + _SIGNATURE
+            + _unsubscribe_text(unsubscribe_url))
 
     e = html_escape
     reply_box = f"""
@@ -405,5 +414,6 @@ def build_owner_reply_email(user_name: str, place: str, rating: int, comment: st
     html = _notice_layout(
         title_tag=e(subject), preheader=f"{e(place)} respondió tu reseña: {e(reply[:80])}",
         badge="Respuesta", title="El negocio respondió tu reseña", subtitle=e(place), body=body,
-        footer="Recibiste este correo porque escribiste una reseña en Easy Search.")
+        footer="Recibiste este correo porque escribiste una reseña en Easy Search.",
+        unsubscribe_url=unsubscribe_url)
     return subject, text, html

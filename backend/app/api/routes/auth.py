@@ -15,6 +15,8 @@ from app.db.session import get_db
 from app.models import User
 from app.schemas.user import (
     ForgotPasswordIn,
+    NotificationPrefs,
+    UnsubscribeIn,
     PasswordChange,
     ResetPasswordIn,
     Token,
@@ -25,6 +27,7 @@ from app.schemas.user import (
 )
 from app.services import email as email_service
 from app.services.captcha import verify_captcha
+from app.services.unsubscribe import KINDS, read_token
 from app.services.verification import CODE_TTL_MINUTES, check_code, check_reset_code, issue_code, issue_reset_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -214,6 +217,41 @@ def update_me(data: UserUpdate, user: User = Depends(get_current_user), db: Sess
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.patch("/me/notifications", response_model=UserOut)
+def update_notifications(data: NotificationPrefs, user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)) -> User:
+    """Enciende o apaga los avisos por correo de la cuenta."""
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+UNSUBSCRIBED = {
+    "resenas": "Ya no te avisaremos por correo de las reseñas nuevas de tu negocio.",
+    "respuestas": "Ya no te avisaremos por correo cuando un negocio responda tus reseñas.",
+}
+
+
+@router.post("/unsubscribe", dependencies=[Depends(limit_by_ip("unsubscribe", 30, 60 * 60))])
+def unsubscribe(data: UnsubscribeIn, db: Session = Depends(get_db)) -> dict:
+    """Desde el enlace "dejar de recibir" de un aviso, sin iniciar sesión (el enlace va firmado).
+
+    Es POST y la página pide confirmar con un botón: algunos correos abren los enlaces solos para revisarlos
+    y un GET daría de baja a la persona sin que lo pidiera.
+    """
+    parsed = read_token(data.token.strip())
+    user = db.get(User, parsed[0]) if parsed else None
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="El enlace no es válido. Puedes apagar los avisos "
+                                                                "desde Mi perfil.")
+    kind = parsed[1]
+    setattr(user, KINDS[kind], False)
+    db.commit()
+    return {"detail": UNSUBSCRIBED[kind], "kind": kind}
 
 
 @router.post("/change-password", response_model=Token,

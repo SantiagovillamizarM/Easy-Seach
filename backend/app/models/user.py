@@ -40,6 +40,10 @@ class User(TimestampMixin, Base):
     reset_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reset_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # Avisos por correo (se apagan desde "Mi perfil" o con el enlace "dejar de recibir" de cada aviso)
+    notify_new_reviews: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")     # dueños
+    notify_review_replies: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")  # clientes
+
     @property
     def email_verified(self) -> bool:
         return self.email_verified_at is not None

@@ -12,6 +12,7 @@ import OwnerEditorPage from "./pages/OwnerEditorPage.jsx";
 import OwnerPanelPage from "./pages/OwnerPanelPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ResultsPage from "./pages/ResultsPage.jsx";
+import UnsubscribePage from "./pages/UnsubscribePage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 
 // Panel administrativo: se descarga solo cuando un administrador entra (no pesa para los demás usuarios)
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />
         <Route path="recuperar" element={<ForgotPasswordPage />} />
+        <Route path="correos/baja" element={<UnsubscribePage />} />
         <Route path="perfil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="favoritos" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="historial" element={<RequireAuth><HistoryPage /></RequireAuth>} />

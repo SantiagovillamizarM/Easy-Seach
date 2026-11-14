@@ -79,6 +79,18 @@ class UserOut(BaseModel):
     is_active: bool
     email_verified: bool = False
     created_at: datetime
+    notify_new_reviews: bool = True       # aviso al dueño: le publicaron una reseña
+    notify_review_replies: bool = True    # aviso al cliente: el negocio respondió su reseña
+
+
+class NotificationPrefs(BaseModel):
+    """Solo se cambian los campos enviados."""
+    notify_new_reviews: bool | None = None
+    notify_review_replies: bool | None = None
+
+
+class UnsubscribeIn(BaseModel):
+    token: str = Field(min_length=10, max_length=120)
 
 
 class Token(BaseModel):

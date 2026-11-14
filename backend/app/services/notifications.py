@@ -13,15 +13,17 @@ from app.core.text import short_name
 from app.models import Establishment, Review, User
 from app.services import email as email_service
 from app.services.email_templates import build_new_review_email, build_owner_reply_email
+from app.services.unsubscribe import unsubscribe_url
 
 logger = logging.getLogger("easysearch.notifications")
 
 MAX_REVIEW_MAILS_PER_HOUR = 10   # si llegan muchas seguidas, nadie recibe una avalancha de correos
 
 
-def _send_safely(to: str, subject: str, text: str, html: str) -> None:
+def _send_safely(to: str, subject: str, text: str, html: str, unsubscribe: str) -> None:
     try:
-        email_service.send_email(to, subject, text, html)
+        # List-Unsubscribe: Gmail y Outlook muestran su propio botón "Anular suscripción"
+        email_service.send_email(to, subject, text, html, headers={"List-Unsubscribe": f"<{unsubscribe}>"})
     except email_service.EmailError:
         logger.error("Falló un aviso de reseñas por correo")
 
@@ -34,13 +36,16 @@ def notify_owner_new_review(db: Session, review: Review, background: BackgroundT
     owner = db.get(User, est.owner_id) if est and est.owner_id else None
     if owner is None or not owner.is_active or not owner.email_verified or owner.id == review.user_id:
         return False
+    if not owner.notify_new_reviews:   # lo apagó en Mi perfil o con el enlace del correo
+        return False
     if limiter.hit(f"review-mail:{owner.id}", MAX_REVIEW_MAILS_PER_HOUR, 60 * 60):
         return False
     author = db.get(User, review.user_id)
     url = f"{get_settings().app_url.rstrip('/')}/panel/lugar/{est.id}?tab=resenas"
+    unsubscribe = unsubscribe_url(owner.id, "resenas")
     subject, text, html = build_new_review_email(owner.full_name, est.name, short_name(author.full_name),
-                                                 review.rating, review.comment, url)
-    background.add_task(_send_safely, owner.email, subject, text, html)
+                                                 review.rating, review.comment, url, unsubscribe)
+    background.add_task(_send_safely, owner.email, subject, text, html, unsubscribe)
     return True
 
 
@@ -49,13 +54,14 @@ def notify_reviewer_reply(db: Session, review: Review, background: BackgroundTas
     if review.status != "approved" or not review.owner_reply:
         return False
     author = db.get(User, review.user_id)
-    if author is None or not author.is_active or not author.email_verified:
+    if author is None or not author.is_active or not author.email_verified or not author.notify_review_replies:
         return False
     if limiter.hit(f"reply-mail:{author.id}", MAX_REVIEW_MAILS_PER_HOUR, 60 * 60):
         return False
     est = db.get(Establishment, review.establishment_id)
     url = f"{get_settings().app_url.rstrip('/')}/lugar/{est.slug}"
+    unsubscribe = unsubscribe_url(author.id, "respuestas")
     subject, text, html = build_owner_reply_email(author.full_name, est.name, review.rating, review.comment,
-                                                  review.owner_reply, url)
-    background.add_task(_send_safely, author.email, subject, text, html)
+                                                  review.owner_reply, url, unsubscribe)
+    background.add_task(_send_safely, author.email, subject, text, html, unsubscribe)
     return True

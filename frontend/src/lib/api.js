@@ -115,6 +115,8 @@ export const api = {
   me: (opts) => request("/auth/me", opts),
   updateMe: (data) => request("/auth/me", { method: "PATCH", body: data }),
   changePassword: (data) => request("/auth/change-password", { method: "POST", body: data }),
+  updateNotifications: (data) => request("/auth/me/notifications", { method: "PATCH", body: data }),
+  unsubscribe: (token) => request("/auth/unsubscribe", { method: "POST", body: { token } }),
   // Favoritos e historial (del usuario con sesión)
   favorites: (opts) => request("/me/favorites", opts),
   favoriteIds: (opts) => request("/me/favorites/ids", opts),

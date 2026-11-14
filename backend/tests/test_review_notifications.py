@@ -11,7 +11,8 @@ from tests.conftest import _make_user, _token
 def outbox(monkeypatch):
     sent = []
     monkeypatch.setattr(notifications.email_service, "send_email",
-                        lambda to, subject, text, html=None: sent.append({"to": to, "subject": subject, "text": text}))
+                        lambda to, subject, text, html=None, headers=None: sent.append(
+                            {"to": to, "subject": subject, "text": text, "html": html, "headers": headers or {}}))
     return sent
 
 
@@ -106,3 +107,46 @@ def test_first_reply_emails_the_reviewer_once(client, place, user_headers, outbo
 def test_reply_email_escapes_user_text():
     subject, text, html = build_owner_reply_email("Ana", "Bar <b>", 3, "<img src=x>", "<script>x</script>", "http://a")
     assert "<script>" not in html and "<img" not in html and "&lt;script&gt;" in html
+
+
+# ------------------------------- Preferencias y bajas -------------------------------------
+
+def test_each_notice_has_a_working_unsubscribe_link(client, db, place, user_headers, outbox):
+    from app.models import User
+    _review(client, place, user_headers, rating=5)
+    mail = outbox[0]
+    link = mail["headers"]["List-Unsubscribe"].strip("<>")
+    assert "/correos/baja?t=" in link and link in mail["text"] and "Dejar de recibir estos avisos" in mail["html"]
+
+    token = link.split("t=")[1]
+    r = client.post("/api/auth/unsubscribe", json={"token": token})        # sin iniciar sesión
+    assert r.status_code == 200 and r.json()["kind"] == "resenas"
+    owner = db.query(User).filter(User.email == "duenia.aviso@test.com").one()
+    db.refresh(owner)
+    assert owner.notify_new_reviews is False and owner.notify_review_replies is True
+
+    # Ya no le llegan avisos de reseñas nuevas
+    _make_user(db, "otro.cliente@test.com", "user")
+    other = {"Authorization": f"Bearer {_token(client, 'otro.cliente@test.com')}"}
+    _review(client, place, other, rating=3)
+    assert len(outbox) == 1
+
+
+def test_forged_or_altered_unsubscribe_link_is_rejected(client, db, place):
+    from app.services.unsubscribe import make_token
+    good = make_token(place.owner_id, "resenas")
+    for bad in [good[:-1] + ("0" if good[-1] != "0" else "1"),       # firma alterada
+                good.replace(f"{place.owner_id}.", f"{place.owner_id + 1}.", 1),   # otro usuario
+                "123.resenas.abc", "basura-sin-formato"]:
+        assert client.post("/api/auth/unsubscribe", json={"token": bad}).status_code in (400, 422), bad
+
+
+def test_profile_toggles_notifications(client, user_headers, place, outbox, db):
+    r = client.patch("/api/auth/me/notifications", json={"notify_review_replies": False}, headers=user_headers)
+    assert r.status_code == 200
+    assert r.json()["notify_review_replies"] is False and r.json()["notify_new_reviews"] is True
+    review = _review(client, place, user_headers, rating=4)
+    outbox.clear()
+    client.put(f"/api/reviews/{review['id']}/reply", json={"text": "Gracias"}, headers=_owner_headers(client))
+    assert outbox == []                                                     # el cliente apagó este aviso
+    assert client.patch("/api/auth/me/notifications", json={"notify_review_replies": True}).status_code == 401
