@@ -83,6 +83,7 @@ app.add_middleware(
     allow_credentials=False,  # la sesión viaja en la cabecera Authorization, no en cookies
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["X-Error-Code", "Retry-After"],   # el frontend distingue p. ej. "guest_limit"
 )
 
 # Todas las rutas de la API viven bajo /api

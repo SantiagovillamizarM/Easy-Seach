@@ -34,6 +34,12 @@ class User(TimestampMixin, Base):
     verification_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # Recuperar la contraseña con un código de 6 dígitos (también solo el hash). Separado de la confirmación
+    # del correo para que pedir uno no anule el otro.
+    reset_code_hash: Mapped[str | None] = mapped_column(String(64))
+    reset_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reset_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     @property
     def email_verified(self) -> bool:
         return self.email_verified_at is not None

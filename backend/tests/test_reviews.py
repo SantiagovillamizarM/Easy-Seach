@@ -175,3 +175,54 @@ def test_my_review_shows_status(client, place, user_headers):
                 json={"rating": 5, "comment": "Muy buen lugar para trabajar"}, headers=user_headers)
     mine = client.get(f"/api/establishments/{place.id}/reviews/mine", headers=user_headers).json()
     assert mine["status"] == "pending" and mine["moderation_reason"]
+
+
+# ------------------------------- Respuesta del propietario --------------------------------
+
+def _approved_review(client, place, headers):
+    r = client.post(f"/api/establishments/{place.id}/reviews", json={"rating": 4}, headers=headers)
+    assert r.status_code in (200, 201) and r.json()["status"] == "approved", r.text
+    return r.json()["id"]
+
+
+def test_owner_replies_publicly_without_marking_review_as_edited(client, place, user_headers):
+    review_id = _approved_review(client, place, user_headers)
+    owner = _h(client, "duenio.resenas@test.com")
+    r = client.put(f"/api/reviews/{review_id}/reply", json={"text": "  ¡Gracias por   visitarnos! "}, headers=owner)
+    assert r.status_code == 200 and r.json()["owner_reply"] == "¡Gracias por visitarnos!"
+
+    item = client.get(f"/api/establishments/{place.id}/reviews").json()["items"][0]
+    assert item["owner_reply"] == "¡Gracias por visitarnos!" and item["owner_reply_at"]
+    assert item["edited"] is False
+
+    # Editar y borrar la respuesta
+    client.put(f"/api/reviews/{review_id}/reply", json={"text": "Gracias, te esperamos pronto"}, headers=owner)
+    assert client.get(f"/api/establishments/{place.id}/reviews").json()["items"][0]["owner_reply"] == \
+        "Gracias, te esperamos pronto"
+    assert client.delete(f"/api/reviews/{review_id}/reply", headers=owner).status_code == 204
+    assert client.get(f"/api/establishments/{place.id}/reviews").json()["items"][0]["owner_reply"] is None
+
+
+def test_only_this_places_owner_or_admin_can_reply(client, db, place, user_headers, admin_headers):
+    review_id = _approved_review(client, place, user_headers)
+    other_owner = _make_user(db, "otro.duenio@test.com", "owner")
+    assert other_owner
+    body = {"text": "Gracias"}
+    assert client.put(f"/api/reviews/{review_id}/reply", json=body, headers=user_headers).status_code == 403
+    assert client.put(f"/api/reviews/{review_id}/reply", json=body,
+                      headers=_h(client, "otro.duenio@test.com")).status_code == 403
+    assert client.put(f"/api/reviews/{review_id}/reply", json=body, headers=admin_headers).status_code == 200
+    assert client.put(f"/api/reviews/{review_id}/reply", json=body).status_code == 401
+
+
+def test_reply_rules_and_unpublished_reviews(client, db, place, user_headers):
+    review_id = _approved_review(client, place, user_headers)
+    owner = _h(client, "duenio.resenas@test.com")
+    r = client.put(f"/api/reviews/{review_id}/reply", json={"text": "Escríbenos al 300 123 4567"}, headers=owner)
+    assert r.status_code == 400 and "respuestas" in r.json()["detail"]
+    assert client.put(f"/api/reviews/{review_id}/reply", json={"text": " "}, headers=owner).status_code == 422
+    # Una reseña pendiente o rechazada no se puede responder (no es pública)
+    from app.models import Review
+    db.get(Review, review_id).status = "pending"
+    db.flush()
+    assert client.put(f"/api/reviews/{review_id}/reply", json={"text": "Gracias"}, headers=owner).status_code == 404

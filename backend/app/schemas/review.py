@@ -29,6 +29,20 @@ class ReviewOut(BaseModel):
     author: str
     created_at: datetime
     edited: bool
+    owner_reply: str | None = None          # respuesta pública del propietario del negocio
+    owner_reply_at: datetime | None = None
+
+
+class ReplyIn(BaseModel):
+    text: str = Field(min_length=2, max_length=1000)
+
+    @field_validator("text")
+    @classmethod
+    def clean_text(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if len(v) < 2:
+            raise ValueError("Escribe una respuesta")
+        return v
 
 
 class MyReviewOut(ReviewOut):

@@ -46,9 +46,10 @@ def test_register_sends_code_and_blocks_search_until_verified(client, outbox):
     assert client.get("/api/auth/me", headers=h).json()["email_verified"] is True
 
 
-def test_anonymous_cannot_search_or_use_ai(client):
-    assert client.post("/api/search", json={"q": "pizza"}).status_code == 401
-    assert client.post("/api/recommendations", json={"q": "pizza", "establishment_ids": [1]}).status_code == 401
+def test_anonymous_gets_only_trial_searches(client):
+    """Sin cuenta se puede probar unas pocas veces (detalle en test_guest_search.py)."""
+    first = client.post("/api/search", json={"q": "pizza"})
+    assert first.status_code == 200 and first.json()["guest_remaining"] == 2
 
 
 def test_code_is_stored_hashed_and_expires(client, db, outbox):

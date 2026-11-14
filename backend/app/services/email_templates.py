@@ -53,22 +53,36 @@ def _feature(color: str, title: str, text: str) -> str:
 </td>"""
 
 
-def build_verification_email(name: str, code: str, minutes: int) -> tuple[str, str, str]:
-    """Correo con el código de confirmación. Devuelve (asunto, texto plano, HTML)."""
+def _features() -> str:
+    return f"""
+  <!-- QUÉ PUEDES HACER -->
+  <tr><td class="pad" style="padding:14px 31px 6px;background:#ffffff">
+    <p style="margin:0 5px 12px;font-family:{FONT};font-size:12px;font-weight:800;letter-spacing:1.5px;
+              color:{INK_SOFT}">CON TU CUENTA PUEDES</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      {_feature(BRAND, "Buscar con IA", "Escribe como hablas: “hamburguesas baratas cerca”.")}
+      {_feature(OPEN, "Guardar favoritos", "Ten a mano los lugares que más te gustan.")}
+      {_feature("#f59e0b", "Calificar", "Comparte tu experiencia con reseñas.")}
+    </tr></table>
+  </td></tr>
+"""
+
+
+def _code_email(*, name: str, code: str, minutes: int, subject: str, preheader: str, badge: str, title: str,
+                subtitle: str, intro: str, steps: list[tuple[str, str]], features: bool, warning: str,
+                footer: str) -> str:
+    """HTML de un correo con código de 6 dígitos (confirmar la cuenta o recuperar la contraseña)."""
     first = name.split()[0] if name else ""
     first_html = html_escape(first)  # el nombre lo escribe el usuario: nunca se inserta HTML sin escapar
-    subject = f"{code} es tu código de Easy Search"
-    text = (f"Hola {first},\n\nTu código para confirmar tu cuenta de Easy Search es: {code}\n\n"
-            f"Vence en {minutes} minutos. Nunca te lo pediremos por teléfono ni por mensaje.\n"
-            "Si no creaste una cuenta, ignora este correo.\n\n— Easy Search · Área metropolitana de Bucaramanga\n")
+    steps_html = "\n      ".join(_step(i, t, d) for i, (t, d) in enumerate(steps, start=1))
+    features_html = _features() if features else ""
 
     html = f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>{subject}</title><style>{_MOBILE_CSS}</style></head>
 <body style="margin:0;padding:0;background:{CANVAS}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">Escribe este código en la app para activar tu
-cuenta. Vence en {minutes} minutos.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">{preheader}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{CANVAS};padding:28px 0">
 <tr><td align="center">
 <table class="card" role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -88,19 +102,19 @@ cuenta. Vence en {minutes} minutos.</div>
       </td>
       <td align="right"><span style="display:inline-block;padding:6px 12px;border-radius:999px;
           background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);font-family:{FONT};
-          font-size:11px;font-weight:700;letter-spacing:0.5px;color:#ffffff;text-transform:uppercase">Verificación</span></td>
+          font-size:11px;font-weight:700;letter-spacing:0.5px;color:#ffffff;text-transform:uppercase">{badge}</span></td>
     </tr></table>
     <h1 class="hero-title" style="margin:30px 0 6px;font-family:{FONT};font-size:30px;line-height:1.15;
-        font-weight:800;color:#ffffff">Confirma tu correo</h1>
+        font-weight:800;color:#ffffff">{title}</h1>
     <p style="margin:0;font-family:{FONT};font-size:15px;line-height:1.5;color:#dfe3ff">
-      Un paso más y empiezas a encontrar negocios, productos y servicios cerca de ti.</p>
+      {subtitle}</p>
   </td></tr>
 
   <!-- SALUDO -->
   <tr><td class="pad" style="padding:30px 36px 6px;font-family:{FONT};color:{INK}">
     <p style="margin:0 0 6px;font-size:20px;font-weight:800">¡Hola, {first_html}! &#128075;</p>
     <p style="margin:0;font-size:15px;line-height:1.6;color:{INK_SOFT}">
-      Gracias por registrarte en Easy Search. Este es tu código de verificación:</p>
+      {intro}</p>
   </td></tr>
 
   <!-- CÓDIGO -->
@@ -124,31 +138,17 @@ cuenta. Vence en {minutes} minutos.</div>
     <p style="margin:0 0 14px;font-family:{FONT};font-size:12px;font-weight:800;letter-spacing:1.5px;
               color:{INK_SOFT}">CÓMO USARLO</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      {_step(1, "Vuelve a Easy Search", "Abre la pantalla “Confirma tu correo” (si la cerraste, inicia sesión).")}
-      {_step(2, "Escribe los 6 números", "Tal como aparecen arriba, sin espacios.")}
-      {_step(3, "¡Listo!", "Tu cuenta queda activa y ya puedes buscar.")}
+      {steps_html}
     </table>
   </td></tr>
-
-  <!-- QUÉ PUEDES HACER -->
-  <tr><td class="pad" style="padding:14px 31px 6px;background:#ffffff">
-    <p style="margin:0 5px 12px;font-family:{FONT};font-size:12px;font-weight:800;letter-spacing:1.5px;
-              color:{INK_SOFT}">CON TU CUENTA PUEDES</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      {_feature(BRAND, "Buscar con IA", "Escribe como hablas: “hamburguesas baratas cerca”.")}
-      {_feature(OPEN, "Guardar favoritos", "Ten a mano los lugares que más te gustan.")}
-      {_feature("#f59e0b", "Calificar", "Comparte tu experiencia con reseñas.")}
-    </tr></table>
-  </td></tr>
-
+{features_html}
   <!-- SEGURIDAD -->
   <tr><td class="pad" style="padding:20px 36px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
            style="background:{ORANGE_SOFT};border-radius:12px;border-left:4px solid {ORANGE}"><tr>
       <td style="padding:14px 16px;font-family:{FONT};font-size:13px;line-height:1.55;color:#7c2d12">
         <strong style="color:{ORANGE};letter-spacing:1px">IMPORTANTE</strong><br>
-        Nunca compartas este código. Easy Search jamás te lo pedirá por teléfono, WhatsApp ni correo.
-        Si no creaste una cuenta, ignora este mensaje: sin el código nadie puede activarla.</td>
+        {warning}</td>
     </tr></table>
   </td></tr>
 
@@ -159,10 +159,59 @@ cuenta. Vence en {minutes} minutos.</div>
     <p style="margin:6px 0 0;font-family:{FONT};font-size:12px;line-height:1.6;color:#a5adc2">
       Bucaramanga &middot; Floridablanca &middot; Girón &middot; Piedecuesta</p>
     <p style="margin:12px 0 0;font-family:{FONT};font-size:11px;line-height:1.6;color:#6b7390">
-      Recibiste este correo porque se creó una cuenta con esta dirección.</p>
+      {footer}</p>
   </td></tr>
 </table>
 </td></tr>
 </table>
 </body></html>"""
+    return html
+
+
+_NEVER_SHARE = "Nunca compartas este código. Easy Search jamás te lo pedirá por teléfono, WhatsApp ni correo."
+_SIGNATURE = "\n\n— Easy Search · Área metropolitana de Bucaramanga\n"
+
+
+def build_verification_email(name: str, code: str, minutes: int) -> tuple[str, str, str]:
+    """Correo con el código de confirmación. Devuelve (asunto, texto plano, HTML)."""
+    first = name.split()[0] if name else ""
+    subject = f"{code} es tu código de Easy Search"
+    text = (f"Hola {first},\n\nTu código para confirmar tu cuenta de Easy Search es: {code}\n\n"
+            f"Vence en {minutes} minutos. Nunca te lo pediremos por teléfono ni por mensaje.\n"
+            "Si no creaste una cuenta, ignora este correo." + _SIGNATURE)
+    html = _code_email(
+        name=name, code=code, minutes=minutes, subject=subject,
+        preheader=f"Escribe este código en la app para activar tu cuenta. Vence en {minutes} minutos.",
+        badge="Verificación", title="Confirma tu correo",
+        subtitle="Un paso más y empiezas a encontrar negocios, productos y servicios cerca de ti.",
+        intro="Gracias por registrarte en Easy Search. Este es tu código de verificación:",
+        steps=[("Vuelve a Easy Search", "Abre la pantalla “Confirma tu correo” (si la cerraste, inicia sesión)."),
+               ("Escribe los 6 números", "Tal como aparecen arriba, sin espacios."),
+               ("¡Listo!", "Tu cuenta queda activa y ya puedes buscar.")],
+        features=True,
+        warning=f"{_NEVER_SHARE} Si no creaste una cuenta, ignora este mensaje: sin el código nadie puede activarla.",
+        footer="Recibiste este correo porque se creó una cuenta con esta dirección.")
+    return subject, text, html
+
+
+def build_reset_email(name: str, code: str, minutes: int) -> tuple[str, str, str]:
+    """Correo con el código para crear una contraseña nueva. Devuelve (asunto, texto plano, HTML)."""
+    first = name.split()[0] if name else ""
+    subject = f"{code} es tu código para recuperar tu contraseña"
+    text = (f"Hola {first},\n\nPediste recuperar tu contraseña de Easy Search. Tu código es: {code}\n\n"
+            f"Vence en {minutes} minutos y sirve una sola vez. Nunca te lo pediremos por teléfono ni por mensaje.\n"
+            "Si no fuiste tú, ignora este correo: tu contraseña sigue igual." + _SIGNATURE)
+    html = _code_email(
+        name=name, code=code, minutes=minutes, subject=subject,
+        preheader=f"Usa este código para crear una contraseña nueva. Vence en {minutes} minutos.",
+        badge="Seguridad", title="Recupera tu contraseña",
+        subtitle="Crea una contraseña nueva y vuelve a entrar a tu cuenta.",
+        intro="Recibimos una solicitud para cambiar la contraseña de tu cuenta. Este es tu código:",
+        steps=[("Vuelve a Easy Search", "En la pantalla “Recuperar contraseña”, escribe este código."),
+               ("Crea tu contraseña nueva", "Mínimo 8 caracteres, con letras y números."),
+               ("¡Listo!", "Entras de una vez y se cierran las sesiones abiertas en otros dispositivos.")],
+        features=False,
+        warning=f"{_NEVER_SHARE} Si no pediste cambiar tu contraseña, ignora este mensaje: sin el código nadie "
+                "puede cambiarla.",
+        footer="Recibiste este correo porque alguien pidió recuperar la contraseña de esta cuenta.")
     return subject, text, html

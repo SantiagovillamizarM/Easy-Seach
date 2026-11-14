@@ -58,8 +58,8 @@ export default function HomePage() {
           </div>
           {!user && (
             <p className="mt-3 text-sm text-ink-soft">
-              Para buscar necesitas una cuenta gratuita.{" "}
-              <Link to="/registro?next=%2F" className="font-semibold text-brand-700 hover:underline">Créala en 1 minuto</Link>
+              Pruébalo sin cuenta con unas búsquedas gratis. Para buscar sin límites,{" "}
+              <Link to="/registro?next=%2F" className="font-semibold text-brand-700 hover:underline">crea tu cuenta en 1 minuto</Link>
               {" "}o{" "}
               <Link to="/ingresar" className="font-semibold text-brand-700 hover:underline">inicia sesión</Link>.
             </p>

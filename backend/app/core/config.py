@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     turnstile_site_key: str | None = None      # pública: la usa el navegador para mostrar el widget
     turnstile_secret_key: str | None = None    # privada: solo el servidor la usa para verificar
 
+    # --- Búsquedas de prueba sin cuenta (por IP, cada 24 horas) y tope diario entre todos los invitados ---
+    # El tope protege la cuota de la IA aunque alguien cambie de IP muchas veces.
+    guest_searches_per_day: int = 3
+    guest_searches_daily_total: int = 300
+
     # --- Tráfico en vivo: TomTom (gratis ~2.500 consultas/día). Sin clave, no se muestran avisos de trancón ---
     tomtom_api_key: str | None = None
     tomtom_daily_limit: int = 2300             # margen por debajo de la capa gratuita

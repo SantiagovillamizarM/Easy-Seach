@@ -1,6 +1,16 @@
-import { AlertTriangle, Info, List, LocateFixed, Map as MapIcon, SearchX, SlidersHorizontal, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  Info,
+  List,
+  LocateFixed,
+  Map as MapIcon,
+  SearchX,
+  SlidersHorizontal,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
 import InterpretationBar from "../components/InterpretationBar.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
@@ -30,6 +40,47 @@ function buildPayload(params, coords) {
   return payload;
 }
 
+// Invitado sin cuenta: cuántas búsquedas de prueba le quedan
+function GuestBanner({ remaining, next }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center">
+      <UserPlus className="h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
+      <p className="flex-1 text-sm">
+        {remaining > 0 ? (
+          <>
+            Estás probando Easy Search sin cuenta: te {remaining === 1 ? "queda" : "quedan"}{" "}
+            <strong>{remaining} {remaining === 1 ? "búsqueda" : "búsquedas"} de prueba</strong>.
+          </>
+        ) : (
+          <strong>Esta fue tu última búsqueda de prueba.</strong>
+        )}{" "}
+        Con una cuenta gratis buscas sin límites, guardas favoritos y ves tu historial.
+      </p>
+      <Link to={`/registro?next=${encodeURIComponent(next)}`} className="btn-primary shrink-0 px-3 py-2 text-sm">
+        Crear cuenta gratis
+      </Link>
+    </div>
+  );
+}
+
+// Invitado que ya usó sus búsquedas de prueba
+function GuestLimitCard({ message, next }) {
+  const nextParam = encodeURIComponent(next);
+  return (
+    <div className="card flex flex-col items-center gap-3 p-8 text-center">
+      <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-50">
+        <UserPlus className="h-6 w-6 text-brand-600" aria-hidden="true" />
+      </span>
+      <p className="text-lg font-bold">Se acabaron tus búsquedas de prueba</p>
+      <p className="max-w-md text-sm text-ink-soft">{message}</p>
+      <div className="mt-1 flex flex-wrap justify-center gap-2">
+        <Link to={`/registro?next=${nextParam}`} className="btn-primary">Crear cuenta gratis</Link>
+        <Link to={`/ingresar?next=${nextParam}`} className="btn-ghost">Ya tengo cuenta</Link>
+      </div>
+    </div>
+  );
+}
+
 function MapFallback() {
   return <div className="h-full w-full animate-pulse rounded-2xl bg-slate-100" />;
 }
@@ -40,7 +91,10 @@ export default function ResultsPage() {
   const locating = locationStatus === "auto"; // obteniendo la ubicación guardada al abrir la app
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [errorCode, setErrorCode] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const here = location.pathname + location.search;
   const [activeId, setActiveId] = useState(null);
   const [mobileView, setMobileView] = useState("list"); // list | map
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -69,6 +123,7 @@ export default function ResultsPage() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    setErrorCode(null);
     api
       .search(buildPayload(new URLSearchParams(paramsKey), coords), { signal: controller.signal })
       .then((res) => {
@@ -76,7 +131,9 @@ export default function ResultsPage() {
         setActiveId(null);
       })
       .catch((err) => {
-        if (err.name !== "AbortError") setError(err.message);
+        if (err.name === "AbortError") return;
+        setError(err.message);
+        setErrorCode(err.code);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -127,6 +184,8 @@ export default function ResultsPage() {
       {/* Encabezado de resultados */}
       <div className="mb-4 space-y-3">
         {data && <InterpretationBar interpretation={data.interpretation} location={data.location} />}
+
+        {data && data.guest_remaining != null && !error && <GuestBanner remaining={data.guest_remaining} next={here} />}
 
         {data?.needs_location && !coords && (
           <div className="flex flex-col gap-3 rounded-2xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center">
@@ -232,7 +291,9 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {!loading && error && (
+          {!loading && error && errorCode === "guest_limit" && <GuestLimitCard message={error} next={here} />}
+
+          {!loading && error && errorCode !== "guest_limit" && (
             <div className="card flex flex-col items-center gap-3 p-8 text-center">
               <AlertTriangle className="h-8 w-8 text-closed" aria-hidden="true" />
               <p className="font-semibold">{error}</p>

@@ -1,10 +1,11 @@
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LogoMark } from "../components/Logo.jsx";
 import { afterAuthPath, safeNext } from "../components/RequireAuth.jsx";
 import Turnstile from "../components/Turnstile.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { api } from "../lib/api.js";
 
 function AuthCard({ title, subtitle, children, footer }) {
   return (
@@ -128,6 +129,12 @@ export function LoginPage() {
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field id="email" label="Correo electrónico" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <PasswordField id="password" label="Contraseña" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <p className="-mt-2 text-right text-sm">
+          {/* El correo viaja en el estado de la navegación, no en la URL (no queda en el historial) */}
+          <Link to="/recuperar" state={{ email: email.trim() }} className="font-semibold text-brand-700 hover:underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </p>
         <Turnstile onChange={bot.setCaptcha} resetKey={bot.resetKey} />
         <FormError message={error} />
         <SubmitButton loading={loading} disabled={!bot.ready}>Ingresar</SubmitButton>
@@ -210,6 +217,149 @@ export function RegisterPage() {
         <FormError message={error} />
         <SubmitButton loading={loading} disabled={!bot.ready}>Crear cuenta</SubmitButton>
         <p className="text-center text-xs text-ink-soft">Te enviaremos un código a tu correo para confirmar la cuenta.</p>
+      </form>
+    </AuthCard>
+  );
+}
+
+const PASSWORD_RULE = "La contraseña debe tener mínimo 8 caracteres, con letras y números.";
+
+function weakPassword(value) {
+  return value.length < 8 || !/[A-Za-zÁÉÍÓÚáéíóúñÑ]/.test(value) || !/\d/.test(value);
+}
+
+/** Recuperar la contraseña: 1) correo → código por correo. 2) código + contraseña nueva → entra. */
+export function ForgotPasswordPage() {
+  const { user, replaceSession } = useAuth();
+  const location = useLocation();
+  const [step, setStep] = useState("email");
+  const [email, setEmail] = useState(() => location.state?.email ?? "");
+  const [form, setForm] = useState({ code: "", password: "", confirm: "" });
+  const [notice, setNotice] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const bot = useCaptcha();
+
+  useEffect(() => {
+    document.title = "Recuperar contraseña · Easy Search";
+  }, []);
+
+  // Al cambiar la contraseña la sesión queda iniciada: de una vez al inicio
+  if (user) return <Navigate to="/" replace />;
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  async function sendCode(e) {
+    e.preventDefault();
+    setError(null);
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError("Escribe un correo válido.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.forgotPassword(email.trim(), bot.captcha.token);
+      setNotice(res.detail);
+      setForm({ code: "", password: "", confirm: "" });
+      setStep("code");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      bot.reset();
+      setLoading(false);
+    }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    setError(null);
+    if (!/^\d{6}$/.test(form.code.trim())) {
+      setError("El código tiene 6 números.");
+      return;
+    }
+    if (form.password !== form.confirm) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    if (weakPassword(form.password)) {
+      setError(PASSWORD_RULE);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.resetPassword({ email: email.trim(), code: form.code.trim(), new_password: form.password });
+      replaceSession(res);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  }
+
+  const footer = (
+    <>
+      ¿La recordaste?{" "}
+      <Link to="/ingresar" className="font-semibold text-brand-700 hover:underline">Inicia sesión</Link>
+    </>
+  );
+
+  if (step === "email") {
+    return (
+      <AuthCard
+        title="Recupera tu contraseña"
+        subtitle="Escribe el correo de tu cuenta y te enviaremos un código para crear una contraseña nueva."
+        footer={footer}
+      >
+        <form onSubmit={sendCode} className="space-y-4" noValidate>
+          <Field id="email" label="Correo electrónico" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Turnstile onChange={bot.setCaptcha} resetKey={bot.resetKey} />
+          <FormError message={error} />
+          <SubmitButton loading={loading} disabled={!bot.ready}>Enviar código</SubmitButton>
+        </form>
+      </AuthCard>
+    );
+  }
+
+  return (
+    <AuthCard title="Crea tu contraseña nueva" subtitle={notice} footer={footer}>
+      <form onSubmit={changePassword} className="space-y-4" noValidate>
+        <Field
+          id="code"
+          label="Código de 6 números"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          placeholder="123456"
+          required
+          value={form.code}
+          onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.replace(/\D/g, "") }))}
+          hint={`Lo enviamos a ${email.trim()}. Vence en 15 minutos.`}
+        />
+        <PasswordField
+          id="password"
+          label="Contraseña nueva"
+          autoComplete="new-password"
+          hint="Mínimo 8 caracteres, con letras y números."
+          required
+          value={form.password}
+          onChange={set("password")}
+        />
+        <PasswordField id="confirm" label="Repite la contraseña nueva" autoComplete="new-password" required value={form.confirm} onChange={set("confirm")} />
+        <FormError message={error} />
+        <SubmitButton loading={loading}>Cambiar contraseña y entrar</SubmitButton>
+        <p className="text-center text-xs text-ink-soft">
+          ¿No te llegó?{" "}
+          <button
+            type="button"
+            className="font-semibold text-brand-700 hover:underline"
+            onClick={() => {
+              setError(null);
+              setStep("email");
+            }}
+          >
+            Pide otro código
+          </button>{" "}
+          (revisa también la carpeta de spam).
+        </p>
       </form>
     </AuthCard>
   );

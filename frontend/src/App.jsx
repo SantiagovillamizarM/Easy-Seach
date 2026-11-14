@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
-import { LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
+import { ForgotPasswordPage, LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
 import EstablishmentPage from "./pages/EstablishmentPage.jsx";
 import FavoritesPage from "./pages/FavoritesPage.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
@@ -37,11 +37,12 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         {/* Buscar exige cuenta con correo confirmado: protege la cuota de la IA frente a robots */}
-        <Route path="buscar" element={<RequireAuth verified><ResultsPage /></RequireAuth>} />
+        <Route path="buscar" element={<RequireAuth verified guestAllowed><ResultsPage /></RequireAuth>} />
         <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
         <Route path="lugar/:slug" element={<EstablishmentPage />} />
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />
+        <Route path="recuperar" element={<ForgotPasswordPage />} />
         <Route path="perfil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="favoritos" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="historial" element={<RequireAuth><HistoryPage /></RequireAuth>} />

@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Flag, MessageSquare, Pencil, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, CornerDownRight, Flag, MessageSquare, Pencil, Store, Trash2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -113,6 +113,112 @@ function MyReview({ review, onEdit, onDelete }) {
   );
 }
 
+// Respuesta pública del propietario. Quien puede responder (dueño de este lugar o admin) la crea, edita o borra.
+function OwnerReply({ review, canReply, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  function startEditing() {
+    setText(review.owner_reply ?? "");
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    if (text.trim().length < 2) {
+      setError("Escribe una respuesta.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      onChange(await api.replyToReview(review.id, text.trim()));
+      setEditing(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    await api.deleteReply(review.id);
+    onChange({ ...review, owner_reply: null, owner_reply_at: null });
+    setConfirm(false);
+  }
+
+  if (editing) {
+    const id = `reply-${review.id}`;
+    return (
+      <form onSubmit={save} className="mt-3 space-y-2 rounded-2xl border border-brand-100 bg-brand-50/50 p-3 sm:ml-6">
+        <label htmlFor={id} className="text-xs font-bold">Tu respuesta pública</label>
+        <textarea
+          id={id}
+          rows={3}
+          maxLength={1000}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Agradece, aclara o cuenta qué vas a mejorar. La verá todo el que visite tu perfil."
+          className="input resize-y"
+          autoFocus
+        />
+        <p className="text-xs text-ink-soft">Sin groserías, teléfonos ni enlaces: tus datos de contacto ya están en tu perfil.</p>
+        {error && <p role="alert" className="text-sm text-closed">{error}</p>}
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary px-3 py-1.5" disabled={saving}>
+            {review.owner_reply ? "Guardar respuesta" : "Publicar respuesta"}
+          </button>
+          <button type="button" className="btn-ghost px-3 py-1.5" onClick={() => setEditing(false)}>Cancelar</button>
+        </div>
+      </form>
+    );
+  }
+
+  if (!review.owner_reply) {
+    return canReply ? (
+      <button type="button" onClick={startEditing} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
+        <CornerDownRight className="h-3.5 w-3.5" aria-hidden="true" />
+        Responder
+      </button>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border-l-4 border-brand-400 bg-canvas p-3 sm:ml-6">
+      <p className="flex flex-wrap items-center gap-x-2 text-xs font-bold text-brand-700">
+        <Store className="h-3.5 w-3.5" aria-hidden="true" />
+        Respuesta del propietario
+        <span className="font-normal text-ink-soft">{formatDate(review.owner_reply_at)}</span>
+      </p>
+      <p className="mt-1 whitespace-pre-line text-sm leading-relaxed">{review.owner_reply}</p>
+      {canReply && (
+        <div className="mt-2 flex items-center gap-3 text-xs">
+          <button type="button" onClick={startEditing} className="inline-flex items-center gap-1 font-semibold text-ink-soft hover:text-ink">
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            Editar
+          </button>
+          {confirm ? (
+            <span className="flex items-center gap-2">
+              ¿Borrar la respuesta?
+              <button type="button" className="font-semibold text-closed hover:underline" onClick={remove}>Sí</button>
+              <button type="button" className="text-ink-soft hover:underline" onClick={() => setConfirm(false)}>No</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirm(true)} className="inline-flex items-center gap-1 font-semibold text-ink-soft hover:text-closed">
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Borrar
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReportButton({ reviewId }) {
   const [state, setState] = useState("idle"); // idle | confirm | sent | error
   if (state === "sent") return <span className="text-xs text-ink-soft">Reporte enviado. ¡Gracias!</span>;
@@ -147,6 +253,8 @@ export default function ReviewsSection({ establishment, onRatingChange }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
   const isOwner = user && establishment.owner_id === user.id;
+  // Responde el propietario de ESTE lugar (rol owner) o un administrador
+  const canReply = Boolean(user && (user.role === "admin" || (user.role === "owner" && isOwner)));
 
   const load = useCallback(async () => {
     try {
@@ -181,6 +289,10 @@ export default function ReviewsSection({ establishment, onRatingChange }) {
     setEditing(false);
     await load();
   }
+
+  const replaceItem = useCallback((updated) => {
+    setPage((p) => ({ ...p, items: p.items.map((it) => (it.id === updated.id ? updated : it)) }));
+  }, []);
 
   async function remove() {
     await api.deleteReview(mine.id);
@@ -239,7 +351,9 @@ export default function ReviewsSection({ establishment, onRatingChange }) {
           </p>
         )}
         {user && isOwner && (
-          <p className="rounded-2xl bg-canvas p-4 text-sm text-ink-soft">Eres el propietario de este lugar: no puedes reseñarlo.</p>
+          <p className="rounded-2xl bg-canvas p-4 text-sm text-ink-soft">
+            Eres el propietario de este lugar: no puedes reseñarlo, pero sí responder públicamente cada reseña.
+          </p>
         )}
         {user && !isOwner && mine === null && <ReviewForm onSubmit={save} />}
         {user && !isOwner && mine && !editing && (
@@ -265,6 +379,7 @@ export default function ReviewsSection({ establishment, onRatingChange }) {
             <div className="mt-1"><Stars value={r.rating} size="h-3.5 w-3.5" /></div>
             {r.comment && <p className="mt-2 text-sm leading-relaxed">{r.comment}</p>}
             {user && mine?.id !== r.id && <div className="mt-2"><ReportButton reviewId={r.id} /></div>}
+            <OwnerReply review={r} canReply={canReply} onChange={replaceItem} />
           </li>
         ))}
       </ul>

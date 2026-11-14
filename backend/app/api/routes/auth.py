@@ -1,4 +1,4 @@
-"""Registro, inicio de sesión, confirmación de correo y datos del usuario actual."""
+"""Registro, inicio de sesión, confirmación de correo, recuperación de contraseña y datos del usuario actual."""
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -13,10 +13,19 @@ from app.core.rate_limit import client_ip, limit_by_ip, limit_by_user, limiter, 
 from app.core.security import DUMMY_HASH, create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import User
-from app.schemas.user import PasswordChange, Token, UserCreate, UserOut, UserUpdate, VerifyEmailIn
+from app.schemas.user import (
+    ForgotPasswordIn,
+    PasswordChange,
+    ResetPasswordIn,
+    Token,
+    UserCreate,
+    UserOut,
+    UserUpdate,
+    VerifyEmailIn,
+)
 from app.services import email as email_service
 from app.services.captcha import verify_captcha
-from app.services.verification import CODE_TTL_MINUTES, check_code, issue_code
+from app.services.verification import CODE_TTL_MINUTES, check_code, check_reset_code, issue_code, issue_reset_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("easysearch.auth")
@@ -132,6 +141,64 @@ def login(request: Request, form: OAuth2PasswordRequestForm = Depends(),
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="La cuenta está desactivada")
 
+    return Token(access_token=create_access_token(user.id, user.role), user=UserOut.model_validate(user))
+
+
+# ------------------------------- Recuperar la contraseña ---------------------------------
+
+FORGOT_SENT = ("Si existe una cuenta con ese correo, te enviamos un código para crear una contraseña nueva. "
+               "Revisa también la carpeta de spam.")
+RESET_FAILED = "El código no es correcto o ya venció. Revísalo o pide uno nuevo."
+
+
+def _send_reset_safely(email: str, name: str, code: str) -> None:
+    try:
+        email_service.send_reset_code(email, name, code, CODE_TTL_MINUTES)
+    except email_service.EmailError:
+        logger.error("Falló el envío del código de recuperación")
+
+
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(limit_by_ip("forgot-password", 10, 60 * 60))])
+def forgot_password(data: ForgotPasswordIn, request: Request, background: BackgroundTasks,
+                    db: Session = Depends(get_db)) -> dict:
+    """Envía un código de 6 dígitos para crear una contraseña nueva.
+
+    Responde lo mismo exista o no la cuenta (no revela qué correos están registrados). Por correo: máximo
+    1 código por minuto y 5 por hora, para que nadie llene de mensajes la bandeja de otra persona.
+    """
+    _require_captcha(data.captcha_token, request)
+    user = db.scalar(select(User).where(User.email == data.email))
+    if user is None or not user.is_active:
+        return {"detail": FORGOT_SENT}
+    if limiter.hit(f"forgot-min:{data.email}", 1, 60) or limiter.hit(f"forgot-hour:{data.email}", 5, 60 * 60):
+        return {"detail": FORGOT_SENT}   # sin correo nuevo, pero el mismo mensaje
+    code = issue_reset_code(user)
+    db.commit()
+    background.add_task(_send_reset_safely, user.email, user.full_name, code)
+    return {"detail": FORGOT_SENT}
+
+
+@router.post("/reset-password", response_model=Token,
+             dependencies=[Depends(limit_by_ip("reset-password", 20, 15 * 60))])
+def reset_password(data: ResetPasswordIn, db: Session = Depends(get_db)) -> Token:
+    """Cambia la contraseña con el código del correo e inicia la sesión.
+
+    El código sirve una sola vez y máximo 5 intentos. Cierra las sesiones abiertas en otros dispositivos.
+    """
+    user = db.scalar(select(User).where(User.email == data.email))
+    if user is None or not user.is_active:
+        verify_password(data.new_password, DUMMY_HASH)   # mismo tiempo de respuesta exista o no la cuenta
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=RESET_FAILED)
+    ok = check_reset_code(user, data.code)
+    if not ok:
+        db.commit()   # guarda el intento fallido
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=RESET_FAILED)
+    user.password_hash = hash_password(data.new_password)
+    user.password_changed_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    limiter.clear(f"login-fails:{user.email}")   # quien recuperó su cuenta puede entrar de inmediato
     return Token(access_token=create_access_token(user.id, user.role), user=UserOut.model_validate(user))
 
 

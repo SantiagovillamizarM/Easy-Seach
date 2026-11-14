@@ -48,3 +48,37 @@ def check_code(user: User, code: str) -> str | None:
     user.verification_code_hash = user.verification_code_expires_at = None
     user.verification_attempts = 0
     return None
+
+
+# ------------------------------- Recuperar la contraseña ---------------------------------
+# Mismas reglas (6 dígitos, 15 minutos, 5 intentos), en campos aparte y con otra "sal": un código de
+# confirmación de correo nunca sirve para cambiar la contraseña, ni al revés.
+
+def _reset_digest(user_id: int, code: str) -> str:
+    key = get_settings().secret_key.encode()
+    return hmac.new(key, f"reset:{user_id}:{code}".encode(), hashlib.sha256).hexdigest()
+
+
+def issue_reset_code(user: User) -> str:
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    user.reset_code_hash = _reset_digest(user.id, code)
+    user.reset_code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=CODE_TTL_MINUTES)
+    user.reset_attempts = 0
+    return code
+
+
+def check_reset_code(user: User, code: str) -> bool:
+    """True si el código es correcto (y lo gasta: sirve una sola vez). Cuenta los intentos fallidos."""
+    if not user.reset_code_hash or not user.reset_code_expires_at or user.reset_attempts >= MAX_ATTEMPTS:
+        return False
+    if datetime.now(timezone.utc) > user.reset_code_expires_at:
+        return False
+    user.reset_attempts += 1
+    if not hmac.compare_digest(user.reset_code_hash, _reset_digest(user.id, code.strip())):
+        return False
+    user.reset_code_hash = user.reset_code_expires_at = None
+    user.reset_attempts = 0
+    # Quien recibió el código en su correo demostró que el correo es suyo
+    if not user.email_verified_at:
+        user.email_verified_at = datetime.now(timezone.utc)
+    return True

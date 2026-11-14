@@ -43,6 +43,32 @@ class VerifyEmailIn(BaseModel):
     code: str = Field(pattern=r"^\s*\d{6}\s*$", description="Código de 6 dígitos enviado al correo")
 
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+    captcha_token: str | None = Field(None, max_length=2048, description="Token de Cloudflare Turnstile")
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ResetPasswordIn(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\s*\d{6}\s*$", description="Código de 6 dígitos enviado al correo")
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return check_password(v)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

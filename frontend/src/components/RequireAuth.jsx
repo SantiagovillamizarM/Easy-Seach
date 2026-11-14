@@ -3,10 +3,12 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 // Protege una página: si no hay sesión, envía al login y luego regresa a donde estaba.
 // Con `verified`, además exige el correo confirmado (búsqueda e IA): si no, envía a /verificar.
-export default function RequireAuth({ children, verified = false }) {
+// Con `guestAllowed`, un visitante SIN sesión entra (búsquedas de prueba); con sesión sin confirmar, a /verificar.
+export default function RequireAuth({ children, verified = false, guestAllowed = false }) {
   const { user } = useAuth();
   const location = useLocation();
   const here = location.pathname + location.search;
+  if (!user && guestAllowed) return children;
   if (!user) {
     return <Navigate to={`/ingresar?next=${encodeURIComponent(here)}`} replace />;
   }

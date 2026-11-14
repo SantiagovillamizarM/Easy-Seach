@@ -143,7 +143,7 @@ export default function EstablishmentPage() {
             <span className="inline-flex items-center gap-1 font-semibold text-ink">
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
               {Number(est.rating_avg).toFixed(1)}
-              <span className="font-normal text-ink-soft">({est.rating_count} reseñas)</span>
+              <span className="font-normal text-ink-soft">({est.rating_count} {est.rating_count === 1 ? "reseña" : "reseñas"})</span>
             </span>
           ) : (
             <span>Sin reseñas todavía</span>

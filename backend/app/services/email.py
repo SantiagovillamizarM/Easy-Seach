@@ -10,7 +10,7 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 from app.core.config import get_settings
-from app.services.email_templates import build_verification_email
+from app.services.email_templates import build_reset_email, build_verification_email
 
 logger = logging.getLogger("easysearch.email")
 
@@ -56,4 +56,9 @@ def send_email(to: str, subject: str, text: str, html: str | None = None) -> Non
 
 def send_verification_code(to: str, name: str, code: str, minutes: int) -> None:
     subject, text, html = build_verification_email(name, code, minutes)
+    send_email(to, subject, text, html)
+
+
+def send_reset_code(to: str, name: str, code: str, minutes: int) -> None:
+    subject, text, html = build_reset_email(name, code, minutes)
     send_email(to, subject, text, html)

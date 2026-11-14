@@ -5,18 +5,21 @@ Reglas:
 - Solo el autor puede editar su reseña; el autor o un administrador pueden eliminarla.
 - Un propietario no puede reseñar su propio establecimiento.
 - Solo las reseñas aprobadas son públicas y cuentan para la calificación.
+- El propietario del establecimiento (o un administrador) puede responder públicamente cada reseña aprobada.
 """
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_verified_user
 from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
 from app.models import Establishment, Report, Review, User
-from app.schemas.review import MyReviewOut, ReportIn, ReviewIn, ReviewsPage
+from app.schemas.review import MyReviewOut, ReplyIn, ReportIn, ReviewIn, ReviewOut, ReviewsPage
 from app.services.llm import LLMProvider, get_llm
-from app.services.moderation import moderate, recalculate_rating
+from app.services.moderation import check_rules, moderate, recalculate_rating
 
 router = APIRouter(tags=["reviews"])
 
@@ -37,6 +40,8 @@ def _review_out(review: Review, author: User) -> dict:
         "edited": (review.updated_at - review.created_at).total_seconds() > 60,
         "status": review.status,
         "moderation_reason": review.moderation_reason,
+        "owner_reply": review.owner_reply,
+        "owner_reply_at": review.owner_reply_at,
     }
 
 
@@ -144,6 +149,50 @@ def delete_review(review_id: int, user: User = Depends(get_current_user), db: Se
     db.flush()
     recalculate_rating(db, est)
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ------------------------------- Respuesta del propietario --------------------------------
+
+def _replyable_review(db: Session, review_id: int, user: User) -> Review:
+    """Solo el propietario de ESE establecimiento (o un admin) responde, y solo reseñas publicadas."""
+    review = db.get(Review, review_id)
+    if review is None or review.status != "approved":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Reseña no encontrada")
+    est = db.get(Establishment, review.establishment_id)
+    is_owner = user.role == "owner" and est is not None and est.owner_id == user.id
+    if user.role != "admin" and not is_owner:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Solo el propietario del negocio puede responder")
+    return review
+
+
+def _set_reply(db: Session, review: Review, text: str | None) -> None:
+    # updated_at se conserva: responder no es "editar" la reseña del cliente
+    db.execute(update(Review).where(Review.id == review.id).values(
+        owner_reply=text, owner_reply_at=datetime.now(timezone.utc) if text else None, updated_at=Review.updated_at))
+    db.commit()
+    db.refresh(review)
+
+
+@router.put("/reviews/{review_id}/reply", response_model=ReviewOut,
+            dependencies=[Depends(limit_by_user("review-replies", 30, 3600))])
+def reply_to_review(review_id: int, data: ReplyIn, user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Crea o edita la respuesta pública. Se publica de inmediato si pasa las reglas básicas (sin groserías,
+    enlaces, teléfonos ni mayúsculas sostenidas): el propietario ya fue verificado al aprobar su perfil."""
+    review = _replyable_review(db, review_id, user)
+    problem = check_rules(data.text)
+    if problem:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=problem.replace("La reseña", "La respuesta")
+                            .replace("Las reseñas", "Las respuestas").replace("toda la reseña", "toda la respuesta"))
+    _set_reply(db, review, data.text)
+    return _review_out(review, db.get(User, review.user_id))
+
+
+@router.delete("/reviews/{review_id}/reply", status_code=status.HTTP_204_NO_CONTENT)
+def delete_reply(review_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    review = _replyable_review(db, review_id, user)
+    _set_reply(db, review, None)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

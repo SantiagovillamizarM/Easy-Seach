@@ -2,10 +2,11 @@
 // Todas las peticiones van a /api (Vite las reenvía al backend en desarrollo).
 
 export class ApiError extends Error {
-  constructor(message, status, details) {
+  constructor(message, status, details, code = null) {
     super(message);
     this.status = status;
     this.details = details;
+    this.code = code; // cabecera X-Error-Code (ej. "guest_limit", "email_not_verified")
   }
 }
 
@@ -37,6 +38,7 @@ const FIELD_NAMES = {
   description: "Descripción",
   date: "Fecha",
   code: "Código",
+  text: "Respuesta",
 };
 
 function errorMessage(status, body) {
@@ -82,7 +84,9 @@ async function request(path, { method = "GET", body, form, multipart, signal } =
   if (response.status === 401 && authToken && onUnauthorized) onUnauthorized();
   if (response.status === 204) return null;
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(errorMessage(response.status, data), response.status, data);
+  if (!response.ok) {
+    throw new ApiError(errorMessage(response.status, data), response.status, data, response.headers.get("X-Error-Code"));
+  }
   return data;
 }
 
@@ -104,6 +108,9 @@ export const api = {
   register: (data) => request("/auth/register", { method: "POST", body: data }),
   captchaConfig: (opts) => request("/auth/captcha-config", opts),
   verifyEmail: (code) => request("/auth/verify-email", { method: "POST", body: { code } }),
+  forgotPassword: (email, captchaToken) =>
+    request("/auth/forgot-password", { method: "POST", body: { email, captcha_token: captchaToken || null } }),
+  resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: data }),
   resendCode: () => request("/auth/resend-code", { method: "POST" }),
   me: (opts) => request("/auth/me", opts),
   updateMe: (data) => request("/auth/me", { method: "PATCH", body: data }),
@@ -125,6 +132,8 @@ export const api = {
   updateReview: (id, data) => request(`/reviews/${id}`, { method: "PATCH", body: data }),
   deleteReview: (id) => request(`/reviews/${id}`, { method: "DELETE" }),
   reportReview: (id, data = {}) => request(`/reviews/${id}/report`, { method: "POST", body: data }),
+  replyToReview: (id, text) => request(`/reviews/${id}/reply`, { method: "PUT", body: { text } }),
+  deleteReply: (id) => request(`/reviews/${id}/reply`, { method: "DELETE" }),
   // Perfiles comerciales
   createClaim: (establishmentId, data) =>
     request(`/establishments/${establishmentId}/claims`, { method: "POST", body: data }),
