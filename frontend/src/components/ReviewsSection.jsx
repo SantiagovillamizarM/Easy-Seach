@@ -114,7 +114,7 @@ function MyReview({ review, onEdit, onDelete }) {
 }
 
 // Respuesta pública del propietario. Quien puede responder (dueño de este lugar o admin) la crea, edita o borra.
-function OwnerReply({ review, canReply, onChange }) {
+export function OwnerReply({ review, canReply, onChange }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState(null);

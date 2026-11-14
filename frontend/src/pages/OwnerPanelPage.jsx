@@ -1,4 +1,4 @@
-import { BadgeCheck, CheckCircle2, Circle, Clock, ExternalLink, Pencil, Search, Store, XCircle } from "lucide-react";
+import { BadgeCheck, CheckCircle2, Circle, Clock, ExternalLink, MessageSquare, Pencil, Search, Store, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HoursBadge from "../components/HoursBadge.jsx";
@@ -60,6 +60,17 @@ function EstablishmentCard({ est }) {
           ))}
         </ul>
       </div>
+
+      {est.unanswered_reviews > 0 && (
+        <Link
+          to={`/panel/lugar/${est.id}?tab=resenas`}
+          className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {est.unanswered_reviews === 1 ? "1 reseña sin responder" : `${est.unanswered_reviews} reseñas sin responder`}
+          <span className="ml-auto text-xs font-bold text-amber-800">Responder →</span>
+        </Link>
+      )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Link to={`/panel/lugar/${est.id}`} className="btn-primary">

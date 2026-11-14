@@ -1,13 +1,14 @@
 """Perfiles comerciales: solicitudes de propiedad, negocios del propietario y fotos."""
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_verified_user, require_roles
 from app.api.routes.catalog import get_editable_establishment, to_detail
+from app.api.routes.reviews import review_out
 from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
-from app.models import Establishment, EstablishmentPhoto, OwnershipClaim, User
+from app.models import Establishment, EstablishmentPhoto, OwnershipClaim, Review, User
 from app.schemas.catalog import EstablishmentDetail
 from app.schemas.owner import ClaimIn, ClaimOut, PhotoOut
 from app.services.catalog import LOAD_OPTIONS, to_summary
@@ -65,15 +66,22 @@ def my_claims(user: User = Depends(get_current_user), db: Session = Depends(get_
 
 # ------------------------------- Panel del propietario -----------------------------------
 
+# Reseñas publicadas que el propietario todavía no ha respondido
+_UNANSWERED = (Review.status == "approved") & Review.owner_reply.is_(None)
+
+
 @router.get("/owner/establishments")
 def my_establishments(user: User = Depends(require_roles("owner", "admin")), db: Session = Depends(get_db)):
     """Establecimientos que administra el usuario actual (aunque sea admin, solo los asignados a él)."""
-    ests = db.scalars(select(Establishment).options(*LOAD_OPTIONS)
-                      .where(Establishment.owner_id == user.id).order_by(Establishment.name))
+    ests = list(db.scalars(select(Establishment).options(*LOAD_OPTIONS)
+                           .where(Establishment.owner_id == user.id).order_by(Establishment.name)))
+    unanswered = dict(db.execute(
+        select(Review.establishment_id, func.count()).where(
+            Review.establishment_id.in_([e.id for e in ests]), _UNANSWERED).group_by(Review.establishment_id)).all())
     return [
         {**to_summary(est), "status": est.status, "photos_count": len(est.photos),
          "offerings_count": len(est.offerings), "has_hours": bool(est.opening_hours),
-         "has_description": bool(est.description)}
+         "has_description": bool(est.description), "unanswered_reviews": unanswered.get(est.id, 0)}
         for est in ests
     ]
 
@@ -83,6 +91,26 @@ def editable_establishment(est: Establishment = Depends(get_editable_establishme
     """Datos para el editor del panel: a diferencia del detalle público, incluye los productos
     marcados como no disponibles (para poder reactivarlos)."""
     return {**to_detail(est), "offerings": sorted(est.offerings, key=lambda o: o.id)}  # orden de la carta
+
+
+@router.get("/owner/establishments/{establishment_id}/reviews")
+def establishment_reviews(
+    pending: bool = Query(False, description="Solo las que faltan por responder"),
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    est: Establishment = Depends(get_editable_establishment),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Reseñas publicadas del negocio, para responderlas desde el panel (las más recientes primero)."""
+    base = (Review.establishment_id == est.id) & (Review.status == "approved")
+    where = base & Review.owner_reply.is_(None) if pending else base
+    rows = db.execute(select(Review, User).join(User, User.id == Review.user_id).where(where)
+                      .order_by(Review.created_at.desc()).limit(limit).offset(offset)).all()
+    return {
+        "total": db.scalar(select(func.count()).select_from(Review).where(where)),
+        "unanswered": db.scalar(select(func.count()).select_from(Review).where(base & Review.owner_reply.is_(None))),
+        "items": [review_out(r, u) for r, u in rows],
+    }
 
 
 # ------------------------------- Fotos ---------------------------------------------------

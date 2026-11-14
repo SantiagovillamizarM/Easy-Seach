@@ -172,3 +172,34 @@ def test_offering_section_is_cleaned_and_editable(client, db, shop, user_headers
     assert r.status_code == 201 and r.json()["section"] == "Llantas nuevas"
     r = client.patch(f"/api/offerings/{r.json()['id']}", headers=h, json={"section": ""})
     assert r.json()["section"] is None   # vacío = sin sección
+
+
+# ------------------------------- Reseñas en el panel --------------------------------------
+
+def test_owner_panel_lists_reviews_to_answer(client, db, shop, user_headers, admin_headers):
+    from app.models import Review
+    _approve(client, admin_headers, shop.id, user_headers)
+    owner = _h(client, "usuario@test.com")
+    clients = [_make_user(db, f"cliente{i}@test.com", "user") for i in range(3)]
+    reviews = [Review(establishment_id=shop.id, user_id=c.id, rating=5 - i, status="approved",
+                      comment=f"Comentario número {i} del cliente") for i, c in enumerate(clients)]
+    reviews.append(Review(establishment_id=shop.id, user_id=_make_user(db, "pendiente@test.com", "user").id,
+                          rating=1, status="pending", comment="Esta reseña aún no se publica"))
+    db.add_all(reviews)
+    db.flush()
+
+    assert client.get("/api/owner/establishments", headers=owner).json()[0]["unanswered_reviews"] == 3
+    client.put(f"/api/reviews/{reviews[0].id}/reply", json={"text": "¡Gracias por venir!"}, headers=owner)
+
+    url = f"/api/owner/establishments/{shop.id}/reviews"
+    pending = client.get(url, params={"pending": True}, headers=owner).json()
+    assert pending["total"] == 2 and pending["unanswered"] == 2
+    assert all(r["owner_reply"] is None for r in pending["items"])
+    every = client.get(url, headers=owner).json()
+    assert every["total"] == 3                                  # la pendiente de moderación no aparece
+    assert any(r["owner_reply"] == "¡Gracias por venir!" for r in every["items"])
+    assert client.get("/api/owner/establishments", headers=owner).json()[0]["unanswered_reviews"] == 2
+
+    # Otro usuario no puede ver el panel de reseñas de este negocio
+    _make_user(db, "curioso@test.com", "owner")
+    assert client.get(url, headers=_h(client, "curioso@test.com")).status_code == 403

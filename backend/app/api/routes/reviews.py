@@ -30,7 +30,7 @@ def _author_name(full_name: str) -> str:
     return parts[0] if len(parts) == 1 else f"{parts[0]} {parts[-1][0].upper()}."
 
 
-def _review_out(review: Review, author: User) -> dict:
+def review_out(review: Review, author: User) -> dict:
     return {
         "id": review.id,
         "rating": review.rating,
@@ -73,14 +73,14 @@ def list_reviews(
         "rating_count": est.rating_count,
         "distribution": distribution,
         "total": sum(distribution.values()),
-        "items": [_review_out(r, u) for r, u in rows],
+        "items": [review_out(r, u) for r, u in rows],
     }
 
 
 @router.get("/establishments/{establishment_id}/reviews/mine", response_model=MyReviewOut | None)
 def my_review(establishment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     review = db.scalar(select(Review).where(Review.establishment_id == establishment_id, Review.user_id == user.id))
-    return _review_out(review, user) if review else None
+    return review_out(review, user) if review else None
 
 
 @router.post("/establishments/{establishment_id}/reviews", response_model=MyReviewOut,
@@ -107,7 +107,7 @@ def create_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
-    return _review_out(review, user)
+    return review_out(review, user)
 
 
 def _own_review(db: Session, review_id: int, user: User, allow_admin: bool = False) -> Review:
@@ -138,7 +138,7 @@ def update_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
-    return _review_out(review, user)
+    return review_out(review, user)
 
 
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -186,7 +186,7 @@ def reply_to_review(review_id: int, data: ReplyIn, user: User = Depends(get_curr
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=problem.replace("La reseña", "La respuesta")
                             .replace("Las reseñas", "Las respuestas").replace("toda la reseña", "toda la respuesta"))
     _set_reply(db, review, data.text)
-    return _review_out(review, db.get(User, review.user_id))
+    return review_out(review, db.get(User, review.user_id))
 
 
 @router.delete("/reviews/{review_id}/reply", status_code=status.HTTP_204_NO_CONTENT)

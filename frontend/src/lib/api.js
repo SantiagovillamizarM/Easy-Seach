@@ -141,6 +141,7 @@ export const api = {
   // Panel comercial (propietario o admin)
   ownerEstablishments: (opts) => request("/owner/establishments", opts),
   ownerEstablishment: (id, opts) => request(`/owner/establishments/${id}`, opts),
+  ownerReviews: (id, params = {}, opts) => request(`/owner/establishments/${id}/reviews?${qs(params)}`, opts),
   updateEstablishment: (id, data) => request(`/establishments/${id}`, { method: "PATCH", body: data }),
   replaceHours: (id, slots) => request(`/establishments/${id}/hours`, { method: "PUT", body: { slots } }),
   addSpecialHours: (id, data) => request(`/establishments/${id}/special-hours`, { method: "POST", body: data }),
