@@ -3,8 +3,8 @@ import pytest
 
 from app.models import Establishment, Place
 from app.services import notifications
-from app.services.email_templates import build_new_review_email
-from tests.conftest import _make_user
+from app.services.email_templates import build_new_review_email, build_owner_reply_email
+from tests.conftest import _make_user, _token
 
 
 @pytest.fixture()
@@ -80,3 +80,29 @@ def test_review_email_escapes_user_text():
                                                  "<img src=x onerror=alert(1)> malo", "https://easysearch.co/x")
     assert "<script>" not in html and "<img" not in html and "&lt;img" in html
     assert subject == "Nueva reseña de 1 estrella en Bar <script>"   # el asunto es texto plano, no HTML
+
+
+# ------------------------------- Aviso al cliente: el negocio respondió -------------------
+
+def _owner_headers(client):
+    return {"Authorization": f"Bearer {_token(client, 'duenia.aviso@test.com')}"}
+
+
+def test_first_reply_emails_the_reviewer_once(client, place, user_headers, outbox):
+    review = _review(client, place, user_headers, rating=4)
+    outbox.clear()                                                  # el aviso al dueño no interesa aquí
+    owner = _owner_headers(client)
+    client.put(f"/api/reviews/{review['id']}/reply", json={"text": "¡Gracias por visitarnos!"}, headers=owner)
+    assert len(outbox) == 1
+    mail = outbox[0]
+    assert mail["to"] == "usuario@test.com"
+    assert mail["subject"] == "Pollo Asado Prueba respondió tu reseña"
+    assert "¡Gracias por visitarnos!" in mail["text"] and "/lugar/pollo-asado-prueba" in mail["text"]
+    # Editar la respuesta no vuelve a escribirle
+    client.put(f"/api/reviews/{review['id']}/reply", json={"text": "Gracias, te esperamos"}, headers=owner)
+    assert len(outbox) == 1
+
+
+def test_reply_email_escapes_user_text():
+    subject, text, html = build_owner_reply_email("Ana", "Bar <b>", 3, "<img src=x>", "<script>x</script>", "http://a")
+    assert "<script>" not in html and "<img" not in html and "&lt;script&gt;" in html

@@ -217,7 +217,7 @@ def build_reset_email(name: str, code: str, minutes: int) -> tuple[str, str, str
     return subject, text, html
 
 
-# ------------------------------- Aviso al propietario: reseña nueva --------------------------
+# ------------------------------- Avisos de reseñas (piezas comunes) -------------------------
 
 STAR, STAR_OFF = "#f59e0b", "#d9dde8"
 
@@ -226,35 +226,15 @@ def _stars(rating: int) -> str:
     return "".join(f'<span style="color:{STAR if i < rating else STAR_OFF}">&#9733;</span>' for i in range(5))
 
 
-def build_new_review_email(owner_name: str, place: str, author: str, rating: int, comment: str | None,
-                           url: str) -> tuple[str, str, str]:
-    """Correo al propietario cuando se publica una reseña de su negocio. Devuelve (asunto, texto plano, HTML).
-
-    Todo lo que escriben los usuarios (nombre, reseña, nombre del negocio) se escapa: nunca se inserta HTML.
-    """
-    first = owner_name.split()[0] if owner_name else ""
-    word = "estrella" if rating == 1 else "estrellas"
-    subject = f"Nueva reseña de {rating} {word} en {place}"
-    text = (f"Hola {first},\n\n{author} calificó {place} con {rating} {word}.\n\n"
-            + (f"«{comment}»\n\n" if comment else "Dejó solo la calificación, sin comentario.\n\n")
-            + f"Respóndela desde tu panel: {url}\n\n"
-            "Responder rápido muestra a otros clientes que te importa su experiencia." + _SIGNATURE)
-
-    e = html_escape
-    quote = (f'<p style="margin:0;font-family:{FONT};font-size:16px;line-height:1.6;color:{INK}">'
-             f'&laquo;{e(comment)}&raquo;</p>' if comment else
-             f'<p style="margin:0;font-family:{FONT};font-size:14px;font-style:italic;color:{INK_SOFT}">'
-             'Dejó solo la calificación, sin comentario.</p>')
-    tip_color = OPEN if rating >= 4 else ORANGE
-    tip = ("Agradécele: una respuesta amable hace que más personas se animen a visitarte." if rating >= 4 else
-           "Responde con calma: explica qué pasó o qué vas a mejorar. Otros clientes leerán tu respuesta.")
-
-    html = f"""<!doctype html>
+def _notice_layout(*, title_tag: str, preheader: str, badge: str, title: str, subtitle: str, body: str,
+                   footer: str) -> str:
+    """Esqueleto de los avisos (encabezado con degradado + cuerpo + pie). Todo lo recibido ya viene escapado."""
+    return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
-<title>{e(subject)}</title><style>{_MOBILE_CSS}</style></head>
+<title>{title_tag}</title><style>{_MOBILE_CSS}</style></head>
 <body style="margin:0;padding:0;background:{CANVAS}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">{e(author)} calificó {e(place)} con {rating} {word}.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">{preheader}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{CANVAS};padding:28px 0">
 <tr><td align="center">
 <table class="card" role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -274,48 +254,13 @@ def build_new_review_email(owner_name: str, place: str, author: str, rating: int
       </td>
       <td align="right"><span style="display:inline-block;padding:6px 12px;border-radius:999px;
           background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);font-family:{FONT};
-          font-size:11px;font-weight:700;letter-spacing:0.5px;color:#ffffff;text-transform:uppercase">Nueva reseña</span></td>
+          font-size:11px;font-weight:700;letter-spacing:0.5px;color:#ffffff;text-transform:uppercase">{badge}</span></td>
     </tr></table>
     <h1 class="hero-title" style="margin:30px 0 6px;font-family:{FONT};font-size:30px;line-height:1.15;
-        font-weight:800;color:#ffffff">Un cliente opinó sobre tu negocio</h1>
-    <p style="margin:0;font-family:{FONT};font-size:15px;line-height:1.5;color:#dfe3ff">{e(place)}</p>
+        font-weight:800;color:#ffffff">{title}</h1>
+    <p style="margin:0;font-family:{FONT};font-size:15px;line-height:1.5;color:#dfe3ff">{subtitle}</p>
   </td></tr>
-
-  <!-- SALUDO -->
-  <tr><td class="pad" style="padding:30px 36px 6px;font-family:{FONT};color:{INK}">
-    <p style="margin:0 0 6px;font-size:20px;font-weight:800">¡Hola, {e(first)}! &#128075;</p>
-    <p style="margin:0;font-size:15px;line-height:1.6;color:{INK_SOFT}">
-      <strong style="color:{INK}">{e(author)}</strong> publicó una reseña de <strong style="color:{INK}">{e(place)}</strong>:</p>
-  </td></tr>
-
-  <!-- RESEÑA -->
-  <tr><td class="pad" style="padding:20px 36px 6px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="background:{BRAND_SOFT};border-radius:18px;border-left:4px solid {BRAND}">
-      <tr><td style="padding:18px 20px 6px;font-family:{FONT};font-size:24px;letter-spacing:2px">{_stars(rating)}
-        <span style="font-size:13px;font-weight:700;letter-spacing:0;color:{INK_SOFT};vertical-align:middle">
-          &nbsp;{rating} de 5</span></td></tr>
-      <tr><td style="padding:6px 20px 20px">{quote}</td></tr>
-    </table>
-  </td></tr>
-
-  <!-- BOTÓN -->
-  <tr><td class="pad" align="center" style="padding:26px 36px 8px">
-    <a href="{e(url)}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:{BRAND};
-       font-family:{FONT};font-size:15px;font-weight:800;color:#ffffff;text-decoration:none">Responder la reseña</a>
-    <p style="margin:10px 0 0;font-family:{FONT};font-size:12px;color:{INK_SOFT}">
-      Se abre tu panel comercial, en la pestaña &laquo;Reseñas&raquo;.</p>
-  </td></tr>
-
-  <!-- CONSEJO -->
-  <tr><td class="pad" style="padding:20px 36px 32px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="background:#ffffff;border:1px solid {LINE};border-radius:12px;border-left:4px solid {tip_color}"><tr>
-      <td style="padding:14px 16px;font-family:{FONT};font-size:13px;line-height:1.55;color:{INK}">
-        <strong style="color:{tip_color};letter-spacing:1px">CONSEJO</strong><br>{tip}</td>
-    </tr></table>
-  </td></tr>
-
+{body}
   <!-- PIE -->
   <tr><td class="pad" align="center" style="background:{INK};padding:26px 36px">
     <p style="margin:0;font-family:{FONT};font-size:16px;font-weight:800;color:#ffffff">
@@ -323,10 +268,142 @@ def build_new_review_email(owner_name: str, place: str, author: str, rating: int
     <p style="margin:6px 0 0;font-family:{FONT};font-size:12px;line-height:1.6;color:#a5adc2">
       Bucaramanga &middot; Floridablanca &middot; Girón &middot; Piedecuesta</p>
     <p style="margin:12px 0 0;font-family:{FONT};font-size:11px;line-height:1.6;color:#6b7390">
-      Recibiste este correo porque administras {e(place)} en Easy Search.</p>
+      {footer}</p>
   </td></tr>
 </table>
 </td></tr>
 </table>
 </body></html>"""
+
+
+def _greeting(first: str, intro: str) -> str:
+    return f"""
+  <!-- SALUDO -->
+  <tr><td class="pad" style="padding:30px 36px 6px;font-family:{FONT};color:{INK}">
+    <p style="margin:0 0 6px;font-size:20px;font-weight:800">¡Hola, {first}! &#128075;</p>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:{INK_SOFT}">
+      {intro}</p>
+  </td></tr>
+"""
+
+
+def _quote(comment: str | None, empty: str) -> str:
+    if comment:
+        return (f'<p style="margin:0;font-family:{FONT};font-size:16px;line-height:1.6;color:{INK}">'
+                f'&laquo;{html_escape(comment)}&raquo;</p>')
+    return f'<p style="margin:0;font-family:{FONT};font-size:14px;font-style:italic;color:{INK_SOFT}">{empty}</p>'
+
+
+def _review_box(rating: int, comment: str | None, empty: str, label: str = "") -> str:
+    heading = (f'<tr><td style="padding:16px 20px 0;font-family:{FONT};font-size:11px;font-weight:800;'
+               f'letter-spacing:1.5px;color:{INK_SOFT}">{label}</td></tr>' if label else "")
+    top = "6px" if label else "18px"
+    return f"""
+  <!-- RESEÑA -->
+  <tr><td class="pad" style="padding:20px 36px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:{BRAND_SOFT};border-radius:18px;border-left:4px solid {BRAND}">
+      {heading}<tr><td style="padding:{top} 20px 6px;font-family:{FONT};font-size:24px;letter-spacing:2px">{_stars(rating)}
+        <span style="font-size:13px;font-weight:700;letter-spacing:0;color:{INK_SOFT};vertical-align:middle">
+          &nbsp;{rating} de 5</span></td></tr>
+      <tr><td style="padding:6px 20px 20px">{_quote(comment, empty)}</td></tr>
+    </table>
+  </td></tr>
+"""
+
+
+def _button(url: str, label: str, hint: str) -> str:
+    return f"""
+  <!-- BOTÓN -->
+  <tr><td class="pad" align="center" style="padding:26px 36px 8px">
+    <a href="{html_escape(url)}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:{BRAND};
+       font-family:{FONT};font-size:15px;font-weight:800;color:#ffffff;text-decoration:none">{label}</a>
+    <p style="margin:10px 0 0;font-family:{FONT};font-size:12px;color:{INK_SOFT}">
+      {hint}</p>
+  </td></tr>
+"""
+
+
+def _tip(color: str, label: str, text: str) -> str:
+    return f"""
+  <!-- CONSEJO -->
+  <tr><td class="pad" style="padding:20px 36px 32px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:#ffffff;border:1px solid {LINE};border-radius:12px;border-left:4px solid {color}"><tr>
+      <td style="padding:14px 16px;font-family:{FONT};font-size:13px;line-height:1.55;color:{INK}">
+        <strong style="color:{color};letter-spacing:1px">{label}</strong><br>{text}</td>
+    </tr></table>
+  </td></tr>
+"""
+
+
+# ------------------------------- Aviso al propietario: reseña nueva --------------------------
+
+def build_new_review_email(owner_name: str, place: str, author: str, rating: int, comment: str | None,
+                           url: str) -> tuple[str, str, str]:
+    """Correo al propietario cuando se publica una reseña de su negocio. Devuelve (asunto, texto plano, HTML).
+
+    Todo lo que escriben los usuarios (nombre, reseña, nombre del negocio) se escapa: nunca se inserta HTML.
+    """
+    first = owner_name.split()[0] if owner_name else ""
+    word = "estrella" if rating == 1 else "estrellas"
+    subject = f"Nueva reseña de {rating} {word} en {place}"
+    text = (f"Hola {first},\n\n{author} calificó {place} con {rating} {word}.\n\n"
+            + (f"«{comment}»\n\n" if comment else "Dejó solo la calificación, sin comentario.\n\n")
+            + f"Respóndela desde tu panel: {url}\n\n"
+            "Responder rápido muestra a otros clientes que te importa su experiencia." + _SIGNATURE)
+
+    e = html_escape
+    good = rating >= 4
+    body = (
+        _greeting(e(first), f'<strong style="color:{INK}">{e(author)}</strong> publicó una reseña de '
+                            f'<strong style="color:{INK}">{e(place)}</strong>:')
+        + _review_box(rating, comment, "Dejó solo la calificación, sin comentario.")
+        + _button(url, "Responder la reseña", "Se abre tu panel comercial, en la pestaña &laquo;Reseñas&raquo;.")
+        + _tip(OPEN if good else ORANGE, "CONSEJO",
+               "Agradécele: una respuesta amable hace que más personas se animen a visitarte." if good else
+               "Responde con calma: explica qué pasó o qué vas a mejorar. Otros clientes leerán tu respuesta.")
+    )
+    html = _notice_layout(
+        title_tag=e(subject), preheader=f"{e(author)} calificó {e(place)} con {rating} {word}.",
+        badge="Nueva reseña", title="Un cliente opinó sobre tu negocio", subtitle=e(place), body=body,
+        footer=f"Recibiste este correo porque administras {e(place)} en Easy Search.")
+    return subject, text, html
+
+
+# ------------------------------- Aviso al cliente: el negocio respondió ----------------------
+
+def build_owner_reply_email(user_name: str, place: str, rating: int, comment: str | None, reply: str,
+                            url: str) -> tuple[str, str, str]:
+    """Correo al autor de una reseña cuando el negocio la responde. Devuelve (asunto, texto plano, HTML)."""
+    first = user_name.split()[0] if user_name else ""
+    subject = f"{place} respondió tu reseña"
+    text = (f"Hola {first},\n\n{place} respondió la reseña que escribiste en Easy Search.\n\n"
+            + (f"Tu reseña: «{comment}»\n\n" if comment else "")
+            + f"Respuesta de {place}: «{reply}»\n\nVer en Easy Search: {url}" + _SIGNATURE)
+
+    e = html_escape
+    reply_box = f"""
+  <!-- RESPUESTA DEL NEGOCIO -->
+  <tr><td class="pad" style="padding:14px 36px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:#ffffff;border:1px solid {LINE};border-radius:18px;border-left:4px solid {OPEN}">
+      <tr><td style="padding:16px 20px 0;font-family:{FONT};font-size:11px;font-weight:800;letter-spacing:1.5px;
+                 color:{OPEN}">RESPUESTA DE {e(place.upper())}</td></tr>
+      <tr><td style="padding:8px 20px 18px;font-family:{FONT};font-size:16px;line-height:1.6;color:{INK}">
+        {e(reply)}</td></tr>
+    </table>
+  </td></tr>
+"""
+    body = (
+        _greeting(e(first), f'<strong style="color:{INK}">{e(place)}</strong> leyó tu opinión y te respondió:')
+        + _review_box(rating, comment, "Calificaste el lugar sin dejar comentario.", label="TU RESEÑA")
+        + reply_box
+        + _button(url, "Ver en Easy Search", "Puedes editar tu reseña cuando quieras desde la página del lugar.")
+        + _tip(BRAND, "GRACIAS", "Tus reseñas ayudan a otras personas a decidir y a los negocios a mejorar.")
+    )
+    html = _notice_layout(
+        title_tag=e(subject), preheader=f"{e(place)} respondió tu reseña: {e(reply[:80])}",
+        badge="Respuesta", title="El negocio respondió tu reseña", subtitle=e(place), body=body,
+        footer="Recibiste este correo porque escribiste una reseña en Easy Search.")
     return subject, text, html

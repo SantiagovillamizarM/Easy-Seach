@@ -21,7 +21,7 @@ from app.models import Establishment, Report, Review, User
 from app.schemas.review import MyReviewOut, ReplyIn, ReportIn, ReviewIn, ReviewOut, ReviewsPage
 from app.services.llm import LLMProvider, get_llm
 from app.services.moderation import check_rules, moderate, recalculate_rating
-from app.services.notifications import notify_owner_new_review
+from app.services.notifications import notify_owner_new_review, notify_reviewer_reply
 
 router = APIRouter(tags=["reviews"])
 
@@ -178,16 +178,20 @@ def _set_reply(db: Session, review: Review, text: str | None) -> None:
 
 @router.put("/reviews/{review_id}/reply", response_model=ReviewOut,
             dependencies=[Depends(limit_by_user("review-replies", 30, 3600))])
-def reply_to_review(review_id: int, data: ReplyIn, user: User = Depends(get_current_user),
-                    db: Session = Depends(get_db)):
+def reply_to_review(review_id: int, data: ReplyIn, background: BackgroundTasks,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Crea o edita la respuesta pública. Se publica de inmediato si pasa las reglas básicas (sin groserías,
-    enlaces, teléfonos ni mayúsculas sostenidas): el propietario ya fue verificado al aprobar su perfil."""
+    enlaces, teléfonos ni mayúsculas sostenidas): el propietario ya fue verificado al aprobar su perfil.
+    La primera respuesta le llega por correo al autor de la reseña."""
     review = _replyable_review(db, review_id, user)
     problem = check_rules(data.text)
     if problem:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=problem.replace("La reseña", "La respuesta")
                             .replace("Las reseñas", "Las respuestas").replace("toda la reseña", "toda la respuesta"))
+    first_reply = review.owner_reply is None
     _set_reply(db, review, data.text)
+    if first_reply:   # editar la respuesta no vuelve a escribirle al cliente
+        notify_reviewer_reply(db, review, background)
     return review_out(review, db.get(User, review.user_id))
 
 
