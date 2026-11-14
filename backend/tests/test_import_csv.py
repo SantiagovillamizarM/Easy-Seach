@@ -78,3 +78,20 @@ def test_invalid_rows_are_reported(db, ctx):
         _run(db, ctx, {**NEW, "slug": "Burger House!"})
     with pytest.raises(RowError, match="Precio inválido"):
         _run(db, ctx, {**NEW, "slug": "otro-local", "productos": "Perro:barato"})
+
+
+def test_offering_names_and_descriptions_may_contain_colons():
+    from scripts.import_csv import _split_offering, parse_offerings
+    assert _split_offering("Combo: papas + gaseosa:15000") == ("Combo: papas + gaseosa", "15000", "")
+    assert _split_offering("Mensualidad:80000:Pagos: efectivo y Nequi") == ("Mensualidad", "80000",
+                                                                          "Pagos: efectivo y Nequi")
+    assert _split_offering("Alineación") == ("Alineación", "", "")
+    assert _split_offering("Despinche::Incluye revisión") == ("Despinche", "", "Incluye revisión")
+    assert _split_offering("Limonada:$ 6.000") == ("Limonada", "$ 6.000", "")
+    assert parse_offerings("Limonada:$ 6.000", "product")[0].price == 6000
+
+
+def test_prices_with_decimals_are_rejected():
+    from scripts.import_csv import parse_offerings
+    with pytest.raises(RowError, match="decimales"):
+        parse_offerings("Gaseosa:12500,50", "product")

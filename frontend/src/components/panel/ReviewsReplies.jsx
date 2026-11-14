@@ -36,9 +36,18 @@ export default function ReviewsReplies({ establishment }) {
     return () => controller.abort();
   }, [load]);
 
+  // En "Sin responder", las que se responden salen del listado del servidor: el siguiente lote empieza después de
+  // las que SIGUEN sin responder (si no, se saltarían reseñas). En "Todas", después de las que ya se ven.
+  const stillPending = data ? data.items.filter((it) => !it.owner_reply).length : 0;
+  const offset = pendingOnly ? stillPending : data?.items.length ?? 0;
+  const hasMore = Boolean(data) && (pendingOnly ? stillPending < data.unanswered : data.items.length < data.total);
+
   async function loadMore() {
-    const more = await api.ownerReviews(establishment.id, { pending: pendingOnly, limit: PAGE, offset: data.items.length });
-    setData((d) => ({ ...d, items: [...d.items, ...more.items] }));
+    const more = await api.ownerReviews(establishment.id, { pending: pendingOnly, limit: PAGE, offset });
+    setData((d) => {
+      const seen = new Set(d.items.map((it) => it.id));
+      return { ...d, items: [...d.items, ...more.items.filter((it) => !seen.has(it.id))] };
+    });
   }
 
   const replaceItem = useCallback((updated) => {
@@ -134,7 +143,7 @@ export default function ReviewsReplies({ establishment }) {
         </ul>
       )}
 
-      {data && data.items.length < data.total && (
+      {hasMore && (
         <button type="button" className="btn-ghost mt-2" onClick={loadMore}>Ver más reseñas</button>
       )}
     </section>

@@ -210,7 +210,8 @@ _SYNONYMS = {"hamburgues": ["burger"], "perro": ["hotdog"], "pollo": ["chicken",
              "cafe": ["coffee"], "panaderi": ["bakery"], "cervez": ["beer"],
              # una pollería se llama "Pollo Asado", "Asadero El Pollo Dorado" o "Broaster…"
              "poller": ["pollo", "chicken", "broaster", "asadero"], "alita": ["wings"]}
-MENTION_BOOST = 2.5   # en UNIT: mayor que el bono por cercanía (máx. 2.0), así lo que SÍ vende lo buscado va primero
+MENTION_BOOST = 3.5   # en UNIT: mayor que el bono por cercanía con GPS (máx. 2.0 + 1.0 = 3.0): lo que SÍ vende
+#                       lo buscado va primero aunque quede más lejos
 FAR_KM = 5.0          # con GPS, si lo más cercano que lo menciona está más lejos que esto, se avisa
 
 
@@ -223,7 +224,14 @@ def _mentions(text: str, keywords: list[str]) -> bool:
         stem = normalize(k)[: max(4, len(normalize(k)) - 2)]
         stems.append(stem)
         stems += [syn for root, syns in _SYNONYMS.items() if stem.startswith(root) for syn in syns]
-    return any(len(s) >= 4 and s in w for s in stems for w in words)
+    if any(len(s) >= 4 and " " not in s and any(s in w for w in words) for s in stems):
+        return True
+    # Frases ("comida china", "bandeja paisa"): cada palabra de 3+ letras debe aparecer (admite plurales)
+    for k in keywords:
+        parts = [p for p in normalize(k).split() if len(p) >= 3]
+        if len(parts) > 1 and all(any(p[: max(3, len(p) - 2)] in w for w in words) for p in parts):
+            return True
+    return False
 
 
 def _is_business_type(keyword: str) -> bool:

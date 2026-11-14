@@ -66,7 +66,8 @@ def search_access(name: str, per_minute: int):
         if repeat_key and limiter.count(repeat_key, REPEAT_WINDOW):
             return SearchAccess(user=None, guest_remaining=remaining())   # la misma búsqueda: no se cobra
 
-        retry = limiter.retry_after(key, limit, GUEST_WINDOW)
+        # hit() comprueba y suma bajo el mismo candado: diez peticiones simultáneas no pasan todas
+        retry = limiter.hit(key, limit, GUEST_WINDOW)
         if retry:
             raise _guest_limit(f"Ya usaste tus {limit} búsquedas de prueba. Crea una cuenta gratis para seguir "
                                "buscando sin límites.", retry)
@@ -74,7 +75,6 @@ def search_access(name: str, per_minute: int):
         if retry:
             raise _guest_limit("Las búsquedas de prueba de hoy se agotaron. Crea una cuenta gratis para seguir "
                                "buscando.", retry)
-        limiter.record(key)
         if repeat_key:
             limiter.record(repeat_key)
         return SearchAccess(user=None, guest_remaining=remaining())

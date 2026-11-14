@@ -198,9 +198,10 @@ def delay_range(delay_seconds: int) -> tuple[int, int]:
 
 
 def extra_delay(route: Route) -> int:
-    """Segundos de MÁS respecto a lo normal para esta hora: lo que suman los trancones reportados, o cuánto
-    más lenta va la ruta que de costumbre (lo mayor). El tráfico de todos los días no cuenta: un domicilio ya
-    lo tiene en cuenta en su tiempo habitual."""
+    """Segundos de más por trancón: lo que suman los trancones REPORTADOS ahora en la ruta (trafficDelayInSeconds
+    de TomTom: solo incidentes y congestión reportada, no la diferencia con las vías vacías) o cuánto más lenta
+    va la ruta que de costumbre a esta hora (lo mayor). La lentitud normal sin trancones no cuenta: un domicilio
+    ya la tiene en cuenta en su tiempo habitual. (Medido: ruta 5 min más lenta que con vías vacías → 0 aquí.)"""
     worse_than_usual = route.travel_seconds - route.typical_seconds if route.typical_seconds else 0
     return max(route.jam_delay_seconds, worse_than_usual, 0)
 

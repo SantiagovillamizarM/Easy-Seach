@@ -244,15 +244,15 @@ def _richness(est: Establishment) -> tuple:
     """El que se conserva: primero el editado a mano, luego el que tenga más datos, luego el más antiguo."""
     filled = sum(bool(x) for x in (est.phone, est.website, est.description, est.opening_hours, est.address,
                                    est.offerings))
-    return est.source != "osm", filled, -est.id
+    return est.source != "osm" or est.owner_id is not None, filled, -est.id
 
 
 def mark_duplicates(db: Session, municipality_id: int) -> int:
     """Marca como duplicado el mismo lugar dibujado varias veces en OSM: mismo nombre a menos de 60 m (ej. una
     Terpel con cada isla de surtidores dibujada aparte, o un local como punto y como edificio).
 
-    Solo se marcan locales de OSM; nunca uno editado por un propietario o admin, ni un par que un admin ya
-    revisó y confirmó que NO son el mismo (panel admin → Duplicados → "No son duplicados")."""
+    Solo se marcan locales de OSM sin dueño; nunca uno editado o reclamado por un propietario, ni un par que un
+    admin ya revisó y confirmó que NO son el mismo (panel admin → Duplicados → "No son duplicados")."""
     ests = list(db.scalars(select(Establishment).where(Establishment.municipality_id == municipality_id,
                                                        Establishment.status == "active")))
     dismissed = {(d.establishment_a_id, d.establishment_b_id) for d in db.scalars(select(DuplicateDismissal))}
@@ -268,7 +268,7 @@ def mark_duplicates(db: Session, municipality_id: int) -> int:
                              if haversine_km(est.latitude, est.longitude, k.latitude, k.longitude) * 1000
                              < DUPLICATE_METERS
                              and (min(est.id, k.id), max(est.id, k.id)) not in dismissed), None)
-            if original is not None and est.source == "osm":
+            if original is not None and est.source == "osm" and est.owner_id is None:
                 est.status, est.duplicate_of_id = "duplicate", original.id
                 marked += 1
             else:
@@ -284,10 +284,11 @@ def useful_name(name: str) -> bool:
 
 def hide_unmatched(db: Session, municipality_id: int) -> int:
     """Oculta los locales de OSM que ya no se importarían: sin categoría (ej. colegios, que se dejaron de
-    importar) o con nombre inútil. Los editados por un propietario o admin no se tocan, y nada se borra."""
+    importar) o con nombre inútil. Los editados o reclamados por un propietario no se tocan, y nada se borra."""
     hidden = 0
     for est in db.scalars(select(Establishment).where(Establishment.municipality_id == municipality_id,
                                                       Establishment.source == "osm",
+                                                      Establishment.owner_id.is_(None),   # reclamado: no se toca
                                                       Establishment.status == "active")):
         if not categories_for_tags(est.osm_tags or {}) or not useful_name(est.name):
             est.status = "hidden"

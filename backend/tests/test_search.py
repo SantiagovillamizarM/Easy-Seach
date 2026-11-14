@@ -292,3 +292,17 @@ def test_far_notice_only_when_searching_near_me(client, world):
     body = client.post("/api/search", json={"q": "hamburguesas en Bucaramanga", **gps}).json()
     assert body["location"]["source"] == "texto"
     assert not any("Cerca de ti" in n for n in body["notices"])
+
+
+def test_mention_beats_maximum_gps_proximity():
+    """Con GPS el bono por cercanía llega a 3.0 UNIT: lo que SÍ vende lo buscado debe pesar más."""
+    from app.services.search import MENTION_BOOST
+    assert MENTION_BOOST > 2.0 + 1.0
+
+
+def test_multi_word_keywords_are_found():
+    """La IA a veces devuelve frases ("comida china"): antes nunca coincidían con nada."""
+    from app.services.search import _mentions
+    assert _mentions("Restaurante Comida China Wok", ["comida china"])
+    assert _mentions("Bandejas paisas y frijoladas", ["bandeja paisa"])
+    assert not _mentions("Comida rápida El Paisa", ["comida china"])

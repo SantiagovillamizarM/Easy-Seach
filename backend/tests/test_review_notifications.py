@@ -150,3 +150,20 @@ def test_profile_toggles_notifications(client, user_headers, place, outbox, db):
     client.put(f"/api/reviews/{review['id']}/reply", json={"text": "Gracias"}, headers=_owner_headers(client))
     assert outbox == []                                                     # el cliente apagó este aviso
     assert client.patch("/api/auth/me/notifications", json={"notify_review_replies": True}).status_code == 401
+
+
+def test_deleting_and_replying_again_does_not_email_again(client, place, user_headers, outbox):
+    """Borrar la respuesta y volver a responder no puede usarse para llenar de correos a un cliente."""
+    review = _review(client, place, user_headers, rating=2)
+    outbox.clear()
+    owner = _owner_headers(client)
+    url = f"/api/reviews/{review['id']}/reply"
+    client.put(url, json={"text": "Lo sentimos, vamos a mejorar"}, headers=owner)
+    client.delete(url, headers=owner)
+    client.put(url, json={"text": "Lo sentimos mucho"}, headers=owner)
+    assert len(outbox) == 1
+    item = client.get(f"/api/establishments/{place.id}/reviews").json()["items"][0]
+    assert item["owner_reply"] == "Lo sentimos mucho"
+    client.delete(url, headers=owner)
+    item = client.get(f"/api/establishments/{place.id}/reviews").json()["items"][0]
+    assert item["owner_reply"] is None and item["owner_reply_at"] is None   # sin respuesta: sin fecha visible

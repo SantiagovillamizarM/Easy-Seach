@@ -146,9 +146,14 @@ export function OwnerReply({ review, canReply, onChange }) {
   }
 
   async function remove() {
-    await api.deleteReply(review.id);
-    onChange({ ...review, owner_reply: null, owner_reply_at: null });
-    setConfirm(false);
+    setError(null);
+    try {
+      await api.deleteReply(review.id);
+      onChange({ ...review, owner_reply: null, owner_reply_at: null });
+      setConfirm(false);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   if (editing) {
@@ -215,6 +220,7 @@ export function OwnerReply({ review, canReply, onChange }) {
           )}
         </div>
       )}
+      {error && !editing && <p role="alert" className="mt-2 text-xs text-closed">{error}</p>}
     </div>
   );
 }

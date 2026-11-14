@@ -37,7 +37,7 @@ def review_out(review: Review, author: User) -> dict:
         "status": review.status,
         "moderation_reason": review.moderation_reason,
         "owner_reply": review.owner_reply,
-        "owner_reply_at": review.owner_reply_at,
+        "owner_reply_at": review.owner_reply_at if review.owner_reply else None,
     }
 
 
@@ -169,9 +169,12 @@ def _replyable_review(db: Session, review_id: int, user: User) -> Review:
 
 
 def _set_reply(db: Session, review: Review, text: str | None) -> None:
-    # updated_at se conserva: responder no es "editar" la reseña del cliente
-    db.execute(update(Review).where(Review.id == review.id).values(
-        owner_reply=text, owner_reply_at=datetime.now(timezone.utc) if text else None, updated_at=Review.updated_at))
+    # updated_at se conserva: responder no es "editar" la reseña del cliente.
+    # Al borrar, owner_reply_at se conserva: indica que el cliente ya recibió el aviso de respuesta.
+    values = {"owner_reply": text, "updated_at": Review.updated_at}
+    if text:
+        values["owner_reply_at"] = datetime.now(timezone.utc)
+    db.execute(update(Review).where(Review.id == review.id).values(**values))
     db.commit()
     db.refresh(review)
 
@@ -188,7 +191,7 @@ def reply_to_review(review_id: int, data: ReplyIn, background: BackgroundTasks,
     if problem:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=problem.replace("La reseña", "La respuesta")
                             .replace("Las reseñas", "Las respuestas").replace("toda la reseña", "toda la respuesta"))
-    first_reply = review.owner_reply is None
+    first_reply = review.owner_reply_at is None   # nunca respondida (borrar y volver a responder no cuenta)
     _set_reply(db, review, data.text)
     if first_reply:   # editar la respuesta no vuelve a escribirle al cliente
         notify_reviewer_reply(db, review, background)

@@ -61,6 +61,27 @@ class RowError(Exception):
     pass
 
 
+_PRICE_SLOT = re.compile(r"^\s*\$?\s*[\d][\d.,\s]*$|^\s*$")   # "22000", "$ 22.000" o vacío (precio omitido)
+_DECIMALS = re.compile(r"\d[.,]\d{1,2}\s*$")                     # "12500,50" o "9.5": no son pesos enteros
+
+
+def _split_offering(part: str) -> tuple[str, str, str]:
+    """'Nombre:precio:descripción' → (nombre, precio, descripción).
+
+    El precio es el PRIMER trozo después del nombre que parece un precio (o está vacío), así el nombre y la
+    descripción pueden tener ":" ("Combo: papas + gaseosa:15000", "Mensualidad:80000:Pagos: efectivo").
+    Sin ":" todo es el nombre. Con ":" pero sin ningún trozo que parezca precio ("Pizza:abc"), es un error de
+    escritura: para un nombre con ":" y sin precio, deja el precio vacío ("Combo: papas::").
+    """
+    pieces = part.split(":")
+    if len(pieces) == 1:
+        return part.strip(), "", ""
+    for i in range(1, len(pieces)):
+        if _PRICE_SLOT.match(pieces[i]):
+            return ":".join(pieces[:i]).strip(), pieces[i].strip(), ":".join(pieces[i + 1:]).strip()
+    raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
+
+
 def parse_offerings(text: str, kind: str) -> list[Offering]:
     """"#Sección|Nombre:precio:descripción|Nombre:precio|Nombre" (precio y descripción opcionales).
 
@@ -76,14 +97,15 @@ def parse_offerings(text: str, kind: str) -> list[Offering]:
         if part.startswith("#"):
             section = " ".join(part[1:].split())[:60] or None
             continue
-        name, price, description = (part.split(":", 2) + ["", ""])[:3]
-        name = name.strip()
+        name, price, description = _split_offering(part)
         if len(name) < 2:
             raise RowError(f"Nombre de {kind} inválido: '{part}'")
         value = None
-        if price.strip():
+        if price:
+            if _DECIMALS.search(price):
+                raise RowError(f"Precio con decimales en '{part[:60]}': escribe pesos enteros (ej. 22000)")
             try:
-                value = Decimal(price.strip().replace(".", "").replace(",", "").replace("$", "").replace(" ", ""))
+                value = Decimal(price.replace(".", "").replace(",", "").replace("$", "").replace(" ", ""))
             except InvalidOperation:
                 raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
         items.append(Offering(kind=kind, section=section, name=name[:200], price=value,

@@ -134,8 +134,8 @@ def categories_for_tags(tags: dict[str, str]) -> list[str]:
     for slug, (_name, _desc, mapping) in CATEGORIES.items():
         for key, values in mapping.items():
             value = tags.get(key)
-            if value and values and value in values:
-                found.append(slug)
+            if value and values and value in values and slug not in found:
+                found.append(slug)   # una vez: amenity=clinic + healthcare=clinic no deben dar "salud" dos veces
     if not found:
         if tags.get("craft"):
             found.append("oficios")
