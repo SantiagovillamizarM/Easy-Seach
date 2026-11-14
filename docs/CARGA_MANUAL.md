@@ -6,6 +6,8 @@ cómo completar esa información **con datos reales** usando un archivo CSV que 
 > Regla del proyecto: solo se cargan datos verificados (visitaste el lugar, viste su menú, su página oficial
 > o su Instagram). Easy Search nunca debe mostrar información inventada.
 
+Para pedirle los datos a un negocio, usa las [preguntas estándar de registro](PREGUNTAS_REGISTRO.md).
+
 ## Locales del proyecto (compartidos en el repositorio)
 
 `backend/data/locales_easysearch.csv` contiene los locales que el equipo completó a mano. Está en Git: quien
