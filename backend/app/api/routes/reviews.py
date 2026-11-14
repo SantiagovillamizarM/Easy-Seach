@@ -9,25 +9,21 @@ Reglas:
 """
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_verified_user
 from app.core.rate_limit import limit_by_user
+from app.core.text import short_name
 from app.db.session import get_db
 from app.models import Establishment, Report, Review, User
 from app.schemas.review import MyReviewOut, ReplyIn, ReportIn, ReviewIn, ReviewOut, ReviewsPage
 from app.services.llm import LLMProvider, get_llm
 from app.services.moderation import check_rules, moderate, recalculate_rating
+from app.services.notifications import notify_owner_new_review
 
 router = APIRouter(tags=["reviews"])
-
-
-def _author_name(full_name: str) -> str:
-    """'Laura Patricia Gómez' -> 'Laura G.' (privacidad: no se muestra el nombre completo)."""
-    parts = full_name.split()
-    return parts[0] if len(parts) == 1 else f"{parts[0]} {parts[-1][0].upper()}."
 
 
 def review_out(review: Review, author: User) -> dict:
@@ -35,7 +31,7 @@ def review_out(review: Review, author: User) -> dict:
         "id": review.id,
         "rating": review.rating,
         "comment": review.comment,
-        "author": _author_name(author.full_name),
+        "author": short_name(author.full_name),
         "created_at": review.created_at,
         "edited": (review.updated_at - review.created_at).total_seconds() > 60,
         "status": review.status,
@@ -88,6 +84,7 @@ def my_review(establishment_id: int, user: User = Depends(get_current_user), db:
 def create_review(
     establishment_id: int,
     data: ReviewIn,
+    background: BackgroundTasks,
     user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
@@ -107,6 +104,7 @@ def create_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
+    notify_owner_new_review(db, review, background)   # solo si quedó publicada
     return review_out(review, user)
 
 
@@ -123,11 +121,13 @@ def _own_review(db: Session, review_id: int, user: User, allow_admin: bool = Fal
 def update_review(
     review_id: int,
     data: ReviewIn,
+    background: BackgroundTasks,
     user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
 ):
     review = _own_review(db, review_id, user)
+    was_published = review.status == "approved"
     est = db.get(Establishment, review.establishment_id)
     # Toda edición se vuelve a moderar
     result = moderate(db, user_id=user.id, rating=data.rating, comment=data.comment,
@@ -138,6 +138,8 @@ def update_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
+    if not was_published:   # editar una reseña que ya estaba publicada no genera otro correo
+        notify_owner_new_review(db, review, background)
     return review_out(review, user)
 
 

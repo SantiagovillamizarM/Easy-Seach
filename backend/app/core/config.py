@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str
     cors_origins: str = "http://127.0.0.1:5173"
+    # Dirección pública del frontend: los correos enlazan aquí (ej. "Responder la reseña")
+    app_url: str = "http://127.0.0.1:5173"
 
     # --- Autenticación ---
     # Clave para firmar los tokens JWT. Obligatoria, sin valor por defecto.
@@ -94,6 +96,8 @@ class Settings(BaseSettings):
         if any(o.startswith("http://") and "127.0.0.1" not in o and "localhost" not in o
                for o in self.cors_origins_list):
             problems.append("CORS_ORIGINS debe usar https:// en producción")
+        if not self.app_url.startswith("https://"):
+            problems.append("APP_URL debe ser la dirección pública con https:// (los correos enlazan ahí)")
         if not self.smtp_configured:
             problems.append("Configura SMTP_HOST, SMTP_USER y SMTP_PASSWORD: sin correo nadie puede confirmar su cuenta")
         if not (self.turnstile_site_key and self.turnstile_secret_key):

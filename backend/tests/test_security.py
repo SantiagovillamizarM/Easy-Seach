@@ -144,7 +144,8 @@ def test_production_rejects_weak_config():
 
 
 PROD_OK = {"smtp_host": "smtp.gmail.com", "smtp_user": "app@gmail.com", "smtp_password": "x" * 16,
-           "turnstile_site_key": "0x4AAAAreal", "turnstile_secret_key": "0x4AAAAsecretareal"}
+           "turnstile_site_key": "0x4AAAAreal", "turnstile_secret_key": "0x4AAAAsecretareal",
+           "app_url": "https://easysearch.co"}
 
 
 def test_production_requires_email_and_real_captcha():
@@ -154,6 +155,9 @@ def test_production_requires_email_and_real_captcha():
     with pytest.raises(ValidationError, match="PRUEBA"):
         Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co",
                  **{**PROD_OK, "turnstile_secret_key": "1x0000000000000000000000000000000AA"})
+    with pytest.raises(ValidationError, match="APP_URL"):
+        Settings(**BASE, app_env="production", secret_key="k" * 48, cors_origins="https://easysearch.co",
+                 **{**PROD_OK, "app_url": "http://127.0.0.1:5173"})
 
 
 def test_production_accepts_good_config_and_dev_is_relaxed():
