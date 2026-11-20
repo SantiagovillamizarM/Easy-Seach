@@ -65,8 +65,11 @@ con las tablas reales (`ddl-auto=validate`) y, si no coinciden, Spring no arranc
 Con Docker Desktop basta un comando para levantar los cinco servicios en contenedores: PostgreSQL + pgvector, n8n,
 FastAPI, Spring Boot y el frontend (Nginx). No hace falta instalar Python, Java ni Node.
 
+1. La primera vez, crea y completa el `.env` siguiendo el paso **"1. Variables de entorno"** de la instalación
+   (más abajo). Es obligatorio: sin esas claves n8n y Spring Boot no arrancan.
+2. Levanta todo:
+
 ```powershell
-Copy-Item .env.example .env     # la primera vez: luego edita las claves (ver "Variables de entorno")
 docker compose --profile completo up -d --build
 ```
 
@@ -78,8 +81,12 @@ docker compose --profile completo up -d --build
 
 - La primera vez tarda varios minutos: se construyen las imágenes y FastAPI descarga el modelo de embeddings
   (~470 MB, queda guardado en el volumen `modelos`).
-- FastAPI aplica las migraciones al arrancar. Para cargar los datos en una base nueva, ver la sección
-  "Crear las tablas e importar datos reales".
+- Una base nueva **se crea sola** con el esquema y los datos iniciales (ver "4. Crear las tablas e importar
+  datos reales"). Los vectores los genera n8n: cada 30 minutos o al instante con el comando del paso "6. n8n".
+- Para crear tu administrador: `docker exec -it easysearch-backend python -m scripts.create_admin --email
+  tu@correo.com --nombre "Tu Nombre"`.
+- Sin SMTP configurado, el código para confirmar el correo de una cuenta nueva aparece en el registro del backend:
+  `docker logs easysearch-backend`.
 - Si estás desarrollando, detén antes los servidores locales: el modo completo usa los puertos 8010 y 8020.
 - Para apagar todo: `docker compose --profile completo down` (los datos quedan en los volúmenes).
 
@@ -109,12 +116,23 @@ Todos los comandos se ejecutan en **PowerShell** desde la carpeta del proyecto.
 Copy-Item .env.example .env
 ```
 
-Abre `.env` y:
-- Cambia `cambia_esta_clave` por una contraseña propia **en las dos líneas** donde aparece
-  (`POSTGRES_PASSWORD` y `DATABASE_URL`).
-- Cambia `SECRET_KEY` por una clave aleatoria (el comando para generarla está en el mismo archivo).
-- Pega tu clave de Gemini en `GEMINI_API_KEY` (créala en https://aistudio.google.com/apikey). Sin clave,
-  la búsqueda funciona igual con el intérprete por reglas, pero entiende menos.
+Abre `.env` y cambia estos valores:
+
+| Variable | Qué poner | ¿Obligatoria? |
+|---|---|---|
+| `POSTGRES_PASSWORD` y `DATABASE_URL` | La misma contraseña propia **en las dos líneas** (solo letras y números, para no romper la URL) | Sí |
+| `SECRET_KEY` | Clave aleatoria de **al menos 32 caracteres** (firma las sesiones; con una más corta Spring Boot no arranca) | Sí |
+| `INTERNAL_API_KEY` | Clave aleatoria (n8n la usa para llamar a FastAPI) | Sí |
+| `N8N_WEBHOOK_KEY` | Clave aleatoria (Spring Boot la usa para llamar a n8n) | Sí |
+| `N8N_ENCRYPTION_KEY` | Clave aleatoria (n8n cifra sus credenciales). **No la cambies** después del primer arranque | Sí |
+| `GEMINI_API_KEY` | Tu clave de Gemini (créala gratis en https://aistudio.google.com/apikey) | Recomendada: sin ella la búsqueda funciona por reglas y el asistente responde con estado ERROR |
+| `SMTP_*` | Correo para los códigos de confirmación (instrucciones en el mismo archivo) | No: sin SMTP el código aparece en la terminal del backend |
+
+Para generar cada clave aleatoria, ejecuta esto en PowerShell (una vez por clave) y copia el resultado:
+
+```powershell
+$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b).Replace('+','-').Replace('/','_').TrimEnd('=')
+```
 
 > Usa `127.0.0.1` y no `localhost` en `DATABASE_URL`: en Windows, `localhost` intenta primero IPv6 y la
 > conexión puede tardar más de 2 minutos.
@@ -172,10 +190,8 @@ cd backend
 .\.venv\Scripts\python -m scripts.import_osm
 # Genera los embeddings (vectores semánticos). La primera vez descarga el modelo (~470 MB)
 .\.venv\Scripts\python -m scripts.reindex_embeddings
-# Carga los locales que el equipo completó a mano (descripciones, productos, precios, horarios…)
+# Vuelve a cargar los locales completados a mano (no los duplica: los actualiza por su slug)
 .\.venv\Scripts\python -m scripts.import_csv
-# Crea tu usuario administrador (te pedirá la contraseña)
-.\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
 cd ..
 ```
 
@@ -185,6 +201,14 @@ cd ..
 
 Para completar negocios con descripción, menú y precios reales, sigue la
 [guía de carga manual](docs/CARGA_MANUAL.md).
+
+**Crea tu usuario administrador** (siempre: una base nueva no trae usuarios). Te pedirá la contraseña:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
+cd ..
+```
 
 ### 5. Frontend
 
