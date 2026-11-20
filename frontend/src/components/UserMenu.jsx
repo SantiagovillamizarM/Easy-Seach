@@ -1,9 +1,10 @@
-import { ChevronDown, Heart, History, LogOut, ShieldCheck, Store, UserRound } from "lucide-react";
+import { Bot, ChevronDown, Heart, History, LogOut, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export const ACCOUNT_LINKS = [
+  { to: "/asistente", label: "Asistente", icon: Bot },
   { to: "/favoritos", label: "Mis favoritos", icon: Heart },
   { to: "/historial", label: "Mi historial", icon: History },
   { to: "/perfil", label: "Mi perfil", icon: UserRound },

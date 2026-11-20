@@ -159,6 +159,13 @@ export const api = {
     return request(`/establishments/${id}/photos`, { method: "POST", multipart: data });
   },
   deletePhoto: (id, photoId) => request(`/establishments/${id}/photos/${photoId}`, { method: "DELETE" }),
+  // Asistente con IA (lo atiende Spring Boot: RAG con n8n, pgvector y Gemini)
+  asistente: {
+    preguntar: (pregunta, opts) => request("/asistente/consultas", { method: "POST", body: { pregunta }, ...opts }),
+    historial: (params, opts) => request(`/asistente/consultas?${qs(params)}`, opts),
+    calificar: (id, puntuacion, comentario) =>
+      request(`/asistente/consultas/${id}/calificacion`, { method: "PUT", body: { puntuacion, comentario: comentario || null } }),
+  },
   // Panel administrativo (solo admin)
   admin: {
     overview: (opts) => request("/admin/overview", opts),

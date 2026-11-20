@@ -88,6 +88,11 @@ y pruebas (pytest y JUnit).
 | Tablas creadas por Alembic, entidades en Spring | Hibernate `ddl-auto=update` | Una sola fuente del esquema |
 | Pruebas del asistente contra la base de pruebas real | Repositorios simulados | Comprueban las restricciones y el mapeo JPA reales |
 
+**Componentes asistidos (bloque C):** página `/asistente` (`AssistantPage.jsx`, `AssistantAnswer.jsx`), métodos
+del cliente de la API, enlaces de navegación, ícono de la pestaña y recorrido visual automatizado con capturas.
+El recorrido detectó un error de estado en React (la calificación pasaba de una consulta a otra) que se corrigió
+y se volvió a verificar.
+
 Las pruebas con la app real revelaron tres fallas del prompt (recomendar negocios que no sirven, inventar la
 ubicación, mencionar ids) que se corrigieron y se volvieron a probar; están descritas en `docs/AVANCE.md`.
 

@@ -28,7 +28,7 @@
 | 7 — Panel administrativo | ✅ Completada |
 | 8 — Calidad y seguridad | ✅ Completada |
 | 9 — Puerta de entrada Spring Boot | ✅ Completada |
-| 10 — Asistente IA con n8n (RAG) | 🔄 En curso |
+| 10 — Asistente IA con n8n (RAG) | ✅ Completada |
 | 11 — Análisis de datos y dashboard | ⏳ Pendiente |
 | 12 — Documentación y cierre | ⏳ Pendiente |
 
@@ -517,7 +517,27 @@ barrera (Gemini + validación) evita respuestas sin respaldo.
 pruebas real: pregunta vacía, fuentes desactivadas o inexistentes, sin resultados, errores de n8n, historial
 propio, calificación 1-5 y su actualización, límite por hora).
 
+**Bloque C — Pantalla del asistente (`/asistente`):**
+- Cuadro para la pregunta (máx. 500 caracteres, Enter envía, ejemplos para empezar) y validación de pregunta vacía
+  antes de llamar al servidor.
+- Tarjeta de respuesta: estado (Respondida, Sin resultados, Error, Pendiente), orientación, pasos recomendados,
+  fuentes enlazadas a la ficha de cada negocio con su similitud real (3 decimales) y cuánto supera el mínimo; en
+  "Sin resultados" se muestra la mejor similitud y el umbral.
+- Calificación de 1 a 5 estrellas con comentario opcional, que se puede cambiar.
+- Historial paginado ("Ver más") con todas las consultas anteriores; enlace "Asistente" en el encabezado y en el
+  menú de usuario. Ícono de la pestaña (antes no existía y daba 404).
+
+**Verificado (bloque C):** ESLint sin errores y compilación correcta. Recorrido automatizado con Chrome real
+(`playwright-core`): pregunta vacía rechazada, pregunta de conectividad respondida con fuentes, calificación de 5
+estrellas guardada, pregunta sin información → "Sin resultados", el historial persiste al recargar, vista de
+celular sin desbordes y consola sin errores. Capturas en `docs/evidencias/fase-10/`.
+
 **Problemas encontrados y solución:**
+- Las capturas mostraron que, al hacer una segunda pregunta, la tarjeta nueva heredaba las estrellas y el
+  comentario de la anterior (React reutilizaba el formulario): calificar ahí habría guardado la nota en la consulta
+  equivocada → el formulario se reinicia por consulta (`key`).
+- Las barras de similitud se veían casi vacías porque las similitudes reales están entre 0,82 y 0,90 → se
+  reemplazaron por el valor exacto y cuánto supera el mínimo.
 - El puerto 5678 lo usa el n8n de otro proyecto → n8n de Easy Search en el 5690.
 - Con el negocio correcto desactivado, Gemini recomendó un bar y un supermercado para "farmacia en Girón" → se le
   indica descartar las fichas que no ofrecen lo pedido y responder sin resultados si no queda ninguna.
