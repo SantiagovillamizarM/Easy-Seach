@@ -47,6 +47,32 @@ export function useReveal() {
   return ref;
 }
 
+/**
+ * true mientras un elemento oscuro marcado con `data-dark-hero` está detrás del encabezado.
+ * Así el encabezado sigue oscuro sobre el hero y solo pasa a claro al llegar al contenido claro.
+ */
+export function useOverDarkHero(enabled, headerHeight = 72) {
+  const [over, setOver] = useState(enabled);
+  useEffect(() => {
+    if (!enabled) {
+      setOver(false);
+      return undefined;
+    }
+    const hero = document.querySelector("[data-dark-hero]");
+    if (!hero || typeof IntersectionObserver === "undefined") {
+      setOver(true);
+      return undefined;
+    }
+    // Solo cuenta la franja superior de la ventana, donde está el encabezado
+    const obs = new IntersectionObserver(([entry]) => setOver(entry.isIntersecting), {
+      rootMargin: `0px 0px -${Math.max(window.innerHeight - headerHeight, 0)}px 0px`,
+    });
+    obs.observe(hero);
+    return () => obs.disconnect();
+  }, [enabled, headerHeight]);
+  return over;
+}
+
 /** true cuando la página se ha desplazado más de `offset` píxeles. */
 export function useScrolled(offset = 8) {
   const [scrolled, setScrolled] = useState(false);

@@ -1,6 +1,6 @@
 import { Bot } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useScrolled } from "../lib/motion.js";
+import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
@@ -11,13 +11,16 @@ function Header() {
   const isHome = pathname === "/";
   // Al bajar, el encabezado se compacta y gana fondo y sombra para separarse del contenido
   const scrolled = useScrolled();
-  // En el inicio, arriba del todo, el encabezado se funde con el hero nocturno
-  const dark = isHome && !scrolled;
+  // En el inicio el encabezado sigue oscuro mientras el hero nocturno está detrás (sin franja blanca)
+  const overHero = useOverDarkHero(isHome);
+  const dark = isHome && (overHero || !scrolled);
   return (
     <header
-      className={`sticky top-0 z-[1000] border-b backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
+      className={`sticky top-0 z-[1000] border-b backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
         dark
-          ? "border-white/5 bg-night"
+          ? scrolled
+            ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)]"
+            : "border-white/5 bg-night"
           : scrolled
             ? "border-line/80 bg-white/90 shadow-[0_4px_20px_rgb(11_18_36/0.06)]"
             : "border-transparent bg-white/60"

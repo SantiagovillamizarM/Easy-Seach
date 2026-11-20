@@ -39,7 +39,7 @@ function Hero() {
   const onValueChange = useCallback((v) => setTyping(v.trim().length > 0), []);
 
   return (
-    <section className="hero-night">
+    <section className="hero-night" data-dark-hero>
       <div className="hero-dots" aria-hidden="true" />
       <div className="hero-grain" aria-hidden="true" />
 
