@@ -37,8 +37,9 @@ en [docs/AVANCE.md](docs/AVANCE.md).
 
 ### Fase 9 — Puerta de entrada Spring Boot
 
-**Componentes asistidos:** proyecto `gateway/` completo (configuración, `FastApiProxyController`, CORS, pruebas),
-cambio del proxy de Vite y documentación (README, `.env.example`, AVANCE).
+**Componentes asistidos:** proyecto `gateway/` completo (configuración, `FastApiProxyController`, CORS,
+seguridad JWT, entidad JPA `Usuario`, Swagger, pruebas), cambio del proxy de Vite y documentación (README,
+`.env.example`, AVANCE).
 
 **Decisiones técnicas tomadas con apoyo de la IA:**
 
@@ -51,5 +52,9 @@ cambio del proxy de Vite y documentación (README, `.env.example`, AVANCE).
 | Reenvío con `java.net.http.HttpClient` en un controlador comodín (`/api/**`) | Spring Cloud Gateway | La IA lo propuso: menos dependencias, y los endpoints nuevos de Spring tienen prioridad automáticamente |
 | Spring envía la IP real en `X-Forwarded-For` y descarta la del navegador | Reenviar la cabecera recibida | Los límites de intentos de FastAPI son por IP; reenviarla permitiría falsificarla |
 | `forward-headers-strategy` en `none` por defecto | `native` siempre | Una prueba automatizada mostró que `native` aceptaba IP falsas en desarrollo |
+| Spring valida el mismo JWT de FastAPI (HS256 + `SECRET_KEY`) | Un segundo inicio de sesión en Spring | Un solo login para el usuario; se replican las reglas de `deps.py` (cuenta activa, cambio de contraseña) |
+| Dos cadenas de seguridad: solo las rutas de Spring exigen token | Validar el token en todas las rutas | FastAPI ya decide qué rutas son públicas; validar todo en Spring cambiaba el comportamiento de rutas públicas |
+| Entidad `Usuario` de solo lectura y validación de esquema (`ddl-auto=validate`) | Que Hibernate cree o modifique tablas | Las tablas las administra Alembic: una sola fuente del esquema evita que los dos backends se contradigan |
+| Pruebas sin base de datos (perfil `test` y repositorio simulado) | Testcontainers o la base de desarrollo | Corren en cualquier PC sin Docker y nunca tocan los datos reales; la integración se verificó a mano con la app real |
 
 **Revisión humana:** ✏️ quién revisó el código y cómo lo probó.

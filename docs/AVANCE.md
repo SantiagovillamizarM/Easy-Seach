@@ -406,6 +406,30 @@ pone delante como única puerta de entrada.
 - Con la app real: `/api/health` idéntico directo y por Spring (incluidas las cabeceras de seguridad); login con
   formulario, perfil, historial, 401 sin token y búsqueda funcionan por Spring, y también desde Vite (5173 → 8020 → 8010).
 
+**Bloque B — Seguridad, JPA y Swagger:**
+- Entidad JPA `Usuario` sobre la tabla `users` de FastAPI, de solo lectura (`@Immutable`) y sin la contraseña.
+  Hibernate valida al arrancar que coincide con la tabla real (`ddl-auto=validate`); `id` es `Integer` porque la
+  columna es `integer`.
+- Spring Security valida el **mismo token** que emite FastAPI: HS256 con `SECRET_KEY` y vencimiento, y luego
+  las mismas reglas de `deps.py`: usuario existente y activo, y token posterior al último cambio de contraseña.
+  Con una `SECRET_KEY` de menos de 32 caracteres Spring no arranca y explica cómo generar una.
+- Dos cadenas de seguridad: las rutas propias de Spring (`/api/asistente` exige correo confirmado,
+  `/api/analitica` solo admin, `/api/sistema/sesion` sesión) y el resto, que se reenvía sin revisar porque
+  FastAPI ya aplica sus reglas (así una búsqueda pública con un token vencido se comporta igual que antes).
+- Errores 401/403 con el mismo formato y mensajes de FastAPI, incluido `X-Error-Code: email_not_verified`.
+- Una ruta de Spring que no existe responde 404 y nunca se reenvía a FastAPI.
+- Endpoints `GET /api/sistema/estado` (público: Spring, PostgreSQL y FastAPI) y `GET /api/sistema/sesion`.
+- Swagger UI (springdoc) en `/swagger-ui.html` con las dos especificaciones: la de Spring y la de FastAPI
+  (reenviada por `/openapi.json`). Se apaga con `SWAGGER_ENABLED=false`.
+
+**Verificado (bloque B):**
+- `mvnw test`: 23 pruebas (11 de seguridad: sin token, vencido, otra clave, sin firma `alg: none`, usuario
+  inexistente o inactivo, cambio de contraseña, permisos de admin, correo sin confirmar, cabeceras).
+- Con la app real: Hibernate validó `Usuario` contra la base; un token emitido por FastAPI funciona en Spring;
+  tras cambiar la contraseña el token viejo da 401 en Spring y en FastAPI y el nuevo funciona; con el usuario
+  borrado da 401; un usuario normal recibe 403 en analítica. Respuestas con tildes idénticas byte a byte
+  directas y por Spring.
+
 **Problemas encontrados y solución:**
 - Spring Initializr generó la versión `4.2.0.RELEASE`, que no existe en Maven Central (se publica como `4.2.0`).
 - Con `server.forward-headers-strategy=native`, Tomcat aceptaba un `X-Forwarded-For` falso porque en desarrollo el

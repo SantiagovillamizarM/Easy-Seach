@@ -25,7 +25,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.easysearch.gateway.config.GatewayProperties;
+import com.easysearch.gateway.config.RutasSpring;
+import com.easysearch.gateway.seguridad.RespuestaError;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
@@ -35,7 +38,11 @@ import jakarta.servlet.http.HttpServletRequest;
  * <p>Spring elige siempre la ruta más específica: cuando se agregue, por ejemplo,
  * {@code @GetMapping("/api/asistente/consultas")}, esa ruta la responde Spring y todo lo demás sigue
  * llegando aquí. Por eso el frontend no tiene que saber qué backend atiende cada cosa.
+ *
+ * <p>También reenvía {@code /openapi.json} para que Swagger UI de Spring muestre la API de FastAPI.
+ * No aparece en Swagger ({@link Hidden}): sus rutas ya están documentadas en la especificación de FastAPI.
  */
+@Hidden
 @RestController
 public class FastApiProxyController {
 
@@ -69,8 +76,12 @@ public class FastApiProxyController {
 				.build();
 	}
 
-	@RequestMapping({ "/api/**", "/uploads/**" })
+	@RequestMapping({ "/api/**", "/uploads/**", "/openapi.json" })
 	public ResponseEntity<byte[]> forward(HttpServletRequest request) throws IOException {
+		// Una ruta de Spring que no existe no se manda a FastAPI: allá no hay nada y no debe conocerla
+		if (RutasSpring.esDeSpring(request.getRequestURI())) {
+			return error(HttpStatus.NOT_FOUND, "Not Found");
+		}
 		long declaredLength = request.getContentLengthLong();
 		if (declaredLength > properties.maxBodyBytes()) {
 			return error(HttpStatus.CONTENT_TOO_LARGE, "La solicitud es demasiado grande.");
@@ -156,9 +167,8 @@ public class FastApiProxyController {
 
 	/** Mismo formato de error que FastAPI ({"detail": "..."}) para que el frontend lo muestre igual. */
 	private static ResponseEntity<byte[]> error(HttpStatus status, String message) {
-		String json = "{\"detail\":\"" + message.replace("\"", "\\\"") + "\"}";
 		return ResponseEntity.status(status)
 				.contentType(MediaType.APPLICATION_JSON)
-				.body(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+				.body(RespuestaError.json(message).getBytes(java.nio.charset.StandardCharsets.UTF_8));
 	}
 }

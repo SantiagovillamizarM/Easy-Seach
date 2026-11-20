@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertySource;
 
 import com.sun.net.httpserver.HttpServer;
@@ -28,6 +29,7 @@ import com.sun.net.httpserver.HttpServer;
  * recibe. Así se prueba el comportamiento real: cuerpos de formulario, cabeceras y errores de conexión.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 class FastApiProxyControllerTests {
 
 	/** Última petición que recibió el FastAPI falso. */
@@ -113,6 +115,32 @@ class FastApiProxyControllerTests {
 	}
 
 	@Test
+	void unTokenInvalidoEnRutasDeFastApiLoDecideFastApi() throws Exception {
+		// Spring no valida tokens en lo que reenvía: FastAPI aplica sus propias reglas (rutas públicas incluidas)
+		HttpResponse<String> response = send(HttpRequest.newBuilder(url("/api/search"))
+				.header("Authorization", "Bearer token-vencido-o-falso").GET());
+
+		assertThat(received).containsEntry("authorization", "Bearer token-vencido-o-falso");
+		assertThat(response.statusCode()).isEqualTo(429); // la respuesta del FastAPI falso, no un 401 de Spring
+	}
+
+	@Test
+	void lasRutasDeSpringNuncaSeReenvian() throws Exception {
+		HttpResponse<String> response = send(HttpRequest.newBuilder(url("/api/sistema/no-existe"))
+				.header("Authorization", "Bearer x").GET());
+
+		assertThat(response.statusCode()).isEqualTo(401); // la seguridad de Spring responde primero
+		assertThat(received).isEmpty();
+	}
+
+	@Test
+	void reenviaLaEspecificacionOpenApiDeFastApi() throws Exception {
+		send(HttpRequest.newBuilder(url("/openapi.json")).GET());
+
+		assertThat(received).containsEntry("path", "/openapi.json");
+	}
+
+	@Test
 	void reenviaFotosSubidas() throws Exception {
 		HttpResponse<String> response = send(HttpRequest.newBuilder(url("/uploads/1/foto.webp")).GET());
 
@@ -145,7 +173,7 @@ class FastApiProxyControllerTests {
 		}
 		var controller = new FastApiProxyController(new com.easysearch.gateway.config.GatewayProperties(
 				URI.create("http://127.0.0.1:" + closedPort), java.time.Duration.ofSeconds(2), 1000,
-				java.util.List.of()));
+				java.util.List.of(), "no-se-usa"));
 		var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/health");
 
 		var response = controller.forward(request);

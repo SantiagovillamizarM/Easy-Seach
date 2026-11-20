@@ -23,7 +23,9 @@ recomendaciones con IA basadas solo en datos reales.
 |---|---|
 | PostgreSQL | `127.0.0.1:5440` |
 | Puerta de entrada Spring Boot | http://127.0.0.1:8020 — el frontend solo habla con esta |
-| Backend FastAPI | http://127.0.0.1:8010 — documentación en http://127.0.0.1:8010/docs |
+| Swagger (toda la API) | http://127.0.0.1:8020/swagger-ui.html — arriba a la derecha se elige Spring Boot o FastAPI |
+| Estado de los servicios | http://127.0.0.1:8020/api/sistema/estado |
+| Backend FastAPI | http://127.0.0.1:8010 — documentación propia en http://127.0.0.1:8010/docs |
 
 ### Arquitectura
 
@@ -31,9 +33,15 @@ recomendaciones con IA basadas solo en datos reales.
 Navegador ──► React/Vite (5173) ──► Spring Boot (8020) ──► FastAPI (8010) ──► PostgreSQL + pgvector (5440)
 ```
 
-Spring Boot es la puerta de entrada: el frontend nunca llama directo a FastAPI ni a la IA. Las rutas que Spring
-no atiende todavía (búsqueda, cuentas, reseñas, paneles) las reenvía tal cual a FastAPI, conservando la IP real
-del cliente para los límites de intentos.
+Spring Boot es la puerta de entrada: el frontend nunca llama directo a FastAPI ni a la IA.
+
+- **Rutas propias de Spring** (`/api/asistente`, `/api/analitica`, `/api/sistema`): Spring valida el token JWT
+  (el mismo que emite FastAPI al iniciar sesión, firmado con `SECRET_KEY`) y consulta la base con JPA.
+- **Todo lo demás** (búsqueda, cuentas, reseñas, paneles) se reenvía tal cual a FastAPI, que aplica sus propias
+  reglas, conservando la IP real del cliente para los límites de intentos.
+
+Las tablas las crean las migraciones de Alembic. Al arrancar, Hibernate comprueba que las entidades JPA coinciden
+con las tablas reales (`ddl-auto=validate`) y, si no coinciden, Spring no arranca.
 | Frontend | http://127.0.0.1:5173 |
 
 ## Requisitos
@@ -180,7 +188,8 @@ cd gateway
 .\mvnw test
 ```
 
-No necesitan la base de datos ni FastAPI: usan un servidor falso que registra lo que recibe.
+No necesitan la base de datos ni FastAPI: el proxy se prueba con un FastAPI falso que registra lo que recibe, y
+la seguridad con usuarios simulados y tokens firmados igual que los de FastAPI (perfil `test`).
 
 ### Revisar el frontend con ESLint
 
@@ -236,7 +245,10 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ├── docs/                  propuesta, avance y documentación
 ├── gateway/               puerta de entrada Spring Boot (Java)
 │   └── src/main/java/com/easysearch/gateway/
-│       ├── config/        propiedades y CORS
+│       ├── config/        propiedades, CORS, rutas propias de Spring y Swagger
+│       ├── seguridad/     validación del token JWT, permisos y errores 401/403
+│       ├── usuario/       entidad JPA Usuario (tabla users, solo lectura) y su repositorio
+│       ├── sistema/       estado de los servicios y sesión actual
 │       └── proxy/         reenvío de peticiones a FastAPI
 ├── backend/
 │   ├── app/
