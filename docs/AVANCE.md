@@ -10,7 +10,7 @@
 | Infraestructura | Docker Desktop local |
 | Entrega | 25 de noviembre de 2026 |
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
-| Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, frontend 5173 (otros proyectos ocupan 5432, 5433 y 8000) |
+| Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, n8n 5690, frontend 5173 (otros proyectos ocupan 5432, 5433, 5678 y 8000) |
 | Tecnologías exigidas por la materia | Spring Boot + JPA, n8n, embeddings, búsqueda semántica y RAG. El profesor aprobó pgvector en lugar de Qdrant y se usa Gemini en lugar de OpenRouter |
 | Arquitectura con Spring Boot | Híbrida: Spring Boot es la única puerta del frontend; atiende con JPA los módulos nuevos (asistente IA, analítica) y reenvía el resto a FastAPI |
 
@@ -27,8 +27,8 @@
 | 6 — Reseñas y panel comercial | ✅ Completada |
 | 7 — Panel administrativo | ✅ Completada |
 | 8 — Calidad y seguridad | ✅ Completada |
-| 9 — Puerta de entrada Spring Boot | 🔄 En curso |
-| 10 — Asistente IA con n8n (RAG) | ⏳ Pendiente |
+| 9 — Puerta de entrada Spring Boot | ✅ Completada |
+| 10 — Asistente IA con n8n (RAG) | 🔄 En curso |
 | 11 — Análisis de datos y dashboard | ⏳ Pendiente |
 | 12 — Documentación y cierre | ⏳ Pendiente |
 
@@ -435,6 +435,37 @@ pone delante como única puerta de entrada.
 - Con `server.forward-headers-strategy=native`, Tomcat aceptaba un `X-Forwarded-For` falso porque en desarrollo el
   navegador llega por el proxy de Vite desde 127.0.0.1. La prueba lo detectó → queda en `none` por defecto y solo
   se activa (`FORWARD_HEADERS_STRATEGY=native`) en producción detrás de Nginx.
+
+## Fase 10 — Asistente IA con n8n (RAG)
+
+Rama: `feature/fase-10-asistente-ia`.
+
+**Bloque A — n8n y flujo de indexación en pgvector:**
+- n8n 2.48.7 en Docker Compose (puerto 5690). Al arrancar, `n8n/arranque.sh` crea las credenciales desde el
+  `.env` (las claves nunca quedan en los JSON del repositorio), importa los flujos de `n8n/workflows/` y los
+  publica. Solo recibe las variables que necesita, no todo el `.env`.
+- FastAPI expone rutas internas protegidas con `X-Internal-Key` (`INTERNAL_API_KEY`), fuera de la documentación
+  pública: `POST /api/internal/embeddings` (vectores con el mismo modelo e5 de la búsqueda) y
+  `GET /api/internal/indexacion/pendientes` (textos cuyo vector falta o cambió, y vectores sobrantes).
+  Spring Boot responde 404 a cualquier `/api/internal`.
+- La regla "qué está desactualizado" (`plan_sync` en `embeddings.py`) es una sola: la usan el script de
+  reindexación, las ediciones del panel y n8n.
+- **Flujo 1** (`n8n/workflows/01-indexacion-pgvector.json`): cada 30 minutos, por webhook o a mano → pide
+  pendientes → borra vectores obsoletos → genera vectores → los guarda en pgvector en una sola consulta con
+  `ON CONFLICT (entity_type, entity_id) DO UPDATE` (sin duplicados, con actualización) → repite mientras queden
+  (máximo 30 vueltas de 64 textos).
+
+**Verificado (bloque A):**
+- `pytest`: 215 pruebas (13 nuevas de las rutas internas); `mvnw test`: 24 pruebas.
+- Con datos reales: la primera ejecución actualizó 753 vectores desactualizados en 69 s y el total siguió en
+  2.319 (0 duplicados por tipo e id); la segunda respondió "todo está indexado" en 2,8 s. Un vector guardado por
+  n8n y el recalculado para el mismo texto tienen similitud coseno 1,000000. La búsqueda sigue funcionando.
+- Webhook sin clave → 403; rutas internas por Spring → 404; sin clave interna → 401.
+
+**Problemas encontrados y solución:**
+- El puerto 5678 lo usa el n8n de otro proyecto → n8n de Easy Search en el 5690.
+- Los textos de los negocios llevan comas y el nodo Postgres separaba los parámetros por comas → se usa la
+  versión 2.6 del nodo (evalúa cada expresión por separado) y el lote viaja como un solo parámetro JSON.
 
 ## Convención de commits
 

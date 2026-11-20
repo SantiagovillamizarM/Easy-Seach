@@ -58,3 +58,19 @@ seguridad JWT, entidad JPA `Usuario`, Swagger, pruebas), cambio del proxy de Vit
 | Pruebas sin base de datos (perfil `test` y repositorio simulado) | Testcontainers o la base de desarrollo | Corren en cualquier PC sin Docker y nunca tocan los datos reales; la integración se verificó a mano con la app real |
 
 **Revisión humana:** ✏️ quién revisó el código y cómo lo probó.
+
+### Fase 10 — Asistente IA con n8n
+
+**Componentes asistidos (bloque A):** servicio n8n en Docker Compose, scripts de arranque
+(`n8n/arranque.sh`, `n8n/credenciales.js`), flujo de indexación (`n8n/workflows/01-indexacion-pgvector.json`,
+generado con un script y probado contra la base real), rutas internas de FastAPI y sus pruebas, bloqueo de esas
+rutas en Spring.
+
+| Decisión | Alternativas consideradas | Quién decidió y por qué |
+|---|---|---|
+| n8n genera los vectores llamando al modelo e5 de FastAPI | Embeddings de Gemini u OpenRouter | La IA lo propuso: los 2.319 vectores existentes siguen sirviendo y la búsqueda actual no cambia |
+| n8n guarda directo en pgvector con su nodo de Postgres | Que FastAPI guarde y n8n solo dispare | Así n8n realmente consulta, vectoriza y almacena, como pide el flujo 1 del enunciado |
+| El texto canónico y su hash los calcula FastAPI | Construir el texto con SQL dentro de n8n | Una sola regla de "qué está desactualizado" para el script, el panel y n8n |
+| Credenciales creadas al arrancar desde el `.env` | Configurarlas a mano en la interfaz | Reproducible con `docker compose up` y sin claves en el repositorio |
+
+**Revisión humana:** ✏️

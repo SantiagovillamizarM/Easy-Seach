@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # --- Embeddings ---
     embedding_dimensions: int = 384
 
+    # --- Integración interna (n8n): clave compartida para las rutas /api/internal ---
+    # Sin clave, esas rutas responden 503 (desactivadas). Nunca se exponen al navegador: Spring Boot las bloquea.
+    internal_api_key: str | None = None
+
     # --- IA generativa (Gemini) ---
     # Sin clave, la búsqueda sigue funcionando con el intérprete por reglas.
     gemini_api_key: str | None = None
@@ -98,6 +102,8 @@ class Settings(BaseSettings):
             problems.append("CORS_ORIGINS debe usar https:// en producción")
         if not self.app_url.startswith("https://"):
             problems.append("APP_URL debe ser la dirección pública con https:// (los correos enlazan ahí)")
+        if not self.internal_api_key or len(self.internal_api_key) < 32:
+            problems.append("INTERNAL_API_KEY debe tener al menos 32 caracteres (la usa n8n para llamar a FastAPI)")
         if not self.smtp_configured:
             problems.append("Configura SMTP_HOST, SMTP_USER y SMTP_PASSWORD: sin correo nadie puede confirmar su cuenta")
         if not (self.turnstile_site_key and self.turnstile_secret_key):

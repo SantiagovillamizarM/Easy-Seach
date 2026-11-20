@@ -15,6 +15,7 @@ os.environ["TURNSTILE_SITE_KEY"] = ""
 os.environ["TURNSTILE_SECRET_KEY"] = ""
 os.environ["SMTP_HOST"] = ""
 os.environ["TOMTOM_API_KEY"] = ""   # ni a TomTom (tráfico)
+os.environ["INTERNAL_API_KEY"] = "clave-interna-solo-para-pruebas-0123456789"  # rutas de n8n
 
 import pytest  # noqa: E402
 from alembic import command

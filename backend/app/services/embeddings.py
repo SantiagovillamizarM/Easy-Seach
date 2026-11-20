@@ -9,6 +9,7 @@ El modelo e5 requiere prefijos: "passage: " para documentos y "query: " para con
 """
 import hashlib
 import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Protocol
@@ -136,51 +137,80 @@ def _hash(model_name: str, text: str) -> str:
 # Sincronización con la base de datos
 # --------------------------------------------------------------------------------------
 
-def sync_establishments(db: Session, establishments: list[Establishment], embedder: Embedder) -> int:
-    """Crea o actualiza los vectores de los establecimientos dados y de sus productos/servicios.
+@dataclass
+class PendingVector:
+    """Un texto que necesita vector nuevo: no tiene, o su texto cambió desde la última vez."""
+    entity_type: str
+    entity_id: int
+    establishment_id: int
+    text: str
+    content_hash: str
 
-    Solo recalcula lo que cambió. Devuelve cuántos vectores se generaron.
+
+@dataclass
+class SyncPlan:
+    pending: list[PendingVector]
+    obsolete: list[Embedding]   # vectores de productos eliminados o no disponibles
+
+
+def plan_sync(db: Session, establishments: list[Establishment], model_name: str) -> SyncPlan:
+    """Decide qué vectores hay que generar y cuáles borrar, SIN generar ninguno.
+
+    Es la única regla de "qué está desactualizado": la usan el script de reindexación, las ediciones del panel
+    y el flujo de indexación de n8n (que pide esta lista a FastAPI y guarda los vectores él mismo).
     """
     if not establishments:
-        return 0
+        return SyncPlan([], [])
     est_ids = [e.id for e in establishments]
     existing = {
         (e.entity_type, e.entity_id): e
         for e in db.scalars(select(Embedding).where(Embedding.establishment_id.in_(est_ids)))
     }
-
-    pending: list[tuple[str, int, int, str]] = []  # (tipo, id, establecimiento, texto)
+    pending: list[PendingVector] = []
     keep: set[tuple[str, int]] = set()
     for est in establishments:
         entries = [("establishment", est.id, establishment_text(est))]
         entries += [("offering", o.id, offering_text(o, est)) for o in est.offerings if o.is_available]
         for entity_type, entity_id, text in entries:
             keep.add((entity_type, entity_id))
+            content_hash = _hash(model_name, text)
             current = existing.get((entity_type, entity_id))
-            if current is None or current.content_hash != _hash(embedder.model_name, text):
-                pending.append((entity_type, entity_id, est.id, text))
+            if current is None or current.content_hash != content_hash:
+                pending.append(PendingVector(entity_type, entity_id, est.id, text, content_hash))
+    obsolete = [emb for key, emb in existing.items() if key not in keep]
+    return SyncPlan(pending, obsolete)
 
-    # Borrar vectores de productos eliminados o no disponibles
-    for key, emb in existing.items():
-        if key not in keep:
-            db.delete(emb)
 
-    if pending:
-        vectors = embedder.encode_passages([p[3] for p in pending])
+def sync_establishments(db: Session, establishments: list[Establishment], embedder: Embedder) -> int:
+    """Crea o actualiza los vectores de los establecimientos dados y de sus productos/servicios.
+
+    Solo recalcula lo que cambió. Devuelve cuántos vectores se generaron.
+    """
+    plan = plan_sync(db, establishments, embedder.model_name)
+    for emb in plan.obsolete:
+        db.delete(emb)
+
+    if plan.pending:
+        existing = {
+            (e.entity_type, e.entity_id): e
+            for e in db.scalars(select(Embedding).where(
+                Embedding.establishment_id.in_({p.establishment_id for p in plan.pending})))
+        }
+        vectors = embedder.encode_passages([p.text for p in plan.pending])
         now = datetime.now(timezone.utc)
-        for (entity_type, entity_id, est_id, text), vector in zip(pending, vectors):
-            emb = existing.get((entity_type, entity_id))
+        for p, vector in zip(plan.pending, vectors):
+            emb = existing.get((p.entity_type, p.entity_id))
             if emb is None:
-                emb = Embedding(entity_type=entity_type, entity_id=entity_id)
+                emb = Embedding(entity_type=p.entity_type, entity_id=p.entity_id)
                 db.add(emb)
-            emb.establishment_id = est_id
-            emb.content = text
-            emb.content_hash = _hash(embedder.model_name, text)
+            emb.establishment_id = p.establishment_id
+            emb.content = p.text
+            emb.content_hash = p.content_hash
             emb.model = embedder.model_name
             emb.embedding = vector
             emb.updated_at = now
     db.flush()
-    return len(pending)
+    return len(plan.pending)
 
 
 def delete_establishment_embeddings(db: Session, establishment_id: int) -> None:
