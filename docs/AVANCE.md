@@ -580,7 +580,30 @@ de datos, dashboard e informe de análisis) no, porque Easy Search es un proyect
 - IP real: FastAPI registró la IP del cliente e ignoró las falsas; tras 3 búsquedas distintas como invitado la
   cuarta se bloqueó (429) aunque cada petición traía otra IP falsa en `X-Forwarded-For`.
 
+**Bloque B — Script SQL con datos iniciales:**
+- `scripts/exportar_sql_inicial.py` genera, desde la base real, `docker/initdb/02-esquema.sql` (pg_dump del
+  esquema completo con la versión de Alembic) y `docker/initdb/03-datos-iniciales.sql`.
+- Decisión del autor: los datos iniciales son **solo los negocios que cargó a mano** (3 negocios, 110 productos,
+  14 horarios), más los datos de referencia sin los que la app no funciona (32 categorías y 267 municipios y
+  barrios). Sin negocios de OpenStreetMap, sin datos personales y sin vectores (los genera n8n).
+- La carga desactiva las llaves foráneas mientras inserta (`session_replication_role`) y deja los contadores de
+  id después de los datos.
+
+**Verificado (bloque B), simulando un PC nuevo** (proyecto de Docker aparte con volúmenes vacíos):
+- PostgreSQL ejecutó los tres scripts sin errores: 3 negocios, 110 productos, 32 categorías, 267 lugares,
+  0 usuarios.
+- `alembic upgrade head` no aplicó nada (la base ya estaba en `d1e2f3a4b5c6`) y Spring arrancó, es decir,
+  Hibernate validó las entidades contra ese esquema.
+- El flujo 1 de n8n generó los 113 vectores (3 negocios + 110 productos) en dos vueltas.
+- Asistente: "hamburguesas en Piedecuesta" → Garrotero's Pub; "gimnasio en Girón" → la sede de Girón de Dynamic
+  Sports Gym; "necesito una farmacia" → sin resultados (no hay farmacias entre los datos iniciales).
+- Al terminar se borró el proyecto de prueba y se restauró el original (2.209 negocios, 2.319 vectores).
+
 **Problemas encontrados y solución:**
+- `pg_dump --exclude-extension` no existe en PostgreSQL 16 → se quitó; el esquema crea las extensiones con
+  `IF NOT EXISTS`, compatible con `01-extensions.sql`.
+- Con un volumen nuevo n8n tarda más en arrancar (ejecuta sus migraciones internas); el asistente respondió
+  ERROR con un mensaje claro mientras tanto, y funcionó al terminar el arranque.
 - La primera prueba de IP falsa parecía fallar (5 búsquedas sin bloqueo), pero repetía la misma búsqueda, que por
   diseño no se cobra dos veces; con búsquedas distintas el bloqueo funciona.
 - El código calcula rutas como `<raíz>/backend/uploads`: en la imagen se copia el backend en

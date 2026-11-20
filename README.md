@@ -141,7 +141,25 @@ cd ..
 
 ### 4. Crear las tablas e importar datos reales
 
-Con la base de datos encendida, desde la carpeta `backend`:
+**Base nueva: se crea sola.** La primera vez que Docker crea la base, PostgreSQL ejecuta los scripts de
+`docker/initdb/`:
+
+| Archivo | Contenido |
+|---|---|
+| `01-extensions.sql` | Extensiones `vector` (pgvector), `unaccent` y `pg_trgm` |
+| `02-esquema.sql` | Todas las tablas, restricciones, índices (incluido el HNSW) y la versión de Alembic |
+| `03-datos-iniciales.sql` | Datos reales cargados a mano: 3 negocios (Garrotero's Pub y dos sedes de Dynamic Sports Gym) con 110 productos y sus horarios, más 32 categorías y 267 municipios y barrios |
+
+No incluye datos personales ni vectores: al arrancar, el flujo 1 de n8n genera los vectores (o ejecútalo a mano,
+ver "n8n"). Si se cargan más negocios a mano, los archivos se regeneran con:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.exportar_sql_inicial
+```
+
+**Opcional: importar miles de negocios de OpenStreetMap.** Con la base de datos encendida, desde la carpeta
+`backend`:
 
 ```powershell
 cd backend
@@ -317,7 +335,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 
 ```
 ├── docker-compose.yml     PostgreSQL + pgvector y n8n; con --profile completo, todo el sistema
-├── docker/initdb/         extensiones que se crean al iniciar la base de datos
+├── docker/initdb/         scripts SQL de la base inicial: extensiones, esquema y datos reales
 ├── .env.example           plantilla de variables de entorno
 ├── docs/                  propuesta, avance y documentación
 ├── gateway/               puerta de entrada Spring Boot (Java); Dockerfile en dos etapas (Maven → JRE)
