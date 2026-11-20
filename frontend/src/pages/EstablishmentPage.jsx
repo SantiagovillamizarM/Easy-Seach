@@ -18,6 +18,7 @@ import FavoriteButton from "../components/FavoriteButton.jsx";
 import HoursBadge from "../components/HoursBadge.jsx";
 import OfferingsMenu from "../components/OfferingsMenu.jsx";
 import OwnerClaimCard from "../components/OwnerClaimCard.jsx";
+import Reveal from "../components/Reveal.jsx";
 import ReviewsSection from "../components/ReviewsSection.jsx";
 import TrafficNotice from "../components/TrafficNotice.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
@@ -50,24 +51,24 @@ function ActionLink({ href, icon: Icon, children, primary }) {
 
 function Section({ title, icon: Icon, children }) {
   return (
-    <section className="card p-5">
-      <h2 className="mb-3 flex items-center gap-2 text-base font-bold">
+    <Reveal as="section" className="card p-5">
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
         {Icon && <Icon className="h-4 w-4 text-brand-600" aria-hidden="true" />}
         {title}
       </h2>
       {children}
-    </section>
+    </Reveal>
   );
 }
 
 function DetailSkeleton() {
   return (
-    <div className="mx-auto max-w-6xl animate-pulse px-4 py-8" aria-hidden="true">
-      <div className="h-8 w-1/2 rounded bg-slate-100" />
-      <div className="mt-3 h-4 w-1/3 rounded bg-slate-100" />
+    <div className="mx-auto max-w-6xl px-4 py-8" aria-hidden="true">
+      <div className="skeleton h-8 w-1/2 rounded" />
+      <div className="skeleton mt-3 h-4 w-1/3 rounded" />
       <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_380px]">
-        <div className="h-64 rounded-2xl bg-slate-100" />
-        <div className="h-64 rounded-2xl bg-slate-100" />
+        <div className="skeleton h-64 rounded-2xl" />
+        <div className="skeleton h-64 rounded-2xl" />
       </div>
     </div>
   );
@@ -125,9 +126,14 @@ export default function EstablishmentPage() {
       </button>
 
       {/* Encabezado */}
-      <header className="card p-5 sm:p-6">
-        <p className="text-sm font-medium text-brand-700">{est.categories.map((c) => c.name).join(" · ")}</p>
-        <h1 className="mt-1 flex flex-wrap items-center gap-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+      <header className="card fade-up relative isolate overflow-hidden p-5 sm:p-7">
+        {/* Luz de marca muy tenue en la esquina: da profundidad sin competir con el contenido */}
+        <div
+          className="pointer-events-none absolute -right-24 -top-24 -z-10 h-64 w-64 rounded-full bg-brand-200/40 blur-3xl"
+          aria-hidden="true"
+        />
+        <p className="relative text-sm font-semibold text-brand-700">{est.categories.map((c) => c.name).join(" · ")}</p>
+        <h1 className="relative mt-1 flex flex-wrap items-center gap-2 text-3xl font-extrabold sm:text-4xl">
           {est.name}
           {est.is_verified && (
             <span className="chip border-brand-200 bg-brand-50 text-brand-700">
@@ -141,7 +147,7 @@ export default function EstablishmentPage() {
           <HoursBadge status={est.hours_status} />
           {est.rating_count > 0 ? (
             <span className="inline-flex items-center gap-1 font-semibold text-ink">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
+              <Star className="h-4 w-4 fill-star text-star" aria-hidden="true" />
               {Number(est.rating_avg).toFixed(1)}
               <span className="font-normal text-ink-soft">({est.rating_count} {est.rating_count === 1 ? "reseña" : "reseñas"})</span>
             </span>
@@ -187,7 +193,14 @@ export default function EstablishmentPage() {
             <Section title="Fotos">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {est.photos.map((p) => (
-                  <img key={p.id} src={p.url} alt={p.caption ?? est.name} loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
+                  <div key={p.id} className="overflow-hidden rounded-xl">
+                    <img
+                      src={p.url}
+                      alt={p.caption ?? est.name}
+                      loading="lazy"
+                      className="aspect-square w-full object-cover transition-transform duration-500 ease-[var(--ease-out-soft)] hover:scale-105"
+                    />
+                  </div>
                 ))}
               </div>
             </Section>
@@ -198,7 +211,7 @@ export default function EstablishmentPage() {
 
         <aside className="space-y-5">
           <div className="card h-64 overflow-hidden">
-            <Suspense fallback={<div className="h-full w-full animate-pulse bg-slate-100" />}>
+            <Suspense fallback={<div className="skeleton h-full w-full" />}>
               <ResultsMap results={[{ ...est, hours_status: est.hours_status }]} userCoords={coords} activeId={est.id} />
             </Suspense>
           </div>

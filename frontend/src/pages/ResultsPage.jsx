@@ -82,7 +82,7 @@ function GuestLimitCard({ message, next }) {
 }
 
 function MapFallback() {
-  return <div className="h-full w-full animate-pulse rounded-2xl bg-slate-100" />;
+  return <div className="skeleton h-full w-full rounded-2xl" />;
 }
 
 export default function ResultsPage() {
@@ -285,6 +285,11 @@ export default function ResultsPage() {
 
           {loading && (
             <div className="space-y-3">
+              {/* Explica la espera: la IA está convirtiendo la frase en filtros */}
+              <p className="mb-1 inline-flex items-center gap-2 text-sm font-medium text-brand-700">
+                <Sparkles className="h-4 w-4 animate-pulse" aria-hidden="true" />
+                {locating ? "Obteniendo tu ubicación…" : "Interpretando tu búsqueda…"}
+              </p>
               {Array.from({ length: 4 }, (_, i) => (
                 <ResultCardSkeleton key={i} />
               ))}
@@ -319,16 +324,22 @@ export default function ResultsPage() {
           )}
 
           {!loading && !error && results.length > 0 && recs.summary && (
-            <p className="mb-3 flex gap-2 rounded-2xl bg-ink p-4 text-sm leading-relaxed text-white">
-              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-200" aria-hidden="true" />
-              {recs.summary}
+            // Llega después de los resultados: aparece con un fundido para que se note que es nuevo
+            <p className="fade-up relative mb-3 flex gap-2 overflow-hidden rounded-2xl bg-night p-4 text-sm leading-relaxed text-white">
+              <span
+                className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand-500/30 blur-2xl"
+                aria-hidden="true"
+              />
+              <Sparkles className="relative mt-0.5 h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
+              <span className="relative">{recs.summary}</span>
             </p>
           )}
 
           {!loading && !error && results.length > 0 && (
-            <ol className="space-y-3">
+            // La "key" reinicia la cascada en cada búsqueda nueva
+            <ol key={paramsKey} className="space-y-3">
               {results.map((r, i) => (
-                <li key={r.id}>
+                <li key={r.id} className="result-in" style={{ "--i": i }}>
                   <ResultCard
                     result={r}
                     index={i}

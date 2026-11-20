@@ -254,6 +254,12 @@
   to { opacity: 1; transform: none; }
 }
 
+/* Resultados en cascada: llegan en orden de relevancia (60 ms entre cada uno, máximo 8 escalones) */
+.result-in {
+  animation: fade-up var(--duration-enter) var(--ease-out-soft) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 60ms);
+}
+
 /* Marcadores del mapa */
 .es-marker {
   display: grid;
@@ -271,8 +277,31 @@
   color: white;
   font: 700 12px/1 var(--font-sans);
 }
+/* Marcador activo (al pasar por su tarjeta): crece un poco y "late" una vez con un anillo */
 .es-marker.is-active {
+  position: relative;
   background: var(--color-ink);
+  scale: 1.15;
+  animation: marker-pop 450ms var(--ease-out-soft) both;
+}
+.es-marker.is-active::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-brand-500);
+  opacity: 0;
+  animation: marker-ring 900ms var(--ease-out-soft) 1;
+  pointer-events: none;
+}
+@keyframes marker-pop {
+  from { scale: 1; }
+  60% { scale: 1.25; }
+  to { scale: 1.15; }
+}
+@keyframes marker-ring {
+  from { opacity: 0.7; scale: 1; }
+  to { opacity: 0; scale: 1.8; }
 }
 .es-user-dot {
   width: 18px;
@@ -333,7 +362,8 @@
   .hero-night::after {
     animation: none;
   }
-  .type-caret {
+  .type-caret,
+  .es-marker.is-active::after {
     animation: none;
   }
 }
