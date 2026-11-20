@@ -10,7 +10,9 @@
 | Infraestructura | Docker Desktop local |
 | Entrega | 25 de noviembre de 2026 |
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
-| Puertos | PostgreSQL 5440, backend 8010, frontend 5173 (otros proyectos ocupan 5432, 5433 y 8000) |
+| Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, frontend 5173 (otros proyectos ocupan 5432, 5433 y 8000) |
+| Tecnologías exigidas por la materia | Spring Boot + JPA, n8n, embeddings, búsqueda semántica y RAG. El profesor aprobó pgvector en lugar de Qdrant y se usa Gemini en lugar de OpenRouter |
+| Arquitectura con Spring Boot | Híbrida: Spring Boot es la única puerta del frontend; atiende con JPA los módulos nuevos (asistente IA, analítica) y reenvía el resto a FastAPI |
 
 ## Fases
 
@@ -25,7 +27,10 @@
 | 6 — Reseñas y panel comercial | ✅ Completada |
 | 7 — Panel administrativo | ✅ Completada |
 | 8 — Calidad y seguridad | ✅ Completada |
-| 9 — Documentación y cierre | ⏳ Pendiente |
+| 9 — Puerta de entrada Spring Boot | 🔄 En curso |
+| 10 — Asistente IA con n8n (RAG) | ⏳ Pendiente |
+| 11 — Análisis de datos y dashboard | ⏳ Pendiente |
+| 12 — Documentación y cierre | ⏳ Pendiente |
 
 ## Fase 0 — Entorno de desarrollo
 
@@ -373,6 +378,39 @@ Rama: `feature/fase-8-calidad-seguridad` (2 commits: seguridad y calidad).
   "vete**rin**aria", "comer" en "**comer**cial", "unas" (uñas) en el artículo "unas"; y "perro" se tomaba como perro
   caliente → ahora solo coinciden al inicio de una palabra y se ajustaron las palabras ambiguas.
 - Una sesión corrupta guardada en el navegador hacía fallar la app en cada recarga → se valida su forma y se descarta.
+
+## Fase 9 — Puerta de entrada Spring Boot
+
+Rama: `feature/fase-9-spring-boot`.
+
+**Por qué:** la materia exige Spring Boot y que toda consulta inteligente pase primero por él, sin que el frontend
+consuma directamente la IA ni n8n. Reescribir FastAPI (68 endpoints) no cabía en el plazo, así que Spring Boot se
+pone delante como única puerta de entrada.
+
+**Bloque A — Reenvío a FastAPI:**
+- Proyecto Maven `gateway/` (Spring Boot 4.2, Java 21) generado con Spring Initializr; lee el mismo `.env`.
+- `FastApiProxyController` atiende `/api/**` y `/uploads/**` y reenvía método, ruta, consulta, cuerpo y cabeceras
+  tal cual. Spring elige siempre la ruta más específica, así que los endpoints nuevos que se creen en Spring
+  tendrán prioridad sin tocar el frontend.
+- IP real del cliente: se descarta cualquier `X-Forwarded-For` que mande el navegador y se envía la IP de la
+  conexión; uvicorn confía en esa cabecera solo si viene de 127.0.0.1, así los límites de intentos siguen por IP.
+- Límite de 6 MB también en Spring (413 sin llamar a FastAPI); si FastAPI está apagado responde 502 y si tarda
+  más de 60 s, 504, con el mismo formato `{"detail": "..."}` que el frontend ya sabe mostrar.
+- CORS lo resuelve Spring (mismas reglas que tenía FastAPI) y se descartan las cabeceras CORS de FastAPI.
+- Las redirecciones de FastAPI a su dirección interna (`http://127.0.0.1:8010/...`) se convierten en rutas relativas.
+- Vite reenvía `/api` y `/uploads` al puerto 8020 en lugar del 8010.
+
+**Verificado:**
+- `mvnw test`: 9 pruebas con Tomcat real y un FastAPI falso (cuerpo JSON y formulario intactos, cabeceras
+  `Retry-After` y `X-Error-Code`, IP falsificada reemplazada, 413, 502, redirecciones, fotos y CORS).
+- Con la app real: `/api/health` idéntico directo y por Spring (incluidas las cabeceras de seguridad); login con
+  formulario, perfil, historial, 401 sin token y búsqueda funcionan por Spring, y también desde Vite (5173 → 8020 → 8010).
+
+**Problemas encontrados y solución:**
+- Spring Initializr generó la versión `4.2.0.RELEASE`, que no existe en Maven Central (se publica como `4.2.0`).
+- Con `server.forward-headers-strategy=native`, Tomcat aceptaba un `X-Forwarded-For` falso porque en desarrollo el
+  navegador llega por el proxy de Vite desde 127.0.0.1. La prueba lo detectó → queda en `none` por defecto y solo
+  se activa (`FORWARD_HEADERS_STRATEGY=native`) en producción detrás de Nginx.
 
 ## Convención de commits
 

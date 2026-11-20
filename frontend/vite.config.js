@@ -9,10 +9,11 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
-    // Las peticiones a /api se reenvían al backend (así evitamos problemas de CORS en desarrollo)
+    // Las peticiones a /api se reenvían a la puerta de entrada Spring Boot (8020), que a su vez decide si las
+    // atiende ella o las pasa a FastAPI. El frontend nunca habla directo con FastAPI, n8n ni la IA.
     proxy: {
-      "/api": "http://127.0.0.1:8010",
-      "/uploads": "http://127.0.0.1:8010",
+      "/api": "http://127.0.0.1:8020",
+      "/uploads": "http://127.0.0.1:8020",
     },
   },
 });

@@ -12,6 +12,7 @@ recomendaciones con IA basadas solo en datos reales.
 | Capa | Tecnología |
 |---|---|
 | Base de datos | PostgreSQL 16 + pgvector (Docker) |
+| Puerta de entrada | Java 21 + Spring Boot 4 (recibe todas las peticiones del frontend) |
 | Backend | Python 3.12 + FastAPI + SQLAlchemy |
 | Frontend | React + Vite + Tailwind CSS |
 | IA | Embeddings locales (multilingual-e5) + LLM (proveedor por definir) |
@@ -21,7 +22,18 @@ recomendaciones con IA basadas solo en datos reales.
 | Servicio | URL |
 |---|---|
 | PostgreSQL | `127.0.0.1:5440` |
-| Backend (API) | http://127.0.0.1:8010 — documentación en http://127.0.0.1:8010/docs |
+| Puerta de entrada Spring Boot | http://127.0.0.1:8020 — el frontend solo habla con esta |
+| Backend FastAPI | http://127.0.0.1:8010 — documentación en http://127.0.0.1:8010/docs |
+
+### Arquitectura
+
+```
+Navegador ──► React/Vite (5173) ──► Spring Boot (8020) ──► FastAPI (8010) ──► PostgreSQL + pgvector (5440)
+```
+
+Spring Boot es la puerta de entrada: el frontend nunca llama directo a FastAPI ni a la IA. Las rutas que Spring
+no atiende todavía (búsqueda, cuentas, reseñas, paneles) las reenvía tal cual a FastAPI, conservando la IP real
+del cliente para los límites de intentos.
 | Frontend | http://127.0.0.1:5173 |
 
 ## Requisitos
@@ -29,6 +41,7 @@ recomendaciones con IA basadas solo en datos reales.
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (encendido)
 - [Python 3.12](https://www.python.org/downloads/)
 - [Node.js 20 o superior](https://nodejs.org/)
+- [Java 21 o superior](https://adoptium.net/) (Maven no hace falta: el proyecto trae `mvnw`)
 - Git
 
 ## Instalación (solo la primera vez)
@@ -117,9 +130,9 @@ cd ..
 
 ## Ejecutar el proyecto (cada vez)
 
-Necesitas **dos terminales** (en VS Code: botón `+` del panel de terminal).
+Necesitas **tres terminales** (en VS Code: botón `+` del panel de terminal).
 
-**Terminal 1 — backend:**
+**Terminal 1 — backend FastAPI:**
 
 ```powershell
 docker compose up -d
@@ -127,7 +140,16 @@ cd backend
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
 ```
 
-**Terminal 2 — frontend:**
+**Terminal 2 — puerta de entrada Spring Boot:**
+
+```powershell
+cd gateway
+.\mvnw spring-boot:run
+```
+
+La primera vez descarga las dependencias (unos minutos). Está lista cuando muestra `Tomcat started on port 8020`.
+
+**Terminal 3 — frontend:**
 
 ```powershell
 cd frontend
@@ -136,7 +158,7 @@ npm run dev
 
 Abre http://127.0.0.1:5173 en el navegador. Páginas: inicio (`/`), resultados (`/buscar?q=...`) y detalle de un lugar (`/lugar/<slug>`).
 
-> Si el navegador muestra `ERR_CONNECTION_REFUSED`, revisa que la terminal 2 siga abierta y muestre
+> Si el navegador muestra `ERR_CONNECTION_REFUSED`, revisa que la terminal 3 siga abierta y muestre
 > `VITE ... ready`. La página solo existe mientras `npm run dev` está corriendo.
 
 Para detener: `Ctrl + C` en cada terminal. La base de datos se apaga con `docker compose stop`.
@@ -150,6 +172,15 @@ cd backend
 
 (La base de datos debe estar encendida.) Las pruebas usan una base de datos separada, `easysearch_test`, que se
 crea sola; tus datos de desarrollo no se modifican.
+
+### Pruebas de la puerta de entrada (Spring Boot)
+
+```powershell
+cd gateway
+.\mvnw test
+```
+
+No necesitan la base de datos ni FastAPI: usan un servidor falso que registra lo que recibe.
 
 ### Revisar el frontend con ESLint
 
@@ -203,6 +234,10 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ├── docker/initdb/         extensiones que se crean al iniciar la base de datos
 ├── .env.example           plantilla de variables de entorno
 ├── docs/                  propuesta, avance y documentación
+├── gateway/               puerta de entrada Spring Boot (Java)
+│   └── src/main/java/com/easysearch/gateway/
+│       ├── config/        propiedades y CORS
+│       └── proxy/         reenvío de peticiones a FastAPI
 ├── backend/
 │   ├── app/
 │   │   ├── main.py        punto de entrada de la API
