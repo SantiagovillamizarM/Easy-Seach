@@ -6,6 +6,9 @@ recomendaciones con IA basadas solo en datos reales.
 
 - Propuesta técnica y plan de trabajo: [docs/Propuesta_Easy_Search.pdf](docs/Propuesta_Easy_Search.pdf)
 - Registro de avance: [docs/AVANCE.md](docs/AVANCE.md)
+- Diagramas: [arquitectura](docs/diagramas/arquitectura.md) y [entidad-relación](docs/diagramas/entidad-relacion.md)
+  (imágenes PNG en [docs/diagramas/imagenes/](docs/diagramas/imagenes/))
+- Uso de inteligencia artificial en el desarrollo: [AI_USAGE.md](AI_USAGE.md)
 
 ## Tecnologías
 
@@ -56,6 +59,38 @@ con las tablas reales (`ddl-auto=validate`) y, si no coinciden, Spring no arranc
 - [Node.js 20 o superior](https://nodejs.org/)
 - [Java 21 o superior](https://adoptium.net/) (Maven no hace falta: el proyecto trae `mvnw`)
 - Git
+
+## Ejecutar todo con Docker (modo completo)
+
+Con Docker Desktop basta un comando para levantar los cinco servicios en contenedores: PostgreSQL + pgvector, n8n,
+FastAPI, Spring Boot y el frontend (Nginx). No hace falta instalar Python, Java ni Node.
+
+```powershell
+Copy-Item .env.example .env     # la primera vez: luego edita las claves (ver "Variables de entorno")
+docker compose --profile completo up -d --build
+```
+
+| Servicio | Dirección |
+|---|---|
+| Aplicación | http://127.0.0.1:8090 |
+| Swagger (Spring Boot + FastAPI) | http://127.0.0.1:8020/swagger-ui.html |
+| n8n | http://127.0.0.1:5690 |
+
+- La primera vez tarda varios minutos: se construyen las imágenes y FastAPI descarga el modelo de embeddings
+  (~470 MB, queda guardado en el volumen `modelos`).
+- FastAPI aplica las migraciones al arrancar. Para cargar los datos en una base nueva, ver la sección
+  "Crear las tablas e importar datos reales".
+- Si estás desarrollando, detén antes los servidores locales: el modo completo usa los puertos 8010 y 8020.
+- Para apagar todo: `docker compose --profile completo down` (los datos quedan en los volúmenes).
+
+```
+Navegador → frontend/Nginx (8090) → Spring Boot (8020) ─┬→ FastAPI (8010) → PostgreSQL + pgvector
+                                                        └→ n8n (5690) → FastAPI · pgvector · Gemini
+```
+
+Los servicios están en una red de Docker con IPs fijas. Cada uno solo acepta la IP real del cliente
+(`X-Forwarded-For`) cuando viene del servicio anterior en la cadena, así nadie puede falsificarla para saltarse los
+límites de intentos.
 
 ## Instalación (solo la primera vez)
 
@@ -109,7 +144,25 @@ cd ..
 
 ### 4. Crear las tablas e importar datos reales
 
-Con la base de datos encendida, desde la carpeta `backend`:
+**Base nueva: se crea sola.** La primera vez que Docker crea la base, PostgreSQL ejecuta los scripts de
+`docker/initdb/`:
+
+| Archivo | Contenido |
+|---|---|
+| `01-extensions.sql` | Extensiones `vector` (pgvector), `unaccent` y `pg_trgm` |
+| `02-esquema.sql` | Todas las tablas, restricciones, índices (incluido el HNSW) y la versión de Alembic |
+| `03-datos-iniciales.sql` | Datos reales cargados a mano: 3 negocios (Garrotero's Pub y dos sedes de Dynamic Sports Gym) con 110 productos y sus horarios, más 32 categorías y 267 municipios y barrios |
+
+No incluye datos personales ni vectores: al arrancar, el flujo 1 de n8n genera los vectores (o ejecútalo a mano,
+ver "n8n"). Si se cargan más negocios a mano, los archivos se regeneran con:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.exportar_sql_inicial
+```
+
+**Opcional: importar miles de negocios de OpenStreetMap.** Con la base de datos encendida, desde la carpeta
+`backend`:
 
 ```powershell
 cd backend
@@ -284,11 +337,11 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ## Estructura
 
 ```
-├── docker-compose.yml     PostgreSQL + pgvector
-├── docker/initdb/         extensiones que se crean al iniciar la base de datos
+├── docker-compose.yml     PostgreSQL + pgvector y n8n; con --profile completo, todo el sistema
+├── docker/initdb/         scripts SQL de la base inicial: extensiones, esquema y datos reales
 ├── .env.example           plantilla de variables de entorno
-├── docs/                  propuesta, avance y documentación
-├── gateway/               puerta de entrada Spring Boot (Java)
+├── docs/                  propuesta, avance, diagramas (docs/diagramas) y evidencias (docs/evidencias)
+├── gateway/               puerta de entrada Spring Boot (Java); Dockerfile en dos etapas (Maven → JRE)
 │   └── src/main/java/com/easysearch/gateway/
 │       ├── config/        propiedades, CORS, rutas propias de Spring y Swagger
 │       ├── asistente/     asistente IA: entidades JPA, servicio, cliente de n8n y endpoints
@@ -301,6 +354,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 │   ├── arranque.sh        importa credenciales y flujos al iniciar el contenedor
 │   └── credenciales.js    crea las credenciales de n8n desde el .env
 ├── backend/
+│   ├── Dockerfile         imagen de FastAPI (PyTorch solo CPU, usuario sin privilegios)
 │   ├── app/
 │   │   ├── main.py        punto de entrada de la API
 │   │   ├── core/          configuración, seguridad (Argon2, JWT), utilidades de texto
@@ -313,6 +367,8 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 │   ├── scripts/           importación OSM, creación de administrador
 │   └── tests/
 └── frontend/
+    ├── Dockerfile         compila con Node y sirve con Nginx
+    ├── nginx.conf         archivos de la app + reenvío de /api a Spring Boot
     └── src/               aplicación React
 ```
 

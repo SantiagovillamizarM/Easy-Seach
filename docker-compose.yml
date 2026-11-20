@@ -1,3 +1,22 @@
+# Easy Search con Docker Compose.
+#
+#   docker compose up -d
+#       Solo PostgreSQL + n8n. Para desarrollar: FastAPI, Spring Boot y Vite corren en tu PC (ver README).
+#
+#   docker compose --profile completo up -d --build
+#       TODO el sistema en contenedores (PostgreSQL, n8n, FastAPI, Spring Boot y el frontend con Nginx).
+#       La aplicación queda en http://127.0.0.1:8090. Detén antes los servidores de desarrollo (puertos 8010 y 8020).
+#
+# Recorrido de una petición:  navegador → frontend/Nginx (8090) → Spring Boot (8020) → FastAPI | n8n → PostgreSQL
+
+# Red propia con IPs fijas: así cada servicio solo confía en la cabecera X-Forwarded-For (IP real del cliente)
+# cuando viene del servicio anterior en la cadena, y nadie más puede falsificarla.
+networks:
+  easysearch:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -18,6 +37,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      easysearch:
+        ipv4_address: 172.29.0.5
 
   # Orquestador de los flujos de IA: indexación en pgvector y asistente RAG.
   # Interfaz en http://127.0.0.1:5690 (el 5678 lo usa otro proyecto). La primera vez pide crear una cuenta local.
@@ -40,7 +62,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
       GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-2.5-flash}
-      # FastAPI corre en la PC (fuera de Docker); Docker Desktop la expone como host.docker.internal
+      # FastAPI en el puerto 8010 de la PC: sirve igual si corre en desarrollo o en su contenedor (modo completo)
       EASYSEARCH_FASTAPI_URL: ${N8N_FASTAPI_URL:-http://host.docker.internal:8010}
       # Clave con la que n8n cifra las credenciales que guarda (debe ser siempre la misma)
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
@@ -52,6 +74,7 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_PERSONALIZATION_ENABLED: "false"
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_RUNNERS_TASK_TIMEOUT: "300"
       # Las ejecuciones se guardan 7 días (sirven de evidencia y para depurar)
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: "168"
@@ -64,7 +87,82 @@ services:
       - ./n8n/workflows:/easysearch/workflows:ro
       - ./n8n/arranque.sh:/easysearch/arranque.sh:ro
       - ./n8n/credenciales.js:/easysearch/credenciales.js:ro
+    networks:
+      easysearch:
+        ipv4_address: 172.29.0.6
+
+  # ---------------------------------------------------------------- modo completo (--profile completo)
+
+  # Backend FastAPI: aplica las migraciones al arrancar
+  backend:
+    profiles: ["completo"]
+    build: ./backend
+    image: easysearch-backend
+    container_name: easysearch-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_URL: http://127.0.0.1:8090
+      CORS_ORIGINS: http://127.0.0.1:8090
+      # Solo la puerta de entrada (IP fija) puede indicar la IP real del cliente
+      FORWARDED_ALLOW_IPS: 172.29.0.20
+    ports:
+      # Solo para n8n (lo llama por host.docker.internal) y para ver /docs; no es la entrada de la app
+      - "127.0.0.1:8010:8010"
+    volumes:
+      - uploads:/easysearch/backend/uploads
+      - modelos:/modelos
+    networks:
+      easysearch:
+        ipv4_address: 172.29.0.10
+
+  # Puerta de entrada Spring Boot: única API que ve el navegador
+  gateway:
+    profiles: ["completo"]
+    build: ./gateway
+    image: easysearch-gateway
+    container_name: easysearch-gateway
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      GATEWAY_ADDRESS: 0.0.0.0
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      FASTAPI_URL: http://backend:8010
+      N8N_URL: http://n8n:5678
+      CORS_ORIGINS: http://127.0.0.1:8090
+      # Detrás de Nginx (frontend): lee la IP real que Nginx pone en X-Forwarded-For (solo de IPs internas)
+      FORWARD_HEADERS_STRATEGY: native
+    ports:
+      - "127.0.0.1:8020:8020"     # Swagger: http://127.0.0.1:8020/swagger-ui.html
+    networks:
+      easysearch:
+        ipv4_address: 172.29.0.20
+
+  # Frontend React servido por Nginx
+  frontend:
+    profiles: ["completo"]
+    build: ./frontend
+    image: easysearch-frontend
+    container_name: easysearch-frontend
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "127.0.0.1:8090:80"
+    networks:
+      easysearch:
+        ipv4_address: 172.29.0.30
 
 volumes:
   pgdata:
   n8ndata:
+  uploads:
+  modelos:

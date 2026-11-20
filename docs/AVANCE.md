@@ -12,6 +12,7 @@
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
 | Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, n8n 5690, frontend 5173 (otros proyectos ocupan 5432, 5433, 5678 y 8000) |
 | Tecnologías exigidas por la materia | Spring Boot + JPA, n8n, embeddings, búsqueda semántica y RAG. El profesor aprobó pgvector en lugar de Qdrant y se usa Gemini en lugar de OpenRouter |
+| Alcance tomado del enunciado de la materia | Solo las **tecnologías** y los **entregables**; sus funciones (análisis de datos, dashboard, informe de análisis) no aplican porque Easy Search es un proyecto distinto |
 | Arquitectura con Spring Boot | Híbrida: Spring Boot es la única puerta del frontend; atiende con JPA los módulos nuevos (asistente IA, analítica) y reenvía el resto a FastAPI |
 
 ## Fases
@@ -29,8 +30,7 @@
 | 8 — Calidad y seguridad | ✅ Completada |
 | 9 — Puerta de entrada Spring Boot | ✅ Completada |
 | 10 — Asistente IA con n8n (RAG) | ✅ Completada |
-| 11 — Análisis de datos y dashboard | ⏳ Pendiente |
-| 12 — Documentación y cierre | ⏳ Pendiente |
+| 11 — Entregables y cierre | 🔄 En curso |
 
 ## Fase 0 — Entorno de desarrollo
 
@@ -549,6 +549,77 @@ celular sin desbordes y consola sin errores. Capturas en `docs/evidencias/fase-1
   nombres del proyecto → se corrigió la migración.
 - Los textos de los negocios llevan comas y el nodo Postgres separaba los parámetros por comas → se usa la
   versión 2.6 del nodo (evalúa cada expresión por separado) y el lote viaja como un solo parámetro JSON.
+
+## Fase 11 — Entregables y cierre
+
+Rama: `feature/fase-11-entregables`.
+
+**Alcance:** del enunciado de la materia solo aplican las tecnologías y los entregables; sus funciones (análisis
+de datos, dashboard e informe de análisis) no, porque Easy Search es un proyecto distinto.
+
+**Bloque A — Registro de uso de IA y Docker Compose completo:**
+- `AI_USAGE.md` completo: participación de la IA por aspecto y por fase, herramientas, forma de trabajo,
+  decisiones, errores de la IA detectados y lecciones.
+- Dockerfiles:
+  - `backend/Dockerfile`: Python 3.12 slim, PyTorch solo CPU, usuario sin privilegios, migraciones al arrancar,
+    verificación de salud y el modelo de embeddings en un volumen.
+  - `gateway/Dockerfile`: dos etapas (compila con Maven y ejecuta con un JRE).
+  - `frontend/Dockerfile`: compila con Node y sirve con Nginx, que reenvía `/api` y `/uploads` a Spring Boot.
+- `docker compose --profile completo up -d --build` levanta los cinco servicios; `docker compose up -d` sigue
+  levantando solo PostgreSQL y n8n para desarrollar.
+- Red de Docker con IPs fijas (`172.29.0.0/24`): Nginx reemplaza `X-Forwarded-For` con la IP real, Spring solo
+  la acepta de IPs internas y FastAPI solo de Spring (`--forwarded-allow-ips 172.29.0.20`). FastAPI y n8n no
+  reciben tráfico del navegador.
+
+**Verificado (bloque A):** con los cinco contenedores, por http://127.0.0.1:8090:
+- estado del sistema `ok` en Spring, PostgreSQL y FastAPI; la ruta `/asistente` carga (Nginx devuelve
+  `index.html`); Swagger responde y las rutas internas dan 404;
+- búsqueda con 10 resultados; FastAPI aplicó las migraciones y cargó el modelo de embeddings;
+- el asistente responde de punta a punta (Nginx → Spring → n8n → FastAPI/pgvector → Gemini): "ferretería en
+  Piedecuesta" con 3 fuentes del municipio y "capital de Australia" sin resultados; calificación e historial;
+- IP real: FastAPI registró la IP del cliente e ignoró las falsas; tras 3 búsquedas distintas como invitado la
+  cuarta se bloqueó (429) aunque cada petición traía otra IP falsa en `X-Forwarded-For`.
+
+**Bloque B — Script SQL con datos iniciales:**
+- `scripts/exportar_sql_inicial.py` genera, desde la base real, `docker/initdb/02-esquema.sql` (pg_dump del
+  esquema completo con la versión de Alembic) y `docker/initdb/03-datos-iniciales.sql`.
+- Decisión del autor: los datos iniciales son **solo los negocios que cargó a mano** (3 negocios, 110 productos,
+  14 horarios), más los datos de referencia sin los que la app no funciona (32 categorías y 267 municipios y
+  barrios). Sin negocios de OpenStreetMap, sin datos personales y sin vectores (los genera n8n).
+- La carga desactiva las llaves foráneas mientras inserta (`session_replication_role`) y deja los contadores de
+  id después de los datos.
+
+**Verificado (bloque B), simulando un PC nuevo** (proyecto de Docker aparte con volúmenes vacíos):
+- PostgreSQL ejecutó los tres scripts sin errores: 3 negocios, 110 productos, 32 categorías, 267 lugares,
+  0 usuarios.
+- `alembic upgrade head` no aplicó nada (la base ya estaba en `d1e2f3a4b5c6`) y Spring arrancó, es decir,
+  Hibernate validó las entidades contra ese esquema.
+- El flujo 1 de n8n generó los 113 vectores (3 negocios + 110 productos) en dos vueltas.
+- Asistente: "hamburguesas en Piedecuesta" → Garrotero's Pub; "gimnasio en Girón" → la sede de Girón de Dynamic
+  Sports Gym; "necesito una farmacia" → sin resultados (no hay farmacias entre los datos iniciales).
+- Al terminar se borró el proyecto de prueba y se restauró el original (2.209 negocios, 2.319 vectores).
+
+**Bloque C — Diagramas:**
+- `docs/diagramas/entidad-relacion.md`: tres diagramas Mermaid (catálogo y búsqueda semántica; usuarios e
+  interacción; asistente IA), **generados desde la base real** con `scripts/generar_diagrama_er.py`: 20 tablas,
+  33 relaciones, tipos, PK, FK y únicas.
+- `docs/diagramas/arquitectura.md`: componentes con sus tecnologías y puertos, seguridad del recorrido de una
+  petición, secuencia del asistente RAG y flujo de indexación de n8n.
+- Los 7 diagramas se dibujaron con Mermaid en Chrome (sin errores de sintaxis) y se exportaron como PNG en
+  `docs/diagramas/imagenes/` para la presentación.
+
+**Problemas encontrados y solución:**
+- La primera versión del diagrama mostraba `respuestas_ia → fuentes_respuesta` como uno a uno: la restricción
+  única es compuesta (respuesta + negocio) y el script marcaba cada columna como única → solo cuentan las únicas
+  de una columna.
+- `pg_dump --exclude-extension` no existe en PostgreSQL 16 → se quitó; el esquema crea las extensiones con
+  `IF NOT EXISTS`, compatible con `01-extensions.sql`.
+- Con un volumen nuevo n8n tarda más en arrancar (ejecuta sus migraciones internas); el asistente respondió
+  ERROR con un mensaje claro mientras tanto, y funcionó al terminar el arranque.
+- La primera prueba de IP falsa parecía fallar (5 búsquedas sin bloqueo), pero repetía la misma búsqueda, que por
+  diseño no se cobra dos veces; con búsquedas distintas el bloqueo funciona.
+- El código calcula rutas como `<raíz>/backend/uploads`: en la imagen se copia el backend en
+  `/easysearch/backend` para conservar la estructura sin cambiar el código.
 
 ## Convención de commits
 
