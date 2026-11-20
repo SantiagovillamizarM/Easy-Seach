@@ -64,6 +64,9 @@ public class FastApiProxyController {
 			"connection", "keep-alive", "proxy-authenticate", "te", "trailer", "transfer-encoding", "upgrade",
 			"content-length", "date", "server");
 
+	/** Rutas de FastAPI reservadas para n8n (protegidas con INTERNAL_API_KEY): nunca se reenvían. */
+	static final String SOLO_INTERNAS = "/api/internal";
+
 	private final GatewayProperties properties;
 	private final HttpClient httpClient;
 
@@ -78,8 +81,10 @@ public class FastApiProxyController {
 
 	@RequestMapping({ "/api/**", "/uploads/**", "/openapi.json" })
 	public ResponseEntity<byte[]> forward(HttpServletRequest request) throws IOException {
-		// Una ruta de Spring que no existe no se manda a FastAPI: allá no hay nada y no debe conocerla
-		if (RutasSpring.esDeSpring(request.getRequestURI())) {
+		// Una ruta de Spring que no existe no se manda a FastAPI: allá no hay nada y no debe conocerla.
+		// Las rutas internas de FastAPI (solo para n8n) tampoco: desde afuera simplemente no existen.
+		String path = request.getRequestURI();
+		if (RutasSpring.esDeSpring(path) || path.equals(SOLO_INTERNAS) || path.startsWith(SOLO_INTERNAS + "/")) {
 			return error(HttpStatus.NOT_FOUND, "Not Found");
 		}
 		long declaredLength = request.getContentLengthLong();

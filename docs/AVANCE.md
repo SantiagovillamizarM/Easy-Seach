@@ -10,7 +10,7 @@
 | Infraestructura | Docker Desktop local |
 | Entrega | 25 de noviembre de 2026 |
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
-| Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, frontend 5173 (otros proyectos ocupan 5432, 5433 y 8000) |
+| Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, n8n 5690, frontend 5173 (otros proyectos ocupan 5432, 5433, 5678 y 8000) |
 | Tecnologías exigidas por la materia | Spring Boot + JPA, n8n, embeddings, búsqueda semántica y RAG. El profesor aprobó pgvector en lugar de Qdrant y se usa Gemini en lugar de OpenRouter |
 | Arquitectura con Spring Boot | Híbrida: Spring Boot es la única puerta del frontend; atiende con JPA los módulos nuevos (asistente IA, analítica) y reenvía el resto a FastAPI |
 
@@ -27,8 +27,8 @@
 | 6 — Reseñas y panel comercial | ✅ Completada |
 | 7 — Panel administrativo | ✅ Completada |
 | 8 — Calidad y seguridad | ✅ Completada |
-| 9 — Puerta de entrada Spring Boot | 🔄 En curso |
-| 10 — Asistente IA con n8n (RAG) | ⏳ Pendiente |
+| 9 — Puerta de entrada Spring Boot | ✅ Completada |
+| 10 — Asistente IA con n8n (RAG) | ✅ Completada |
 | 11 — Análisis de datos y dashboard | ⏳ Pendiente |
 | 12 — Documentación y cierre | ⏳ Pendiente |
 
@@ -435,6 +435,120 @@ pone delante como única puerta de entrada.
 - Con `server.forward-headers-strategy=native`, Tomcat aceptaba un `X-Forwarded-For` falso porque en desarrollo el
   navegador llega por el proxy de Vite desde 127.0.0.1. La prueba lo detectó → queda en `none` por defecto y solo
   se activa (`FORWARD_HEADERS_STRATEGY=native`) en producción detrás de Nginx.
+
+## Fase 10 — Asistente IA con n8n (RAG)
+
+Rama: `feature/fase-10-asistente-ia`.
+
+**Bloque A — n8n y flujo de indexación en pgvector:**
+- n8n 2.48.7 en Docker Compose (puerto 5690). Al arrancar, `n8n/arranque.sh` crea las credenciales desde el
+  `.env` (las claves nunca quedan en los JSON del repositorio), importa los flujos de `n8n/workflows/` y los
+  publica. Solo recibe las variables que necesita, no todo el `.env`.
+- FastAPI expone rutas internas protegidas con `X-Internal-Key` (`INTERNAL_API_KEY`), fuera de la documentación
+  pública: `POST /api/internal/embeddings` (vectores con el mismo modelo e5 de la búsqueda) y
+  `GET /api/internal/indexacion/pendientes` (textos cuyo vector falta o cambió, y vectores sobrantes).
+  Spring Boot responde 404 a cualquier `/api/internal`.
+- La regla "qué está desactualizado" (`plan_sync` en `embeddings.py`) es una sola: la usan el script de
+  reindexación, las ediciones del panel y n8n.
+- **Flujo 1** (`n8n/workflows/01-indexacion-pgvector.json`): cada 30 minutos, por webhook o a mano → pide
+  pendientes → borra vectores obsoletos → genera vectores → los guarda en pgvector en una sola consulta con
+  `ON CONFLICT (entity_type, entity_id) DO UPDATE` (sin duplicados, con actualización) → repite mientras queden
+  (máximo 30 vueltas de 64 textos).
+
+**Verificado (bloque A):**
+- `pytest`: 215 pruebas (13 nuevas de las rutas internas); `mvnw test`: 24 pruebas.
+- Con datos reales: la primera ejecución actualizó 753 vectores desactualizados en 69 s y el total siguió en
+  2.319 (0 duplicados por tipo e id); la segunda respondió "todo está indexado" en 2,8 s. Un vector guardado por
+  n8n y el recalculado para el mismo texto tienen similitud coseno 1,000000. La búsqueda sigue funcionando.
+- Webhook sin clave → 403; rutas internas por Spring → 404; sin clave interna → 401.
+
+**Bloque B — Asistente RAG (flujo 2, tablas y Spring Boot):**
+- Migración `d1e2f3a4b5c6` con las tablas `consultas_ia`, `respuestas_ia`, `fuentes_respuesta` y
+  `calificaciones`: llaves foráneas (`ON DELETE CASCADE` hacia el usuario; `SET NULL` hacia el negocio, que
+  conserva su nombre en el historial), restricciones `CHECK` (estado válido, pregunta no vacía, umbral, similitud,
+  puntuación 1-5), únicas (una respuesta por consulta, una calificación por respuesta, una fuente por negocio) e
+  índices (historial por usuario y fecha, estado, fecha). Alembic las ignora al autogenerar (`SPRING_TABLES` en
+  `alembic/env.py`) porque su modelo vive en Spring.
+- Entidades JPA en Spring (`ConsultaIA`, `RespuestaIA`, `FuenteRespuesta`, `Calificacion`, y `Establecimiento`
+  de solo lectura) con relaciones `@ManyToOne`, `@OneToOne` y `@OneToMany`; Hibernate valida que coinciden con
+  las tablas al arrancar.
+- FastAPI agrega dos rutas internas: `asistente/fichas` (datos reales de los negocios recuperados, solo activos)
+  y `asistente/validar` (borra frases con precios, horas o calificaciones que no estén en las fichas; la misma
+  validación de las recomendaciones de la búsqueda).
+- **Flujo 2** (`n8n/workflows/02-asistente-rag.json`, 19 nodos): webhook con clave → validar entrada → vector de
+  la pregunta → pgvector (top 5 activos) → umbral → fichas → Gemini (con modelo de respaldo) → ¿las fuentes
+  responden? → validar contra las fichas → respuesta. Cada paso que puede fallar tiene salida de error con un
+  mensaje claro (`ERROR`).
+- Spring Boot: `POST /api/asistente/consultas` (guarda `PENDIENTE` antes de llamar a n8n, vuelve a comprobar que
+  cada fuente exista y esté activa, ordena las fuentes por similitud), `GET /api/asistente/consultas` (historial
+  paginado), `GET /api/asistente/consultas/{id}` y `PUT /api/asistente/consultas/{id}/calificacion`. Exige
+  correo confirmado; límite de 20 preguntas por hora por usuario.
+
+**Calibración del umbral** (`backend/scripts/calibrar_umbral.py`, mejor similitud por pregunta con los datos
+reales):
+
+| Umbral | Relevantes aceptadas (de 30) | Sin relación rechazadas (de 20) |
+|---|---|---|
+| 0,800 | 29 | 6 |
+| 0,810 | 29 | 11 |
+| **0,820** | **29** | **18** |
+| 0,835 | 25 | 19 |
+| 0,850 | 19 | 20 |
+
+Primero se eligió 0,835 con 20 preguntas relevantes, pero al agregar 10 redactadas como problemas cotidianos
+("mi computador no prende", "se me dañó la pantalla del celular") perdía 5 legítimas. Con **0,82** solo se escapa
+"me duele una muela" (0,797) y las 2 sin relación que pasan (lasaña 0,848 y Netflix 0,825) las rechaza Gemini al
+comprobar que las fuentes no responden la pregunta. El umbral prioriza no perder preguntas legítimas y la segunda
+barrera (Gemini + validación) evita respuestas sin respaldo.
+
+**Pruebas funcionales del enunciado (con la app real: Vite → Spring → n8n → FastAPI/pgvector/Gemini):**
+
+| Prueba | Resultado |
+|---|---|
+| Incidente de conectividad a internet | RESPONDIDA con 5 fuentes (servicio técnico y puntos de Claro), similitud 0,827–0,833 |
+| Necesidad en lenguaje natural ("mi computador no prende") | RESPONDIDA; sugiere preguntar por el servicio en vez de afirmarlo |
+| Sin información suficiente ("¿quién ganó el mundial 2014?", "copia de una llave") | SIN_RESULTADOS: no inventa |
+| Desactivar un negocio (La Rebaja Plus, Girón) y repetir "farmacia en Girón" | Deja de usarse como fuente; sin otra farmacia, SIN_RESULTADOS |
+| Pregunta vacía | 422, no llega a n8n ni se guarda |
+| Fallo del servicio de embeddings (FastAPI apagado) | ERROR "El servicio de embeddings no respondió", guardado en la base |
+| Historial y calificación | Historial ordenado por fecha; calificación 5 guardada y actualizable |
+
+**Verificado (bloque B):** `pytest` 218 pruebas; `mvnw test` 36 pruebas (12 del asistente contra la base de
+pruebas real: pregunta vacía, fuentes desactivadas o inexistentes, sin resultados, errores de n8n, historial
+propio, calificación 1-5 y su actualización, límite por hora).
+
+**Bloque C — Pantalla del asistente (`/asistente`):**
+- Cuadro para la pregunta (máx. 500 caracteres, Enter envía, ejemplos para empezar) y validación de pregunta vacía
+  antes de llamar al servidor.
+- Tarjeta de respuesta: estado (Respondida, Sin resultados, Error, Pendiente), orientación, pasos recomendados,
+  fuentes enlazadas a la ficha de cada negocio con su similitud real (3 decimales) y cuánto supera el mínimo; en
+  "Sin resultados" se muestra la mejor similitud y el umbral.
+- Calificación de 1 a 5 estrellas con comentario opcional, que se puede cambiar.
+- Historial paginado ("Ver más") con todas las consultas anteriores; enlace "Asistente" en el encabezado y en el
+  menú de usuario. Ícono de la pestaña (antes no existía y daba 404).
+
+**Verificado (bloque C):** ESLint sin errores y compilación correcta. Recorrido automatizado con Chrome real
+(`playwright-core`): pregunta vacía rechazada, pregunta de conectividad respondida con fuentes, calificación de 5
+estrellas guardada, pregunta sin información → "Sin resultados", el historial persiste al recargar, vista de
+celular sin desbordes y consola sin errores. Capturas en `docs/evidencias/fase-10/`.
+
+**Problemas encontrados y solución:**
+- Las capturas mostraron que, al hacer una segunda pregunta, la tarjeta nueva heredaba las estrellas y el
+  comentario de la anterior (React reutilizaba el formulario): calificar ahí habría guardado la nota en la consulta
+  equivocada → el formulario se reinicia por consulta (`key`).
+- Las barras de similitud se veían casi vacías porque las similitudes reales están entre 0,82 y 0,90 → se
+  reemplazaron por el valor exacto y cuánto supera el mínimo.
+- El puerto 5678 lo usa el n8n de otro proyecto → n8n de Easy Search en el 5690.
+- Con el negocio correcto desactivado, Gemini recomendó un bar y un supermercado para "farmacia en Girón" → se le
+  indica descartar las fichas que no ofrecen lo pedido y responder sin resultados si no queda ninguna.
+- Gemini afirmó que un restaurante de Piedecuesta estaba "en Cabecera" porque la búsqueda semántica no filtra por
+  ubicación → regla explícita: la ubicación sale solo del campo de la ficha y debe aclarar si es otra zona.
+- Los pasos mencionaban ids internos ("ficha 363") → se prohíbe mencionar ids.
+- `RestClient.Builder` ya no se configura solo en Spring Boot 4 → se usa `RestClient.builder()`.
+- Los nombres de las restricciones `CHECK` salían duplicados (`ck_tabla_ck_tabla_...`) por la convención de
+  nombres del proyecto → se corrigió la migración.
+- Los textos de los negocios llevan comas y el nodo Postgres separaba los parámetros por comas → se usa la
+  versión 2.6 del nodo (evalúa cada expresión por separado) y el lote viaja como un solo parámetro JSON.
 
 ## Convención de commits
 

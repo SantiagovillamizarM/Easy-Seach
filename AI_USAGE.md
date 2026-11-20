@@ -58,3 +58,42 @@ seguridad JWT, entidad JPA `Usuario`, Swagger, pruebas), cambio del proxy de Vit
 | Pruebas sin base de datos (perfil `test` y repositorio simulado) | Testcontainers o la base de desarrollo | Corren en cualquier PC sin Docker y nunca tocan los datos reales; la integración se verificó a mano con la app real |
 
 **Revisión humana:** ✏️ quién revisó el código y cómo lo probó.
+
+### Fase 10 — Asistente IA con n8n
+
+**Componentes asistidos (bloque A):** servicio n8n en Docker Compose, scripts de arranque
+(`n8n/arranque.sh`, `n8n/credenciales.js`), flujo de indexación (`n8n/workflows/01-indexacion-pgvector.json`,
+generado con un script y probado contra la base real), rutas internas de FastAPI y sus pruebas, bloqueo de esas
+rutas en Spring.
+
+| Decisión | Alternativas consideradas | Quién decidió y por qué |
+|---|---|---|
+| n8n genera los vectores llamando al modelo e5 de FastAPI | Embeddings de Gemini u OpenRouter | La IA lo propuso: los 2.319 vectores existentes siguen sirviendo y la búsqueda actual no cambia |
+| n8n guarda directo en pgvector con su nodo de Postgres | Que FastAPI guarde y n8n solo dispare | Así n8n realmente consulta, vectoriza y almacena, como pide el flujo 1 del enunciado |
+| El texto canónico y su hash los calcula FastAPI | Construir el texto con SQL dentro de n8n | Una sola regla de "qué está desactualizado" para el script, el panel y n8n |
+| Credenciales creadas al arrancar desde el `.env` | Configurarlas a mano en la interfaz | Reproducible con `docker compose up` y sin claves en el repositorio |
+
+**Componentes asistidos (bloque B):** migración de las tablas del asistente, entidades JPA, servicio y
+controlador del asistente, cliente de n8n, manejador de errores, flujo RAG
+(`n8n/workflows/02-asistente-rag.json`), rutas internas de fichas y validación, script de calibración del umbral
+y pruebas (pytest y JUnit).
+
+| Decisión | Alternativas consideradas | Quién decidió y por qué |
+|---|---|---|
+| Umbral 0,82 | 0,835 (primera calibración) | La IA lo midió con 50 preguntas; 0,835 perdía preguntas legítimas redactadas como problemas cotidianos |
+| Dos barreras: umbral + Gemini indica si las fuentes responden | Solo umbral alto | Con solo umbral había que elegir entre perder preguntas legítimas o aceptar irrelevantes |
+| Validar la respuesta con `validate_text` (ya existente) | Confiar en el prompt | Reutiliza la defensa anti-invención de la búsqueda |
+| Spring guarda PENDIENTE antes de llamar a n8n | Guardar todo al final | Si n8n falla o tarda, la consulta queda registrada con su estado |
+| Spring vuelve a validar las fuentes contra la base | Confiar en n8n | Regla de negocio: toda fuente debe existir y estar activa |
+| Tablas creadas por Alembic, entidades en Spring | Hibernate `ddl-auto=update` | Una sola fuente del esquema |
+| Pruebas del asistente contra la base de pruebas real | Repositorios simulados | Comprueban las restricciones y el mapeo JPA reales |
+
+**Componentes asistidos (bloque C):** página `/asistente` (`AssistantPage.jsx`, `AssistantAnswer.jsx`), métodos
+del cliente de la API, enlaces de navegación, ícono de la pestaña y recorrido visual automatizado con capturas.
+El recorrido detectó un error de estado en React (la calificación pasaba de una consulta a otra) que se corrigió
+y se volvió a verificar.
+
+Las pruebas con la app real revelaron tres fallas del prompt (recomendar negocios que no sirven, inventar la
+ubicación, mencionar ids) que se corrigieron y se volvieron a probar; están descritas en `docs/AVANCE.md`.
+
+**Revisión humana:** ✏️

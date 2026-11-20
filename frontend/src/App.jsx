@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
+import AssistantPage from "./pages/AssistantPage.jsx";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
 import EstablishmentPage from "./pages/EstablishmentPage.jsx";
 import FavoritesPage from "./pages/FavoritesPage.jsx";
@@ -40,6 +41,8 @@ export default function App() {
         {/* Buscar exige cuenta con correo confirmado: protege la cuota de la IA frente a robots */}
         <Route path="buscar" element={<RequireAuth verified guestAllowed><ResultsPage /></RequireAuth>} />
         <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
+        {/* Asistente con IA (Spring Boot + n8n): exige correo confirmado, igual que en el servidor */}
+        <Route path="asistente" element={<RequireAuth verified><AssistantPage /></RequireAuth>} />
         <Route path="lugar/:slug" element={<EstablishmentPage />} />
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />

@@ -1,0 +1,433 @@
+{
+  "id": "EsIndexacionPgv1",
+  "name": "Easy Search · 1. Indexación de establecimientos en pgvector",
+  "nodes": [
+    {
+      "id": "c1282ec8-f4e6-5fb8-85a3-5d70fb97cc80",
+      "name": "Cada 30 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ae307991-3ba5-5a5b-8d1e-7251904543e4",
+      "name": "Webhook: indexar ahora",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "easysearch/indexar",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "45cfdaad-d5a4-5ad1-aa23-599d2c193450",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsWebhookSpring1",
+          "name": "EasySearch webhook (Spring)"
+        }
+      }
+    },
+    {
+      "id": "c95bc8c3-ee18-553d-8b37-dc488b5f4ab2",
+      "name": "Ejecutar a mano",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "c97b7497-373c-58d0-acf4-cf80aef8fcc0",
+      "name": "Pedir textos pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        200
+      ],
+      "parameters": {
+        "url": "={{ $env.EASYSEARCH_FASTAPI_URL }}/api/internal/indexacion/pendientes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limite",
+              "value": "64"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsFastapiInterna",
+          "name": "EasySearch FastAPI interna"
+        }
+      }
+    },
+    {
+      "id": "cd631b3e-0517-531c-bd16-04c0b39b88a1",
+      "name": "Preparar lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Respuesta de FastAPI: { modelo, pendientes: [...], hay_mas, obsoletos: [ids] }\nconst r = $input.first().json;\n// Los ids obsoletos se validan como enteros antes de ir a SQL; \"0\" = ninguno (no existe el id 0)\nconst ids = (r.obsoletos || []).map((n) => parseInt(n, 10)).filter(Number.isInteger);\nreturn [{\n  json: {\n    modelo: r.modelo,\n    pendientes: r.pendientes || [],\n    textos: (r.pendientes || []).map((p) => p.texto),\n    obsoletos: ids.length ? ids.join('|') : '0',\n    cantidadObsoletos: ids.length,\n    hay_mas: r.hay_mas === true,\n  },\n}];"
+      }
+    },
+    {
+      "id": "8ab85ed8-d37d-5a7d-a70b-e9f761f08ac9",
+      "name": "Borrar vectores obsoletos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        760,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Vectores de productos eliminados o no disponibles (\"0\" = ninguno)\nDELETE FROM embeddings WHERE id = ANY(string_to_array($1, '|')::int[]) RETURNING id;",
+        "options": {
+          "queryReplacement": "={{ $json.obsoletos }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "EsPostgres000001",
+          "name": "EasySearch PostgreSQL"
+        }
+      }
+    },
+    {
+      "id": "6e570d35-1fb0-5b30-9694-efb28ca316fe",
+      "name": "¿Hay textos pendientes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        760,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "9df37bea-a864-5526-8cbd-c9a0a975aa15",
+              "leftValue": "={{ $json.pendientes.length }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4783761c-2760-54b0-8a25-fcd18d4d4cc7",
+      "name": "Generar vectores (e5)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EASYSEARCH_FASTAPI_URL }}/api/internal/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ textos: $json.textos, tipo: 'documento' }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsFastapiInterna",
+          "name": "EasySearch FastAPI interna"
+        }
+      }
+    },
+    {
+      "id": "82c21de8-a10f-538f-847a-8bbe33320f8c",
+      "name": "Unir textos y vectores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Une cada texto pendiente con el vector que devolvió el servicio de embeddings (mismo orden)\nconst lote = $('Preparar lote').first(0, $runIndex).json;\nconst { vectores, modelo, dimensiones } = $input.first().json;\nif (!Array.isArray(vectores) || vectores.length !== lote.pendientes.length) {\n  throw new Error('El servicio de embeddings devolvió una cantidad distinta de vectores');\n}\nif (dimensiones !== 384) {\n  throw new Error(`Se esperaban vectores de 384 dimensiones y llegaron de ${dimensiones}`);\n}\nconst filas = lote.pendientes.map((p, i) => ({\n  entity_type: p.entity_type,\n  entity_id: p.entity_id,\n  establishment_id: p.establishment_id,\n  texto: p.texto,\n  content_hash: p.content_hash,\n  modelo,\n  vector: JSON.stringify(vectores[i]),   // formato de pgvector: [0.1,0.2,...]\n}));\n// Un solo parámetro JSON: todo el lote se guarda en una sola consulta\nreturn [{ json: { lote: JSON.stringify(filas), cantidad: filas.length } }];"
+      }
+    },
+    {
+      "id": "40399d36-8e00-5418-9d37-b730bb4532e7",
+      "name": "Guardar en pgvector",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1480,
+        200
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO embeddings (entity_type, entity_id, establishment_id, content, content_hash, model, embedding, updated_at)\nSELECT x.entity_type, x.entity_id, x.establishment_id, x.texto, x.content_hash, x.modelo, x.vector::vector, now()\nFROM jsonb_to_recordset($1::jsonb) AS x(\n  entity_type text, entity_id int, establishment_id int, texto text, content_hash text, modelo text, vector text)\n-- Sin duplicados: un vector por (tipo, id). Si ya existía, se actualiza.\nON CONFLICT (entity_type, entity_id) DO UPDATE SET\n  establishment_id = EXCLUDED.establishment_id,\n  content = EXCLUDED.content,\n  content_hash = EXCLUDED.content_hash,\n  model = EXCLUDED.model,\n  embedding = EXCLUDED.embedding,\n  updated_at = now()\nRETURNING entity_type, entity_id;",
+        "options": {
+          "queryReplacement": "={{ $json.lote }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "EsPostgres000001",
+          "name": "EasySearch PostgreSQL"
+        }
+      }
+    },
+    {
+      "id": "15184351-30bd-5d47-87ba-a0d9bd753f0d",
+      "name": "Contar guardados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        200
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { guardados: $input.all().length } }];"
+      }
+    },
+    {
+      "id": "6a115421-06c9-5e02-b290-8155c29eb965",
+      "name": "¿Quedan más pendientes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "9a743c0b-433e-54d8-a4b4-28fd3cc5fff1",
+              "leftValue": "={{ $('Preparar lote').first(0, $runIndex).json.hay_mas && $runIndex < 30 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "383dae7e-8e19-5136-85ff-6097d5d5a4b1",
+      "name": "Resumen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const guardados = $input.first().json.guardados ?? 0;\nreturn [{\n  json: {\n    ok: true,\n    mensaje: guardados ? 'Indexación terminada' : 'No había textos pendientes: todo está indexado',\n    vectores_guardados_en_ultima_vuelta: guardados,\n  },\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Cada 30 minutos": {
+      "main": [
+        [
+          {
+            "node": "Pedir textos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: indexar ahora": {
+      "main": [
+        [
+          {
+            "node": "Pedir textos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano": {
+      "main": [
+        [
+          {
+            "node": "Pedir textos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir textos pendientes": {
+      "main": [
+        [
+          {
+            "node": "Preparar lote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar lote": {
+      "main": [
+        [
+          {
+            "node": "Borrar vectores obsoletos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Hay textos pendientes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay textos pendientes?": {
+      "main": [
+        [
+          {
+            "node": "Generar vectores (e5)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar vectores (e5)": {
+      "main": [
+        [
+          {
+            "node": "Unir textos y vectores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unir textos y vectores": {
+      "main": [
+        [
+          {
+            "node": "Guardar en pgvector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en pgvector": {
+      "main": [
+        [
+          {
+            "node": "Contar guardados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar guardados": {
+      "main": [
+        [
+          {
+            "node": "¿Quedan más pendientes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Quedan más pendientes?": {
+      "main": [
+        [
+          {
+            "node": "Pedir textos pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "pinData": {},
+  "active": false
+}

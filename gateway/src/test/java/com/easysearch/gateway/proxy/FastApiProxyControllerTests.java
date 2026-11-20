@@ -134,6 +134,16 @@ class FastApiProxyControllerTests {
 	}
 
 	@Test
+	void lasRutasInternasDeFastApiNoSonAccesiblesDesdeAfuera() throws Exception {
+		for (String ruta : new String[] { "/api/internal/embeddings", "/api/internal", "/api/internal/indexacion/pendientes?limite=5" }) {
+			HttpResponse<String> response = send(HttpRequest.newBuilder(url(ruta))
+					.header("X-Internal-Key", "intento").POST(HttpRequest.BodyPublishers.ofString("{}")));
+			assertThat(response.statusCode()).as(ruta).isEqualTo(404);
+		}
+		assertThat(received).isEmpty();
+	}
+
+	@Test
 	void reenviaLaEspecificacionOpenApiDeFastApi() throws Exception {
 		send(HttpRequest.newBuilder(url("/openapi.json")).GET());
 

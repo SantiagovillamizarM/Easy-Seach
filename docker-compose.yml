@@ -19,5 +19,52 @@ services:
       timeout: 5s
       retries: 10
 
+  # Orquestador de los flujos de IA: indexación en pgvector y asistente RAG.
+  # Interfaz en http://127.0.0.1:5690 (el 5678 lo usa otro proyecto). La primera vez pide crear una cuenta local.
+  n8n:
+    image: n8nio/n8n:2.48.7
+    container_name: easysearch-n8n
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Crea credenciales desde el .env, importa y publica los flujos de n8n/workflows/ y arranca n8n
+    entrypoint: ["/bin/sh", "/easysearch/arranque.sh"]
+    environment:
+      # Solo las variables que n8n necesita (no todo el .env)
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      N8N_WEBHOOK_KEY: ${N8N_WEBHOOK_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-2.5-flash}
+      # FastAPI corre en la PC (fuera de Docker); Docker Desktop la expone como host.docker.internal
+      EASYSEARCH_FASTAPI_URL: ${N8N_FASTAPI_URL:-http://host.docker.internal:8010}
+      # Clave con la que n8n cifra las credenciales que guarda (debe ser siempre la misma)
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # Los flujos leen la configuración NO secreta con $env (las claves van en credenciales)
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      GENERIC_TIMEZONE: America/Bogota
+      TZ: America/Bogota
+      N8N_SECURE_COOKIE: "false"          # solo desarrollo local por http
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      # Las ejecuciones se guardan 7 días (sirven de evidencia y para depurar)
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5690}:5678"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8ndata:/home/node/.n8n
+      - ./n8n/workflows:/easysearch/workflows:ro
+      - ./n8n/arranque.sh:/easysearch/arranque.sh:ro
+      - ./n8n/credenciales.js:/easysearch/credenciales.js:ro
+
 volumes:
   pgdata:
+  n8ndata:

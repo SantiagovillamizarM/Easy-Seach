@@ -13,6 +13,7 @@ recomendaciones con IA basadas solo en datos reales.
 |---|---|
 | Base de datos | PostgreSQL 16 + pgvector (Docker) |
 | Puerta de entrada | Java 21 + Spring Boot 4 (recibe todas las peticiones del frontend) |
+| Flujos de IA | n8n 2.48 (Docker): indexación en pgvector y asistente RAG |
 | Backend | Python 3.12 + FastAPI + SQLAlchemy |
 | Frontend | React + Vite + Tailwind CSS |
 | IA | Embeddings locales (multilingual-e5) + LLM (proveedor por definir) |
@@ -25,12 +26,16 @@ recomendaciones con IA basadas solo en datos reales.
 | Puerta de entrada Spring Boot | http://127.0.0.1:8020 — el frontend solo habla con esta |
 | Swagger (toda la API) | http://127.0.0.1:8020/swagger-ui.html — arriba a la derecha se elige Spring Boot o FastAPI |
 | Estado de los servicios | http://127.0.0.1:8020/api/sistema/estado |
+| n8n | http://127.0.0.1:5690 (el 5678 lo usa otro proyecto) |
 | Backend FastAPI | http://127.0.0.1:8010 — documentación propia en http://127.0.0.1:8010/docs |
 
 ### Arquitectura
 
 ```
-Navegador ──► React/Vite (5173) ──► Spring Boot (8020) ──► FastAPI (8010) ──► PostgreSQL + pgvector (5440)
+Navegador ──► React/Vite (5173) ──► Spring Boot (8020) ──┬──► FastAPI (8010) ──► PostgreSQL + pgvector (5440)
+                                                         └──► n8n (5690) ──┬──► FastAPI /api/internal (embeddings)
+                                                                           ├──► PostgreSQL + pgvector
+                                                                           └──► Gemini
 ```
 
 Spring Boot es la puerta de entrada: el frontend nunca llama directo a FastAPI ni a la IA.
@@ -136,11 +141,48 @@ npm install
 cd ..
 ```
 
+### 6. n8n (flujos de IA)
+
+`docker compose up -d` también levanta n8n. Al arrancar, el contenedor crea sus credenciales con los valores del
+`.env` (`POSTGRES_*`, `INTERNAL_API_KEY`, `N8N_WEBHOOK_KEY`, `GEMINI_API_KEY`), importa los flujos de
+`n8n/workflows/` y los publica. No hay que configurar nada a mano.
+
+- Abre http://127.0.0.1:5690 y crea la cuenta local de n8n la primera vez (solo sirve para ver los flujos y sus
+  ejecuciones).
+- Los flujos del repositorio son la fuente de verdad: si cambias uno en la interfaz, expórtalo
+  (**⋯ → Download**) y guárdalo en `n8n/workflows/`, o se perderá al reiniciar el contenedor.
+
+**Flujo 1: indexación en pgvector.** Corre cada 30 minutos y también a pedido. Pide a FastAPI los textos de
+negocios y productos cuyo vector falta o cambió (según un hash del texto), genera los vectores con el modelo e5 y
+los guarda en la tabla `embeddings` sin duplicados (`ON CONFLICT`). Para ejecutarlo a mano (PowerShell):
+
+```powershell
+$clave = (Select-String -Path .env -Pattern '^N8N_WEBHOOK_KEY=(.+)$').Matches.Groups[1].Value
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5690/webhook/easysearch/indexar -Headers @{ "X-N8N-Key" = $clave }
+```
+
+**Flujo 2: asistente RAG.** Lo llama solo Spring Boot (`POST /api/asistente/consultas`):
+
+1. Convierte la pregunta en vector (modelo e5).
+2. Busca en pgvector los 5 negocios **activos** más parecidos (similitud = 1 − distancia coseno).
+3. Si ninguno supera el **umbral (0,82)**, responde `SIN_RESULTADOS` sin llamar a la IA.
+4. Si alguno lo supera, pide a FastAPI sus fichas (solo datos guardados) y le pide a Gemini una orientación usando
+   **solo** esas fichas. Si Gemini indica que las fichas no responden la pregunta, también es `SIN_RESULTADOS`.
+5. Valida la respuesta contra las fichas (borra precios u horas inventados) y la devuelve con fuentes y
+   similitudes. Si falla cualquier paso, responde `ERROR` con el motivo.
+
+Spring guarda cada consulta (`PENDIENTE` → `RESPONDIDA` / `SIN_RESULTADOS` / `ERROR`), vuelve a comprobar que
+cada fuente exista y esté activa, y permite ver el historial y calificar cada respuesta de 1 a 5.
+
+**Por qué el umbral es 0,82:** se midió con `scripts/calibrar_umbral.py` (30 preguntas que los negocios sí
+responden y 20 sin relación). Con 0,82 se aceptan 29 de 30 relevantes y se rechazan 18 de 20 sin relación; las 2
+que pasan (una receta de lasaña y series de Netflix) las frena Gemini. Se cambia con `ASISTENTE_UMBRAL`.
+
 ## Ejecutar el proyecto (cada vez)
 
 Necesitas **tres terminales** (en VS Code: botón `+` del panel de terminal).
 
-**Terminal 1 — backend FastAPI:**
+**Terminal 1 — backend FastAPI** (`docker compose up -d` enciende PostgreSQL y n8n):
 
 ```powershell
 docker compose up -d
@@ -164,7 +206,8 @@ cd frontend
 npm run dev
 ```
 
-Abre http://127.0.0.1:5173 en el navegador. Páginas: inicio (`/`), resultados (`/buscar?q=...`) y detalle de un lugar (`/lugar/<slug>`).
+Abre http://127.0.0.1:5173 en el navegador. Páginas: inicio (`/`), resultados (`/buscar?q=...`), detalle de un lugar
+(`/lugar/<slug>`) y **asistente con IA** (`/asistente`, exige sesión con el correo confirmado).
 
 > Si el navegador muestra `ERR_CONNECTION_REFUSED`, revisa que la terminal 3 siga abierta y muestre
 > `VITE ... ready`. La página solo existe mientras `npm run dev` está corriendo.
@@ -188,8 +231,10 @@ cd gateway
 .\mvnw test
 ```
 
-No necesitan la base de datos ni FastAPI: el proxy se prueba con un FastAPI falso que registra lo que recibe, y
-la seguridad con usuarios simulados y tokens firmados igual que los de FastAPI (perfil `test`).
+- Proxy y seguridad (perfil `test`): no necesitan la base de datos; usan un FastAPI falso y usuarios simulados.
+- Asistente (perfil `it`): usan la **base de pruebas real** (`easysearch_test`) y un n8n falso. Necesitan
+  PostgreSQL encendido y la base de pruebas migrada, que se migra sola al correr antes las pruebas de FastAPI
+  (`pytest`). Cada prueba deshace sus cambios.
 
 ### Revisar el frontend con ESLint
 
@@ -246,10 +291,15 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ├── gateway/               puerta de entrada Spring Boot (Java)
 │   └── src/main/java/com/easysearch/gateway/
 │       ├── config/        propiedades, CORS, rutas propias de Spring y Swagger
+│       ├── asistente/     asistente IA: entidades JPA, servicio, cliente de n8n y endpoints
 │       ├── seguridad/     validación del token JWT, permisos y errores 401/403
 │       ├── usuario/       entidad JPA Usuario (tabla users, solo lectura) y su repositorio
 │       ├── sistema/       estado de los servicios y sesión actual
 │       └── proxy/         reenvío de peticiones a FastAPI
+├── n8n/
+│   ├── workflows/         flujos exportados (JSON): indexación y asistente RAG
+│   ├── arranque.sh        importa credenciales y flujos al iniciar el contenedor
+│   └── credenciales.js    crea las credenciales de n8n desde el .env
 ├── backend/
 │   ├── app/
 │   │   ├── main.py        punto de entrada de la API

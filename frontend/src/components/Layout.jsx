@@ -1,4 +1,5 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Bot } from "lucide-react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
@@ -18,7 +19,16 @@ function Header() {
         ) : (
           <div className="flex-1" />
         )}
-        <div className="ml-auto md:ml-0">
+        <Link
+          to="/asistente"
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold md:ml-0 ${
+            pathname === "/asistente" ? "bg-brand-50 text-brand-700" : "text-ink-soft hover:bg-brand-50 hover:text-brand-700"
+          }`}
+        >
+          <Bot className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Asistente</span>
+        </Link>
+        <div>
           <UserMenu />
         </div>
       </div>
