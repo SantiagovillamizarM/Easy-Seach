@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import QueryDemo from "../components/QueryDemo.jsx";
 import Reveal from "../components/Reveal.jsx";
 import SearchBar from "../components/SearchBar.jsx";
+import StarField from "../components/StarField.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const SHORTCUTS = [
@@ -40,7 +41,8 @@ function Hero() {
 
   return (
     <section className="hero-night" data-dark-hero>
-      <div className="hero-dots" aria-hidden="true" />
+      {/* Estrellas en movimiento con paralaje; las luces CSS del hero quedan detrás como nebulosa */}
+      <StarField />
       <div className="hero-grain" aria-hidden="true" />
 
       <div className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-28 pt-12 text-center sm:pb-32 sm:pt-20">
