@@ -1,0 +1,9 @@
+# Lo que NO entra a la imagen de Docker (más liviana y sin secretos ni datos locales)
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+uploads/
+data/osm_cache/
+.env

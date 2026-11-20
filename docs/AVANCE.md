@@ -550,6 +550,42 @@ celular sin desbordes y consola sin errores. Capturas en `docs/evidencias/fase-1
 - Los textos de los negocios llevan comas y el nodo Postgres separaba los parámetros por comas → se usa la
   versión 2.6 del nodo (evalúa cada expresión por separado) y el lote viaja como un solo parámetro JSON.
 
+## Fase 11 — Entregables y cierre
+
+Rama: `feature/fase-11-entregables`.
+
+**Alcance:** del enunciado de la materia solo aplican las tecnologías y los entregables; sus funciones (análisis
+de datos, dashboard e informe de análisis) no, porque Easy Search es un proyecto distinto.
+
+**Bloque A — Registro de uso de IA y Docker Compose completo:**
+- `AI_USAGE.md` completo: participación de la IA por aspecto y por fase, herramientas, forma de trabajo,
+  decisiones, errores de la IA detectados y lecciones.
+- Dockerfiles:
+  - `backend/Dockerfile`: Python 3.12 slim, PyTorch solo CPU, usuario sin privilegios, migraciones al arrancar,
+    verificación de salud y el modelo de embeddings en un volumen.
+  - `gateway/Dockerfile`: dos etapas (compila con Maven y ejecuta con un JRE).
+  - `frontend/Dockerfile`: compila con Node y sirve con Nginx, que reenvía `/api` y `/uploads` a Spring Boot.
+- `docker compose --profile completo up -d --build` levanta los cinco servicios; `docker compose up -d` sigue
+  levantando solo PostgreSQL y n8n para desarrollar.
+- Red de Docker con IPs fijas (`172.29.0.0/24`): Nginx reemplaza `X-Forwarded-For` con la IP real, Spring solo
+  la acepta de IPs internas y FastAPI solo de Spring (`--forwarded-allow-ips 172.29.0.20`). FastAPI y n8n no
+  reciben tráfico del navegador.
+
+**Verificado (bloque A):** con los cinco contenedores, por http://127.0.0.1:8090:
+- estado del sistema `ok` en Spring, PostgreSQL y FastAPI; la ruta `/asistente` carga (Nginx devuelve
+  `index.html`); Swagger responde y las rutas internas dan 404;
+- búsqueda con 10 resultados; FastAPI aplicó las migraciones y cargó el modelo de embeddings;
+- el asistente responde de punta a punta (Nginx → Spring → n8n → FastAPI/pgvector → Gemini): "ferretería en
+  Piedecuesta" con 3 fuentes del municipio y "capital de Australia" sin resultados; calificación e historial;
+- IP real: FastAPI registró la IP del cliente e ignoró las falsas; tras 3 búsquedas distintas como invitado la
+  cuarta se bloqueó (429) aunque cada petición traía otra IP falsa en `X-Forwarded-For`.
+
+**Problemas encontrados y solución:**
+- La primera prueba de IP falsa parecía fallar (5 búsquedas sin bloqueo), pero repetía la misma búsqueda, que por
+  diseño no se cobra dos veces; con búsquedas distintas el bloqueo funciona.
+- El código calcula rutas como `<raíz>/backend/uploads`: en la imagen se copia el backend en
+  `/easysearch/backend` para conservar la estructura sin cambiar el código.
+
 ## Convención de commits
 
 Al terminar cada fase se propone un mensaje en formato [Conventional Commits](https://www.conventionalcommits.org/es/)
