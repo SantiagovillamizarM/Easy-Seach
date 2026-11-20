@@ -12,6 +12,7 @@
 | Repositorio | github.com/SantiagovillamizarM/Easy-Seach |
 | Puertos | PostgreSQL 5440, FastAPI 8010, Spring Boot 8020, n8n 5690, frontend 5173 (otros proyectos ocupan 5432, 5433, 5678 y 8000) |
 | Tecnologías exigidas por la materia | Spring Boot + JPA, n8n, embeddings, búsqueda semántica y RAG. El profesor aprobó pgvector en lugar de Qdrant y se usa Gemini en lugar de OpenRouter |
+| Alcance tomado del enunciado de la materia | Solo las **tecnologías** y los **entregables**; sus funciones (análisis de datos, dashboard, informe de análisis) no aplican porque Easy Search es un proyecto distinto |
 | Arquitectura con Spring Boot | Híbrida: Spring Boot es la única puerta del frontend; atiende con JPA los módulos nuevos (asistente IA, analítica) y reenvía el resto a FastAPI |
 
 ## Fases
@@ -29,8 +30,7 @@
 | 8 — Calidad y seguridad | ✅ Completada |
 | 9 — Puerta de entrada Spring Boot | ✅ Completada |
 | 10 — Asistente IA con n8n (RAG) | ✅ Completada |
-| 11 — Análisis de datos y dashboard | ⏳ Pendiente |
-| 12 — Documentación y cierre | ⏳ Pendiente |
+| 11 — Entregables y cierre | 🔄 En curso |
 
 ## Fase 0 — Entorno de desarrollo
 
