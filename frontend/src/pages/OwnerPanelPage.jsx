@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 
 const CLAIM_STATUS = {
-  pending: { label: "En revisión", icon: Clock, className: "bg-amber-50 text-amber-800" },
+  pending: { label: "En revisión", icon: Clock, className: "bg-warn-bg text-warn" },
   approved: { label: "Aprobada", icon: CheckCircle2, className: "bg-open-bg text-open" },
   rejected: { label: "No aprobada", icon: XCircle, className: "bg-closed-bg text-closed" },
 };
@@ -43,7 +43,7 @@ function EstablishmentCard({ est }) {
           <span>Perfil completo</span>
           <span>{done} de {items.length}</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done}>
+        <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={done}>
           <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(done / items.length) * 100}%` }} />
         </div>
         <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
@@ -64,11 +64,11 @@ function EstablishmentCard({ est }) {
       {est.unanswered_reviews > 0 && (
         <Link
           to={`/panel/lugar/${est.id}?tab=resenas`}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+          className="mt-4 flex items-center gap-2 rounded-xl border border-warn-line bg-warn-bg px-3 py-2 text-sm font-semibold text-warn hover:bg-warn-soft"
         >
           <MessageSquare className="h-4 w-4 shrink-0" aria-hidden="true" />
           {est.unanswered_reviews === 1 ? "1 reseña sin responder" : `${est.unanswered_reviews} reseñas sin responder`}
-          <span className="ml-auto text-xs font-bold text-amber-800">Responder →</span>
+          <span className="ml-auto text-xs font-bold text-warn">Responder →</span>
         </Link>
       )}
 
@@ -113,8 +113,8 @@ export default function OwnerPanelPage() {
   }, [updateUser]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+    <div className="fade-up mx-auto max-w-4xl px-4 py-8">
+      <h1 className="flex items-center gap-2 text-3xl font-extrabold">
         <Store className="h-6 w-6 text-brand-600" aria-hidden="true" />
         Panel comercial
       </h1>
@@ -126,7 +126,7 @@ export default function OwnerPanelPage() {
 
       {!data && !error && (
         <div className="mt-6 space-y-4" aria-hidden="true">
-          <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="skeleton h-48 rounded-2xl" />
         </div>
       )}
 

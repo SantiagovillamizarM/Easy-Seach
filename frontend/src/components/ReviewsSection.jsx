@@ -7,7 +7,7 @@ import { Stars, StarInput } from "./Stars.jsx";
 
 const STATUS = {
   approved: { label: "Publicada", icon: CheckCircle2, className: "bg-open-bg text-open" },
-  pending: { label: "En revisión", icon: Clock, className: "bg-amber-50 text-amber-700" },
+  pending: { label: "En revisión", icon: Clock, className: "bg-warn-bg text-warn" },
   rejected: { label: "No publicada", icon: XCircle, className: "bg-closed-bg text-closed" },
 };
 
@@ -335,8 +335,8 @@ export default function ReviewsSection({ establishment, onRatingChange }) {
               return (
                 <div key={stars} className="flex items-center gap-2 text-xs text-ink-soft">
                   <span className="w-3">{stars}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-star" style={{ width: `${pct}%` }} />
                   </div>
                   <span className="w-6 text-right">{count}</span>
                 </div>

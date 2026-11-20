@@ -34,9 +34,9 @@ export default function TrafficNotice({ establishmentId }) {
   if (!canAsk || !report) return null;
 
   return (
-    <div role="status" className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-100">
-        <TrafficCone className="h-5 w-5 text-amber-700" aria-hidden="true" />
+    <div role="status" className="mt-4 flex items-start gap-3 rounded-2xl border border-warn-line bg-warn-bg p-4">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-warn-soft">
+        <TrafficCone className="h-5 w-5 text-warn" aria-hidden="true" />
       </span>
       <div className="text-sm">
         <p className="font-semibold text-ink">Hay trancón en {joinStreets(report.streets)}</p>

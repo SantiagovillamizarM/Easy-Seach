@@ -18,12 +18,12 @@ export function LogoMark({ className = "h-8 w-8" }) {
   );
 }
 
-export default function Logo() {
+export default function Logo({ inverted = false }) {
   return (
     <Link to="/" className="flex items-center gap-2 rounded-lg" aria-label="Easy Search, ir al inicio">
       <LogoMark />
-      <span className="text-lg font-extrabold tracking-tight">
-        Easy<span className="text-brand-600">Search</span>
+      <span className={`font-display text-xl font-bold tracking-tight transition-colors duration-300 ${inverted ? "text-white" : ""}`}>
+        Easy<span className={inverted ? "text-brand-400" : "text-brand-600"}>Search</span>
       </span>
     </Link>
   );

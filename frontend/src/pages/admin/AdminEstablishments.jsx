@@ -24,7 +24,7 @@ function DataIcons({ est }) {
     <span className="flex items-center gap-1.5">
       {items.map(({ ok, icon: Icon, label }) => (
         <span key={label} title={`${ok ? "Tiene" : "Sin"} ${label}`}>
-          <Icon className={`h-4 w-4 ${ok ? "text-open" : "text-slate-300"}`} aria-hidden="true" />
+          <Icon className={`h-4 w-4 ${ok ? "text-open" : "text-ink-soft/40"}`} aria-hidden="true" />
           <span className="sr-only">{ok ? "Tiene" : "Sin"} {label}.</span>
         </span>
       ))}

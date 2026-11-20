@@ -35,7 +35,7 @@ function LocationToggle({ compact }) {
   );
 }
 
-export default function SearchBar({ compact = false, autoFocus = false }) {
+export default function SearchBar({ compact = false, autoFocus = false, onDark = false, onValueChange }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [value, setValue] = useState(params.get("q") ?? "");
@@ -43,6 +43,8 @@ export default function SearchBar({ compact = false, autoFocus = false }) {
 
   // Mantener el texto sincronizado si cambia la búsqueda en la URL
   useEffect(() => setValue(params.get("q") ?? ""), [params]);
+  // Avisar al padre si hay texto escrito (el inicio pausa su demostración mientras escribes)
+  useEffect(() => onValueChange?.(value), [value, onValueChange]);
 
   function submit(event) {
     event.preventDefault();
@@ -89,7 +91,7 @@ export default function SearchBar({ compact = false, autoFocus = false }) {
       <div className="mt-2 flex items-center gap-2 sm:hidden">
         <LocationToggle compact={compact} />
       </div>
-      {error && <p className="mt-2 text-xs text-closed">{error}</p>}
+      {error && <p className={`mt-2 text-xs ${onDark ? "text-orange-300" : "text-closed"}`}>{error}</p>}
     </div>
   );
 }

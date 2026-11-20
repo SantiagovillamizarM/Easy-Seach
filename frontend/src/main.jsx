@@ -7,6 +7,10 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { FavoritesProvider } from "./context/FavoritesContext.jsx";
 import { LocationProvider } from "./context/LocationContext.jsx";
+import { enableMotion } from "./lib/motion.js";
+
+// Activa las animaciones de entrada solo cuando hay JavaScript (sin él, todo se ve igual)
+enableMotion();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

@@ -40,8 +40,9 @@ export default function UnsubscribePage() {
   const valid = Boolean(KIND_TEXT[kind]);
 
   return (
-    <div className="hero-mesh flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-10">
-      <div className="card w-full max-w-md p-6 text-center sm:p-8">
+    <div className="hero-night flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-10" data-dark-hero>
+      <div className="hero-dots" aria-hidden="true" />
+      <div className="card fade-up w-full max-w-md p-6 text-center text-ink shadow-[var(--shadow-float)] sm:p-8">
         <LogoMark className="mx-auto h-10 w-10" />
         {state.status === "done" ? (
           <>

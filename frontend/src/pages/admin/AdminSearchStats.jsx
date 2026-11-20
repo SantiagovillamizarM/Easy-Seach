@@ -171,7 +171,7 @@ export default function AdminSearchStats() {
                       <span>{c.name}</span>
                       <span className="tabular-nums font-semibold">{c.count}</span>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100">
+                    <div className="h-2 rounded-full bg-muted">
                       <div className="h-full rounded-full bg-brand-600" style={{ width: `${(c.count / data.top_categories[0].count) * 100}%` }} />
                     </div>
                   </li>

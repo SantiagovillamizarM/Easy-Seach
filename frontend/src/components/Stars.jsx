@@ -8,7 +8,7 @@ export function Stars({ value, size = "h-4 w-4" }) {
       {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
-          className={`${size} ${n <= Math.round(value) ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"}`}
+          className={`${size} ${n <= Math.round(value) ? "fill-star text-star" : "fill-line text-line"}`}
           aria-hidden="true"
         />
       ))}
@@ -38,7 +38,7 @@ export function StarInput({ value, onChange, name = "rating" }) {
             />
             <Star
               className={`h-8 w-8 rounded transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 ${
-                n <= shown ? "fill-amber-400 text-amber-400" : "fill-slate-100 text-slate-300"
+                n <= shown ? "fill-star text-star" : "fill-muted text-ink-soft/40"
               }`}
               aria-hidden="true"
             />

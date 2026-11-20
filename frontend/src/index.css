@@ -1,19 +1,26 @@
 @import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/bricolage-grotesque";
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
 /* ============================================================
-   Sistema de diseño de Easy Search
-   Tecnología + confianza: tinta azul profundo, índigo eléctrico
-   como color de marca y un verde menta para "abierto".
+   Sistema de diseño de Easy Search · "Tus palabras se convierten en lugares"
+   Tinta azul profundo, índigo eléctrico como marca, noche para las
+   zonas de IA y un menta (el destello del logo) solo para lo que hace la IA.
    ============================================================ */
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
 
   --color-ink: #0b1224;          /* textos principales */
   --color-ink-soft: #475069;     /* textos secundarios */
   --color-line: #e3e7f0;         /* bordes */
-  --color-canvas: #f6f7fb;       /* fondo general */
+  --color-canvas: #f6f7fb;       /* fondo general (y bloques suaves dentro de tarjetas) */
+  --color-muted: #eef0f6;        /* pistas de barras, insignias neutras, hover suave */
+  --color-control-off: #868ca0;  /* interruptor apagado (3:1 sobre blanco) */
+  --color-night: #0a0f1f;        /* fondo del hero y el pie (zonas oscuras) */
+  --color-night-soft: #141b33;   /* superficies sobre "night" */
+  --color-ai: #6ee7b7;           /* acento de IA: solo sobre fondo oscuro */
 
   --color-brand-50: #eef0ff;
   --color-brand-100: #dfe3ff;
@@ -24,13 +31,32 @@
   --color-brand-700: #3b31b8;
   --color-brand-900: #1b1660;
 
-  --color-open: #0f9d74;
+  /* Estados (todos pasan contraste AA como texto sobre blanco y sobre su fondo) */
+  --color-open: #047857;         /* antes #0f9d74 (3,4:1, no pasaba AA) */
   --color-open-bg: #e6f7f0;
   --color-closed: #c2410c;
   --color-closed-bg: #fdeee6;
+  --color-warn: #92400e;
+  --color-warn-bg: #fffbeb;
+  --color-warn-line: #fde68a;
+  --color-warn-soft: #fef3c7;    /* contadores de pendientes, hover de avisos */
+  --color-star: #f59e0b;         /* estrellas de calificación (solo icono) */
 
   --shadow-card: 0 1px 2px rgb(11 18 36 / 0.04), 0 4px 16px rgb(11 18 36 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(11 18 36 / 0.04), 0 14px 32px rgb(27 22 96 / 0.12);
   --shadow-float: 0 10px 40px rgb(27 22 96 / 0.18);
+
+  /* Movimiento: una sola curva de salida y tres duraciones para toda la app */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-micro: 200ms;
+  --duration-enter: 600ms;
+  --duration-scene: 1000ms;
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from { background-position: 150% 0; }
+    to { background-position: -50% 0; }
+  }
 }
 
 /* Estilos base dentro de la capa "base": así las clases de Tailwind pueden sobrescribirlos */
@@ -41,6 +67,15 @@
 
   body {
     @apply bg-canvas font-sans text-ink antialiased;
+    line-height: 1.6;
+  }
+
+  /* Titulares de página y de sección con la fuente con carácter; los h3 de tarjetas siguen en la de texto */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
   }
 
   /* Foco visible y consistente para navegación con teclado */
@@ -54,9 +89,37 @@
 @utility card {
   @apply rounded-2xl border border-line bg-white shadow-[var(--shadow-card)];
 }
+/* Tarjeta que se eleva al pasar el mouse (enlaces y resultados) */
+@utility card-hover {
+  transition:
+    transform var(--duration-micro) var(--ease-out-soft),
+    box-shadow var(--duration-micro) var(--ease-out-soft),
+    border-color var(--duration-micro) var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--color-brand-200);
+  }
+}
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
     disabled:cursor-not-allowed disabled:opacity-50;
+  transition:
+    background-color var(--duration-micro) var(--ease-out-soft),
+    border-color var(--duration-micro) var(--ease-out-soft),
+    color var(--duration-micro) var(--ease-out-soft),
+    transform var(--duration-micro) var(--ease-out-soft);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+/* Esqueleto de carga con un brillo que recorre el bloque (reemplaza a animate-pulse) */
+@utility skeleton {
+  background-color: var(--color-muted);
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.75) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-shimmer);
 }
 @utility btn-primary {
   @apply btn bg-brand-600 text-white hover:bg-brand-700;
@@ -71,15 +134,125 @@
 @utility input {
   @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/70
     focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100
-    disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-ink-soft;
+    disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-soft;
 }
 
-/* Fondo "malla" sutil del inicio */
-.hero-mesh {
-  background:
-    radial-gradient(60rem 30rem at 15% -10%, rgb(91 92 246 / 0.16), transparent 60%),
-    radial-gradient(50rem 30rem at 100% 0%, rgb(15 157 116 / 0.10), transparent 60%),
-    linear-gradient(180deg, #fbfbff 0%, var(--color-canvas) 100%);
+/* ============================================================
+   Hero nocturno del inicio
+   Dos luces (índigo y menta) que derivan muy lento (25 s) sobre "night",
+   con un grano sutil para dar textura. Solo se animan transform y opacity.
+   ============================================================ */
+.hero-night {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--color-night);
+  color: white;
+}
+.hero-night::before,
+.hero-night::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+  will-change: transform;
+}
+.hero-night::before {
+  width: 48rem;
+  height: 34rem;
+  left: -14rem;
+  top: -16rem;
+  background: radial-gradient(closest-side, rgb(91 92 246 / 0.55), transparent);
+  animation: hero-drift-a 25s ease-in-out infinite alternate;
+}
+.hero-night::after {
+  width: 40rem;
+  height: 30rem;
+  right: -12rem;
+  bottom: -14rem;
+  background: radial-gradient(closest-side, rgb(110 231 183 / 0.22), transparent);
+  animation: hero-drift-b 30s ease-in-out infinite alternate;
+}
+@keyframes hero-drift-a {
+  to { transform: translate3d(18rem, 8rem, 0) scale(1.15); }
+}
+@keyframes hero-drift-b {
+  to { transform: translate3d(-16rem, -6rem, 0) scale(1.1); }
+}
+/* Grano: ruido SVG muy tenue encima de las luces */
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* Rejilla de puntos que se desvanece hacia abajo */
+.hero-dots {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 75%);
+}
+
+/* Titular por líneas: cada línea sube desde una máscara (CSS puro, no depende de JavaScript) */
+.line-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em; /* deja ver los descendentes (g, p, y) */
+}
+.line-mask > span {
+  display: block;
+  animation: line-up var(--duration-scene) var(--ease-out-soft) both;
+  animation-delay: calc(120ms + var(--i, 0) * 130ms);
+}
+@keyframes line-up {
+  from { transform: translateY(105%); }
+  to { transform: none; }
+}
+/* Entrada simple para lo que acompaña al titular */
+.fade-up {
+  animation: fade-up var(--duration-enter) var(--ease-out-soft) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Demostración "frase → chips": cursor de escritura y chips que aparecen */
+.type-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -0.18em;
+  background: var(--color-ai);
+  animation: caret-blink 1s steps(1) infinite;
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+.chip-pop {
+  animation: chip-pop 420ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--i, 0) * 160ms);
+}
+@keyframes chip-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Resultados en cascada: llegan en orden de relevancia (60 ms entre cada uno, máximo 8 escalones) */
+.result-in {
+  animation: fade-up var(--duration-enter) var(--ease-out-soft) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }
 
 /* Marcadores del mapa */
@@ -99,8 +272,31 @@
   color: white;
   font: 700 12px/1 var(--font-sans);
 }
+/* Marcador activo (al pasar por su tarjeta): crece un poco y "late" una vez con un anillo */
 .es-marker.is-active {
+  position: relative;
   background: var(--color-ink);
+  scale: 1.15;
+  animation: marker-pop 450ms var(--ease-out-soft) both;
+}
+.es-marker.is-active::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-brand-500);
+  opacity: 0;
+  animation: marker-ring 900ms var(--ease-out-soft) 1;
+  pointer-events: none;
+}
+@keyframes marker-pop {
+  from { scale: 1; }
+  60% { scale: 1.25; }
+  to { scale: 1.15; }
+}
+@keyframes marker-ring {
+  from { opacity: 0.7; scale: 1; }
+  to { opacity: 0; scale: 1.8; }
 }
 .es-user-dot {
   width: 18px;
@@ -114,9 +310,55 @@
   font-family: var(--font-sans);
 }
 
+/* ============================================================
+   Revelado al entrar en pantalla
+   El estado oculto solo existe si el script activó "js-motion" en <html>:
+   sin JavaScript (o si falla) todo el contenido se ve normal.
+   Uso: <Reveal> o class="reveal" + style="--i: n" para escalonar.
+   ============================================================ */
+.js-motion .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--duration-enter) var(--ease-out-soft),
+    transform var(--duration-enter) var(--ease-out-soft);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+.js-motion .reveal.reveal-scale {
+  transform: translateY(10px) scale(0.96);
+}
+.js-motion .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Movimiento reducido: sin desplazamientos ni bucles; solo fundidos cortos */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .js-motion .reveal,
+  .js-motion .reveal.reveal-scale {
+    transform: none;
+    transition: opacity 200ms linear !important;
+    transition-delay: 0ms;
+  }
+  .card-hover:hover,
+  .btn:active {
+    transform: none;
+  }
+  .hero-night::before,
+  .hero-night::after {
+    animation: none;
+  }
+  .type-caret,
+  .es-marker.is-active::after {
+    animation: none;
   }
 }

@@ -26,8 +26,9 @@ export default function InterpretationBar({ interpretation, location }) {
         <Sparkles className="h-4 w-4" aria-hidden="true" />
         Entendimos:
       </span>
-      {items.map((item) => (
-        <span key={item.label} className="chip">
+      {/* Los chips aparecen uno a uno: la frase se "descompone" igual que en la demostración del inicio */}
+      {items.map((item, idx) => (
+        <span key={item.label} className="chip chip-pop" style={{ "--i": idx }}>
           <span className="text-ink-soft/80">{item.label}:</span>
           <span className="text-ink">{item.value}</span>
         </span>

@@ -45,7 +45,7 @@ function Meter({ label, value, total }) {
           <strong className="font-semibold text-ink">{pct}%</strong> · {value.toLocaleString("es-CO")} de {total.toLocaleString("es-CO")}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-slate-100" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+      <div className="h-2 rounded-full bg-muted" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
         <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.max(pct, value > 0 ? 1 : 0)}%` }} />
       </div>
     </li>

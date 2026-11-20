@@ -72,7 +72,7 @@ export default function OwnerClaimCard({ establishment }) {
       )}
 
       {!isOwner && user && claim?.status === "pending" && (
-        <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+        <p className="flex items-start gap-2 rounded-xl bg-warn-bg p-3 text-sm text-warn">
           <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           Tu solicitud está en revisión. Te contactaremos al {claim.contact_phone} para verificarla.
         </p>

@@ -1,17 +1,41 @@
 import { Bot } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
 import UserMenu from "./UserMenu.jsx";
 
+// Páginas que empiezan con un fondo nocturno (data-dark-hero)
+const DARK_HERO_ROUTES = ["/", "/ingresar", "/registro", "/recuperar", "/verificar", "/correos/baja"];
+
 function Header() {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
+  // Al bajar, el encabezado se compacta y gana fondo y sombra para separarse del contenido
+  const scrolled = useScrolled();
+  // En páginas con hero nocturno, el encabezado sigue oscuro mientras el hero está detrás (sin franja blanca)
+  const hasDarkHero = DARK_HERO_ROUTES.includes(pathname);
+  const overHero = useOverDarkHero(hasDarkHero);
+  const dark = hasDarkHero && (overHero || !scrolled);
   return (
-    <header className="sticky top-0 z-[1000] border-b border-line/70 bg-white/85 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <Logo />
+    <header
+      className={`sticky top-0 z-[1000] border-b backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
+        dark
+          ? scrolled
+            ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)]"
+            : "border-white/5 bg-night"
+          : scrolled
+            ? "border-line/80 bg-white/90 shadow-[0_4px_20px_rgb(11_18_36/0.06)]"
+            : "border-transparent bg-white/60"
+      }`}
+    >
+      <div
+        className={`mx-auto flex max-w-7xl items-center gap-4 px-4 transition-[padding] duration-300 ease-[var(--ease-out-soft)] ${
+          scrolled ? "py-2" : "py-3.5"
+        }`}
+      >
+        <Logo inverted={dark} />
         {!isHome ? (
           <div className="hidden flex-1 md:block">
             <SearchBar compact />
@@ -21,8 +45,12 @@ function Header() {
         )}
         <Link
           to="/asistente"
-          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold md:ml-0 ${
-            pathname === "/asistente" ? "bg-brand-50 text-brand-700" : "text-ink-soft hover:bg-brand-50 hover:text-brand-700"
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors md:ml-0 ${
+            pathname === "/asistente"
+              ? "bg-brand-50 text-brand-700"
+              : dark
+                ? "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-ink-soft hover:bg-brand-50 hover:text-brand-700"
           }`}
         >
           <Bot className="h-4 w-4" aria-hidden="true" />
@@ -43,12 +71,12 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="border-t border-line bg-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-ink-soft sm:flex-row sm:justify-between">
+    <footer className="bg-night text-white/65">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-xs sm:flex-row sm:justify-between">
         <p>© {new Date().getFullYear()} Easy Search · Búsqueda inteligente en el área metropolitana de Bucaramanga</p>
         <p>
           Datos de lugares ©{" "}
-          <a className="underline hover:text-ink" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          <a className="underline decoration-white/30 underline-offset-2 hover:text-white" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
             colaboradores de OpenStreetMap
           </a>{" "}
           (ODbL)

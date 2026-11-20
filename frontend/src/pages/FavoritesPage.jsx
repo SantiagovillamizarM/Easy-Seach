@@ -24,8 +24,8 @@ export default function FavoritesPage() {
   const visible = items?.filter((i) => ids.has(i.id)) ?? null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+    <div className="fade-up mx-auto max-w-3xl px-4 py-8">
+      <h1 className="flex items-center gap-2 text-3xl font-extrabold">
         <Heart className="h-6 w-6 fill-rose-500 text-rose-500" aria-hidden="true" />
         Mis favoritos
       </h1>
@@ -42,8 +42,10 @@ export default function FavoritesPage() {
             <Link to="/" className="btn-primary mt-3">Buscar lugares</Link>
           </div>
         )}
-        {visible?.map((item) => (
-          <ResultCard key={item.id} result={item} />
+        {visible?.map((item, i) => (
+          <div key={item.id} className="result-in" style={{ "--i": i }}>
+            <ResultCard result={item} />
+          </div>
         ))}
       </div>
     </div>

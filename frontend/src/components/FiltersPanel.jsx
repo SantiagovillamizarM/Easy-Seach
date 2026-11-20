@@ -146,7 +146,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
           Filtros
         </h2>
         {onClose && (
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-slate-100" aria-label="Cerrar filtros">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Cerrar filtros">
             <X className="h-5 w-5" />
           </button>
         )}

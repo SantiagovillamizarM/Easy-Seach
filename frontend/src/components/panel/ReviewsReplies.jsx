@@ -85,7 +85,7 @@ export default function ReviewsReplies({ establishment }) {
             >
               {f.label}
               {f.count > 0 && (
-                <span className={`ml-1.5 rounded-full px-1.5 text-xs ${pendingOnly === f.value ? "bg-white/25" : "bg-amber-100 text-amber-800"}`}>
+                <span className={`ml-1.5 rounded-full px-1.5 text-xs ${pendingOnly === f.value ? "bg-white/25" : "bg-warn-soft text-warn"}`}>
                   {f.count}
                 </span>
               )}
@@ -98,7 +98,7 @@ export default function ReviewsReplies({ establishment }) {
 
       {!data && !error && (
         <div className="mt-5 space-y-3" aria-hidden="true">
-          {[0, 1].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />)}
+          {[0, 1].map((i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}
         </div>
       )}
 
