@@ -1,19 +1,24 @@
 @import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/bricolage-grotesque";
 @import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
 
 /* ============================================================
-   Sistema de diseño de Easy Search
-   Tecnología + confianza: tinta azul profundo, índigo eléctrico
-   como color de marca y un verde menta para "abierto".
+   Sistema de diseño de Easy Search · "Tus palabras se convierten en lugares"
+   Tinta azul profundo, índigo eléctrico como marca, noche para las
+   zonas de IA y un menta (el destello del logo) solo para lo que hace la IA.
    ============================================================ */
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
 
   --color-ink: #0b1224;          /* textos principales */
   --color-ink-soft: #475069;     /* textos secundarios */
   --color-line: #e3e7f0;         /* bordes */
   --color-canvas: #f6f7fb;       /* fondo general */
+  --color-night: #0a0f1f;        /* fondo del hero y el pie (zonas oscuras) */
+  --color-night-soft: #141b33;   /* superficies sobre "night" */
+  --color-ai: #6ee7b7;           /* acento de IA: solo sobre fondo oscuro */
 
   --color-brand-50: #eef0ff;
   --color-brand-100: #dfe3ff;
@@ -24,13 +29,31 @@
   --color-brand-700: #3b31b8;
   --color-brand-900: #1b1660;
 
-  --color-open: #0f9d74;
+  /* Estados (todos pasan contraste AA como texto sobre blanco y sobre su fondo) */
+  --color-open: #047857;         /* antes #0f9d74 (3,4:1, no pasaba AA) */
   --color-open-bg: #e6f7f0;
   --color-closed: #c2410c;
   --color-closed-bg: #fdeee6;
+  --color-warn: #92400e;
+  --color-warn-bg: #fffbeb;
+  --color-warn-line: #fde68a;
+  --color-star: #f59e0b;         /* estrellas de calificación (solo icono) */
 
   --shadow-card: 0 1px 2px rgb(11 18 36 / 0.04), 0 4px 16px rgb(11 18 36 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(11 18 36 / 0.04), 0 14px 32px rgb(27 22 96 / 0.12);
   --shadow-float: 0 10px 40px rgb(27 22 96 / 0.18);
+
+  /* Movimiento: una sola curva de salida y tres duraciones para toda la app */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-micro: 200ms;
+  --duration-enter: 600ms;
+  --duration-scene: 1000ms;
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from { background-position: 150% 0; }
+    to { background-position: -50% 0; }
+  }
 }
 
 /* Estilos base dentro de la capa "base": así las clases de Tailwind pueden sobrescribirlos */
@@ -41,6 +64,15 @@
 
   body {
     @apply bg-canvas font-sans text-ink antialiased;
+    line-height: 1.6;
+  }
+
+  /* Titulares de página y de sección con la fuente con carácter; los h3 de tarjetas siguen en la de texto */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
   }
 
   /* Foco visible y consistente para navegación con teclado */
@@ -54,9 +86,37 @@
 @utility card {
   @apply rounded-2xl border border-line bg-white shadow-[var(--shadow-card)];
 }
+/* Tarjeta que se eleva al pasar el mouse (enlaces y resultados) */
+@utility card-hover {
+  transition:
+    transform var(--duration-micro) var(--ease-out-soft),
+    box-shadow var(--duration-micro) var(--ease-out-soft),
+    border-color var(--duration-micro) var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--color-brand-200);
+  }
+}
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
     disabled:cursor-not-allowed disabled:opacity-50;
+  transition:
+    background-color var(--duration-micro) var(--ease-out-soft),
+    border-color var(--duration-micro) var(--ease-out-soft),
+    color var(--duration-micro) var(--ease-out-soft),
+    transform var(--duration-micro) var(--ease-out-soft);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+/* Esqueleto de carga con un brillo que recorre el bloque (reemplaza a animate-pulse) */
+@utility skeleton {
+  background-color: #eef0f6;
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.75) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-shimmer);
 }
 @utility btn-primary {
   @apply btn bg-brand-600 text-white hover:bg-brand-700;
@@ -114,9 +174,46 @@
   font-family: var(--font-sans);
 }
 
+/* ============================================================
+   Revelado al entrar en pantalla
+   El estado oculto solo existe si el script activó "js-motion" en <html>:
+   sin JavaScript (o si falla) todo el contenido se ve normal.
+   Uso: <Reveal> o class="reveal" + style="--i: n" para escalonar.
+   ============================================================ */
+.js-motion .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--duration-enter) var(--ease-out-soft),
+    transform var(--duration-enter) var(--ease-out-soft);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+.js-motion .reveal.reveal-scale {
+  transform: translateY(10px) scale(0.96);
+}
+.js-motion .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Movimiento reducido: sin desplazamientos ni bucles; solo fundidos cortos */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .js-motion .reveal,
+  .js-motion .reveal.reveal-scale {
+    transform: none;
+    transition: opacity 200ms linear !important;
+    transition-delay: 0ms;
+  }
+  .card-hover:hover,
+  .btn:active {
+    transform: none;
   }
 }
