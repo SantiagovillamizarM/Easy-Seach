@@ -6,14 +6,18 @@ import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
 import UserMenu from "./UserMenu.jsx";
 
+// Páginas que empiezan con un fondo nocturno (data-dark-hero)
+const DARK_HERO_ROUTES = ["/", "/ingresar", "/registro", "/recuperar", "/verificar", "/correos/baja"];
+
 function Header() {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
   // Al bajar, el encabezado se compacta y gana fondo y sombra para separarse del contenido
   const scrolled = useScrolled();
-  // En el inicio el encabezado sigue oscuro mientras el hero nocturno está detrás (sin franja blanca)
-  const overHero = useOverDarkHero(isHome);
-  const dark = isHome && (overHero || !scrolled);
+  // En páginas con hero nocturno, el encabezado sigue oscuro mientras el hero está detrás (sin franja blanca)
+  const hasDarkHero = DARK_HERO_ROUTES.includes(pathname);
+  const overHero = useOverDarkHero(hasDarkHero);
+  const dark = hasDarkHero && (overHero || !scrolled);
   return (
     <header
       className={`sticky top-0 z-[1000] border-b backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${

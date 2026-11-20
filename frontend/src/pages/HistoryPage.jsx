@@ -2,6 +2,7 @@ import { History, MapPin, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
+import Reveal from "../components/Reveal.jsx";
 
 const PAGE_SIZE = 20;
 
@@ -74,10 +75,10 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="fade-up mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+          <h1 className="flex items-center gap-2 text-3xl font-extrabold">
             <History className="h-6 w-6 text-brand-600" aria-hidden="true" />
             Mi historial
           </h1>
@@ -113,8 +114,8 @@ export default function HistoryPage() {
 
       <div className="mt-6 space-y-6">
         {groups.map((group) => (
-          <section key={group.label}>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-soft first-letter:uppercase">{group.label}</h2>
+          <Reveal as="section" key={group.label}>
+            <h2 className="mb-2 font-sans text-xs font-bold uppercase tracking-wide text-ink-soft first-letter:uppercase">{group.label}</h2>
             <ul className="card divide-y divide-line">
               {group.items.map((item) => (
                 <li key={item.id} className="flex items-center gap-3 p-4">
@@ -146,7 +147,7 @@ export default function HistoryPage() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Reveal>
         ))}
       </div>
 

@@ -25,7 +25,7 @@ export default function AdminCategories() {
                   <p className="truncate text-sm font-semibold">{c.name}</p>
                   <p className="truncate text-xs text-ink-soft">{c.description}</p>
                 </div>
-                <div className="h-2 rounded-full bg-slate-100" aria-hidden="true">
+                <div className="h-2 rounded-full bg-muted" aria-hidden="true">
                   <div className="h-full rounded-full bg-brand-600" style={{ width: `${(c.establishments / max) * 100}%` }} />
                 </div>
                 <span className="text-right text-sm font-semibold tabular-nums">

@@ -53,7 +53,7 @@ export default function PhotosEditor({ establishment, onSaved }) {
       </div>
 
       {photos.length === 0 ? (
-        <p className="mb-4 rounded-xl bg-slate-50 p-4 text-sm text-ink-soft">
+        <p className="mb-4 rounded-xl bg-canvas p-4 text-sm text-ink-soft">
           Los perfiles con fotos generan más confianza. Sube la fachada, tus productos o el interior del local.
         </p>
       ) : (

@@ -58,17 +58,32 @@ export function useOverDarkHero(enabled, headerHeight = 72) {
       setOver(false);
       return undefined;
     }
-    const hero = document.querySelector("[data-dark-hero]");
-    if (!hero || typeof IntersectionObserver === "undefined") {
+    if (typeof IntersectionObserver === "undefined") {
       setOver(true);
       return undefined;
     }
+    let io = null;
+    let observed = null;
     // Solo cuenta la franja superior de la ventana, donde está el encabezado
-    const obs = new IntersectionObserver(([entry]) => setOver(entry.isIntersecting), {
-      rootMargin: `0px 0px -${Math.max(window.innerHeight - headerHeight, 0)}px 0px`,
-    });
-    obs.observe(hero);
-    return () => obs.disconnect();
+    const watch = () => {
+      const hero = document.querySelector("[data-dark-hero]");
+      if (hero === observed) return;
+      io?.disconnect();
+      observed = hero;
+      if (!hero) return;
+      io = new IntersectionObserver(([entry]) => setOver(entry.isIntersecting), {
+        rootMargin: `0px 0px -${Math.max(window.innerHeight - headerHeight, 0)}px 0px`,
+      });
+      io.observe(hero);
+    };
+    watch();
+    // La página puede montar el hero un poco después (p. ej. tras "Cargando…")
+    const mo = new MutationObserver(watch);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      mo.disconnect();
+      io?.disconnect();
+    };
   }, [enabled, headerHeight]);
   return over;
 }

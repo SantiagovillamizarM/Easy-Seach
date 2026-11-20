@@ -63,7 +63,7 @@ export function Loading() {
 export function Empty({ children }) {
   return (
     <div className="card flex flex-col items-center gap-2 p-10 text-center text-sm text-ink-soft">
-      <Inbox className="h-8 w-8 text-slate-300" aria-hidden="true" />
+      <Inbox className="h-8 w-8 text-ink-soft/40" aria-hidden="true" />
       {children}
     </div>
   );
@@ -88,7 +88,7 @@ export function FilterTabs({ tabs, value, onChange, label }) {
           >
             {t.label}
             {t.count > 0 && (
-              <span className={`rounded-full px-1.5 text-xs ${selected ? "bg-white/25" : "bg-amber-100 text-amber-800"}`}>{t.count}</span>
+              <span className={`rounded-full px-1.5 text-xs ${selected ? "bg-white/25" : "bg-warn-soft text-warn"}`}>{t.count}</span>
             )}
           </button>
         );
@@ -122,8 +122,8 @@ export function Pager({ total, limit, offset, onChange }) {
 const PILL_STYLES = {
   green: "bg-open-bg text-open",
   red: "bg-closed-bg text-closed",
-  amber: "bg-amber-50 text-amber-800",
-  gray: "bg-slate-100 text-ink-soft",
+  amber: "bg-warn-bg text-warn",
+  gray: "bg-muted text-ink-soft",
   brand: "bg-brand-50 text-brand-700",
 };
 

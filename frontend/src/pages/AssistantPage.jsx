@@ -1,6 +1,7 @@
 import { Bot, History, Info, Loader2, Send, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssistantAnswer from "../components/AssistantAnswer.jsx";
+import Reveal from "../components/Reveal.jsx";
 import { api } from "../lib/api.js";
 
 const MAX = 500;
@@ -75,16 +76,24 @@ export default function AssistantPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-        <Bot className="h-7 w-7 text-brand-600" aria-hidden="true" />
-        Asistente
-      </h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        Cuéntale qué necesitas con tus palabras. Responde <strong>solo</strong> con negocios registrados en Easy Search,
-        te muestra de dónde sacó cada dato y, si no encuentra información suficiente, te lo dice en lugar de inventar.
-      </p>
+      {/* Zona de IA: fondo nocturno con el acento menta, igual que en el inicio */}
+      <header className="hero-night fade-up rounded-3xl px-6 pb-16 pt-7 sm:px-8">
+        <div className="hero-dots" aria-hidden="true" />
+        <h1 className="flex items-center gap-3 text-3xl font-extrabold sm:text-4xl">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10">
+            <Bot className="h-6 w-6 text-ai" aria-hidden="true" />
+          </span>
+          Asistente
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm text-white/75 sm:text-base">
+          Cuéntale qué necesitas con tus palabras. Responde <strong className="text-white">solo</strong> con negocios
+          registrados en Easy Search, te muestra de dónde sacó cada dato y, si no encuentra información suficiente, te lo
+          dice en lugar de inventar.
+        </p>
+      </header>
 
-      <form onSubmit={enviar} className="card mt-6 p-4">
+      {/* El formulario "flota" sobre el borde inferior de la zona oscura */}
+      <form onSubmit={enviar} className="card fade-up relative z-10 mx-3 -mt-10 p-4 shadow-[var(--shadow-float)] sm:mx-6" style={{ "--i": 2 }}>
         <label htmlFor="pregunta" className="sr-only">Tu pregunta</label>
         <textarea
           id="pregunta"
@@ -129,11 +138,28 @@ export default function AssistantPage() {
         directamente con el negocio.
       </p>
 
-      {ultima && (
-        <div className="mt-6" aria-live="polite">
-          <AssistantAnswer key={ultima.id} consulta={ultima} onActualizada={actualizar} destacada />
+      {/* Mientras el asistente responde se reserva el lugar de la respuesta */}
+      {enviando && (
+        <div className="card mt-6 p-5" aria-hidden="true">
+          <p className="flex items-center gap-2 text-sm font-medium text-brand-700">
+            <Sparkles className="h-4 w-4 animate-pulse" />
+            Buscando en los negocios registrados…
+          </p>
+          <div className="skeleton mt-4 h-3 w-11/12 rounded" />
+          <div className="skeleton mt-2 h-3 w-4/5 rounded" />
+          <div className="skeleton mt-2 h-3 w-2/3 rounded" />
+          <div className="skeleton mt-5 h-16 rounded-xl" />
         </div>
       )}
+
+      {/* Región "en vivo" estable para lectores de pantalla; dentro, cada respuesta nueva entra con fundido */}
+      <div aria-live="polite">
+        {ultima && (
+          <div key={ultima.id} className="fade-up mt-6">
+            <AssistantAnswer consulta={ultima} onActualizada={actualizar} destacada />
+          </div>
+        )}
+      </div>
 
       <section className="mt-10">
         <h2 className="flex items-center gap-2 text-lg font-bold">
@@ -145,7 +171,9 @@ export default function AssistantPage() {
         )}
         <div className="mt-4 space-y-4">
           {anteriores.map((c) => (
-            <AssistantAnswer key={c.id} consulta={c} onActualizada={actualizar} />
+            <Reveal key={c.id}>
+              <AssistantAnswer consulta={c} onActualizada={actualizar} />
+            </Reveal>
           ))}
         </div>
         {historial.length < total && (

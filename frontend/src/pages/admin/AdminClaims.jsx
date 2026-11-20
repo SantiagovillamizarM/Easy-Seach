@@ -58,7 +58,7 @@ function ClaimCard({ claim, onDone }) {
           </a>
         </dd>
       </dl>
-      <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm">{claim.message}</p>
+      <p className="mt-3 whitespace-pre-line rounded-xl bg-canvas p-3 text-sm">{claim.message}</p>
 
       {!pending && claim.review_note && (
         <p className="mt-2 text-xs text-ink-soft"><strong className="font-semibold">Nota:</strong> {claim.review_note}</p>

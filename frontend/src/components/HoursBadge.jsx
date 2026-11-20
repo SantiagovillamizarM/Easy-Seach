@@ -3,7 +3,7 @@ import { Clock } from "lucide-react";
 const STYLES = {
   open: "bg-open-bg text-open",
   closed: "bg-closed-bg text-closed",
-  unknown: "bg-slate-100 text-ink-soft",
+  unknown: "bg-muted text-ink-soft",
 };
 
 export default function HoursBadge({ status, className = "" }) {

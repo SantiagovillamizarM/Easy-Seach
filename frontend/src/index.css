@@ -15,7 +15,9 @@
   --color-ink: #0b1224;          /* textos principales */
   --color-ink-soft: #475069;     /* textos secundarios */
   --color-line: #e3e7f0;         /* bordes */
-  --color-canvas: #f6f7fb;       /* fondo general */
+  --color-canvas: #f6f7fb;       /* fondo general (y bloques suaves dentro de tarjetas) */
+  --color-muted: #eef0f6;        /* pistas de barras, insignias neutras, hover suave */
+  --color-control-off: #868ca0;  /* interruptor apagado (3:1 sobre blanco) */
   --color-night: #0a0f1f;        /* fondo del hero y el pie (zonas oscuras) */
   --color-night-soft: #141b33;   /* superficies sobre "night" */
   --color-ai: #6ee7b7;           /* acento de IA: solo sobre fondo oscuro */
@@ -37,6 +39,7 @@
   --color-warn: #92400e;
   --color-warn-bg: #fffbeb;
   --color-warn-line: #fde68a;
+  --color-warn-soft: #fef3c7;    /* contadores de pendientes, hover de avisos */
   --color-star: #f59e0b;         /* estrellas de calificación (solo icono) */
 
   --shadow-card: 0 1px 2px rgb(11 18 36 / 0.04), 0 4px 16px rgb(11 18 36 / 0.06);
@@ -112,7 +115,7 @@
 }
 /* Esqueleto de carga con un brillo que recorre el bloque (reemplaza a animate-pulse) */
 @utility skeleton {
-  background-color: #eef0f6;
+  background-color: var(--color-muted);
   background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.75) 50%, transparent 100%);
   background-size: 200% 100%;
   background-repeat: no-repeat;
@@ -131,15 +134,7 @@
 @utility input {
   @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/70
     focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100
-    disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-ink-soft;
-}
-
-/* Fondo "malla" sutil del inicio */
-.hero-mesh {
-  background:
-    radial-gradient(60rem 30rem at 15% -10%, rgb(91 92 246 / 0.16), transparent 60%),
-    radial-gradient(50rem 30rem at 100% 0%, rgb(15 157 116 / 0.10), transparent 60%),
-    linear-gradient(180deg, #fbfbff 0%, var(--color-canvas) 100%);
+    disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-soft;
 }
 
 /* ============================================================

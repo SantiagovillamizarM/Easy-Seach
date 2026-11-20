@@ -80,7 +80,7 @@ export default function AdminLayout() {
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="truncate">{label}</span>
                   {count > 0 && (
-                    <span className="ml-auto rounded-full bg-amber-100 px-1.5 text-xs font-bold text-amber-800">
+                    <span className="ml-auto rounded-full bg-warn-soft px-1.5 text-xs font-bold text-warn">
                       {count > 99 ? "99+" : count}
                       <span className="sr-only"> pendientes</span>
                     </span>

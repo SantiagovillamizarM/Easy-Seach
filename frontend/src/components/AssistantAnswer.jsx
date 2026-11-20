@@ -6,9 +6,9 @@ import { StarInput, Stars } from "./Stars.jsx";
 
 const ESTADOS = {
   RESPONDIDA: { label: "Respondida", icon: CheckCircle2, className: "bg-open-bg text-open" },
-  SIN_RESULTADOS: { label: "Sin resultados", icon: SearchX, className: "bg-slate-100 text-ink-soft" },
+  SIN_RESULTADOS: { label: "Sin resultados", icon: SearchX, className: "bg-muted text-ink-soft" },
   ERROR: { label: "Error", icon: AlertTriangle, className: "bg-closed-bg text-closed" },
-  PENDIENTE: { label: "Pendiente", icon: Clock, className: "bg-amber-50 text-amber-700" },
+  PENDIENTE: { label: "Pendiente", icon: Clock, className: "bg-warn-bg text-warn" },
 };
 
 /** Similitud coseno con 3 decimales: es el valor real que calculó pgvector (verificable). */
@@ -104,7 +104,7 @@ function Calificar({ consulta, onActualizada }) {
   return (
     <form onSubmit={guardar} className="mt-5 rounded-xl border border-dashed border-line p-3">
       <p className="flex items-center gap-1.5 text-sm font-semibold">
-        <Star className="h-4 w-4 text-amber-500" aria-hidden="true" />
+        <Star className="h-4 w-4 text-star" aria-hidden="true" />
         ¿Qué tan útil fue esta respuesta?
       </p>
       <div className="mt-2">

@@ -31,7 +31,7 @@ function RejectForm({ onSubmit, onCancel, busy }) {
   const [custom, setCustom] = useState("");
   return (
     <form
-      className="mt-3 space-y-2 rounded-xl border border-line bg-slate-50 p-3"
+      className="mt-3 space-y-2 rounded-xl border border-line bg-canvas p-3"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit(reason === "otro" ? custom.trim() : reason);
@@ -91,7 +91,7 @@ function ReviewCard({ review, tab, onDone }) {
       </div>
 
       {review.comment ? (
-        <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-3 text-sm leading-relaxed">{review.comment}</p>
+        <p className="mt-3 whitespace-pre-line rounded-xl bg-canvas p-3 text-sm leading-relaxed">{review.comment}</p>
       ) : (
         <p className="mt-3 text-sm italic text-ink-soft">Solo calificación, sin comentario.</p>
       )}
@@ -103,7 +103,7 @@ function ReviewCard({ review, tab, onDone }) {
       )}
 
       {review.reports.length > 0 && (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mt-3 rounded-xl border border-warn-line bg-warn-bg p-3 text-sm text-warn">
           <p className="mb-1 flex items-center gap-1.5 font-semibold">
             <Flag className="h-4 w-4" aria-hidden="true" />
             {review.open_reports} {review.open_reports === 1 ? "reporte" : "reportes"}

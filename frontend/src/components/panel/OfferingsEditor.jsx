@@ -128,7 +128,7 @@ export default function OfferingsEditor({ establishment, onSaved }) {
       )}
 
       {offerings.length === 0 && editing !== "new" && (
-        <p className="rounded-xl bg-slate-50 p-4 text-sm text-ink-soft">
+        <p className="rounded-xl bg-canvas p-4 text-sm text-ink-soft">
           Aún no tienes productos ni servicios. Agrega los más populares con su precio: es lo que más buscan tus clientes.
         </p>
       )}

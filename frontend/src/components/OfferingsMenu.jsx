@@ -55,12 +55,12 @@ function Item({ o }) {
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50"
+          className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-canvas"
         >
           {content}
         </button>
       ) : (
-        <div className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-slate-50">{content}</div>
+        <div className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-canvas">{content}</div>
       )}
     </li>
   );
