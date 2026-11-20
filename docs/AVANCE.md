@@ -462,8 +462,71 @@ Rama: `feature/fase-10-asistente-ia`.
   n8n y el recalculado para el mismo texto tienen similitud coseno 1,000000. La búsqueda sigue funcionando.
 - Webhook sin clave → 403; rutas internas por Spring → 404; sin clave interna → 401.
 
+**Bloque B — Asistente RAG (flujo 2, tablas y Spring Boot):**
+- Migración `d1e2f3a4b5c6` con las tablas `consultas_ia`, `respuestas_ia`, `fuentes_respuesta` y
+  `calificaciones`: llaves foráneas (`ON DELETE CASCADE` hacia el usuario; `SET NULL` hacia el negocio, que
+  conserva su nombre en el historial), restricciones `CHECK` (estado válido, pregunta no vacía, umbral, similitud,
+  puntuación 1-5), únicas (una respuesta por consulta, una calificación por respuesta, una fuente por negocio) e
+  índices (historial por usuario y fecha, estado, fecha). Alembic las ignora al autogenerar (`SPRING_TABLES` en
+  `alembic/env.py`) porque su modelo vive en Spring.
+- Entidades JPA en Spring (`ConsultaIA`, `RespuestaIA`, `FuenteRespuesta`, `Calificacion`, y `Establecimiento`
+  de solo lectura) con relaciones `@ManyToOne`, `@OneToOne` y `@OneToMany`; Hibernate valida que coinciden con
+  las tablas al arrancar.
+- FastAPI agrega dos rutas internas: `asistente/fichas` (datos reales de los negocios recuperados, solo activos)
+  y `asistente/validar` (borra frases con precios, horas o calificaciones que no estén en las fichas; la misma
+  validación de las recomendaciones de la búsqueda).
+- **Flujo 2** (`n8n/workflows/02-asistente-rag.json`, 19 nodos): webhook con clave → validar entrada → vector de
+  la pregunta → pgvector (top 5 activos) → umbral → fichas → Gemini (con modelo de respaldo) → ¿las fuentes
+  responden? → validar contra las fichas → respuesta. Cada paso que puede fallar tiene salida de error con un
+  mensaje claro (`ERROR`).
+- Spring Boot: `POST /api/asistente/consultas` (guarda `PENDIENTE` antes de llamar a n8n, vuelve a comprobar que
+  cada fuente exista y esté activa, ordena las fuentes por similitud), `GET /api/asistente/consultas` (historial
+  paginado), `GET /api/asistente/consultas/{id}` y `PUT /api/asistente/consultas/{id}/calificacion`. Exige
+  correo confirmado; límite de 20 preguntas por hora por usuario.
+
+**Calibración del umbral** (`backend/scripts/calibrar_umbral.py`, mejor similitud por pregunta con los datos
+reales):
+
+| Umbral | Relevantes aceptadas (de 30) | Sin relación rechazadas (de 20) |
+|---|---|---|
+| 0,800 | 29 | 6 |
+| 0,810 | 29 | 11 |
+| **0,820** | **29** | **18** |
+| 0,835 | 25 | 19 |
+| 0,850 | 19 | 20 |
+
+Primero se eligió 0,835 con 20 preguntas relevantes, pero al agregar 10 redactadas como problemas cotidianos
+("mi computador no prende", "se me dañó la pantalla del celular") perdía 5 legítimas. Con **0,82** solo se escapa
+"me duele una muela" (0,797) y las 2 sin relación que pasan (lasaña 0,848 y Netflix 0,825) las rechaza Gemini al
+comprobar que las fuentes no responden la pregunta. El umbral prioriza no perder preguntas legítimas y la segunda
+barrera (Gemini + validación) evita respuestas sin respaldo.
+
+**Pruebas funcionales del enunciado (con la app real: Vite → Spring → n8n → FastAPI/pgvector/Gemini):**
+
+| Prueba | Resultado |
+|---|---|
+| Incidente de conectividad a internet | RESPONDIDA con 5 fuentes (servicio técnico y puntos de Claro), similitud 0,827–0,833 |
+| Necesidad en lenguaje natural ("mi computador no prende") | RESPONDIDA; sugiere preguntar por el servicio en vez de afirmarlo |
+| Sin información suficiente ("¿quién ganó el mundial 2014?", "copia de una llave") | SIN_RESULTADOS: no inventa |
+| Desactivar un negocio (La Rebaja Plus, Girón) y repetir "farmacia en Girón" | Deja de usarse como fuente; sin otra farmacia, SIN_RESULTADOS |
+| Pregunta vacía | 422, no llega a n8n ni se guarda |
+| Fallo del servicio de embeddings (FastAPI apagado) | ERROR "El servicio de embeddings no respondió", guardado en la base |
+| Historial y calificación | Historial ordenado por fecha; calificación 5 guardada y actualizable |
+
+**Verificado (bloque B):** `pytest` 218 pruebas; `mvnw test` 36 pruebas (12 del asistente contra la base de
+pruebas real: pregunta vacía, fuentes desactivadas o inexistentes, sin resultados, errores de n8n, historial
+propio, calificación 1-5 y su actualización, límite por hora).
+
 **Problemas encontrados y solución:**
 - El puerto 5678 lo usa el n8n de otro proyecto → n8n de Easy Search en el 5690.
+- Con el negocio correcto desactivado, Gemini recomendó un bar y un supermercado para "farmacia en Girón" → se le
+  indica descartar las fichas que no ofrecen lo pedido y responder sin resultados si no queda ninguna.
+- Gemini afirmó que un restaurante de Piedecuesta estaba "en Cabecera" porque la búsqueda semántica no filtra por
+  ubicación → regla explícita: la ubicación sale solo del campo de la ficha y debe aclarar si es otra zona.
+- Los pasos mencionaban ids internos ("ficha 363") → se prohíbe mencionar ids.
+- `RestClient.Builder` ya no se configura solo en Spring Boot 4 → se usa `RestClient.builder()`.
+- Los nombres de las restricciones `CHECK` salían duplicados (`ck_tabla_ck_tabla_...`) por la convención de
+  nombres del proyecto → se corrigió la migración.
 - Los textos de los negocios llevan comas y el nodo Postgres separaba los parámetros por comas → se usa la
   versión 2.6 del nodo (evalúa cada expresión por separado) y el lote viaja como un solo parámetro JSON.
 

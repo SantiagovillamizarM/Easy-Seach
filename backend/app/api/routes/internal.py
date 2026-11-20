@@ -4,6 +4,9 @@
   (multilingual-e5-small). Así los vectores que guarda n8n son comparables con los que ya existen.
 - `GET /api/internal/indexacion/pendientes`: textos de establecimientos y productos cuyo vector falta o quedó
   desactualizado (según el hash del texto), y vectores que sobran. n8n genera y guarda los vectores en pgvector.
+- `POST /api/internal/asistente/fichas`: datos reales de los negocios recuperados (solo activos), que el flujo RAG
+  le entrega a Gemini como única fuente de información.
+- `POST /api/internal/asistente/validar`: borra de la respuesta de Gemini las frases con datos inventados.
 
 Protección: exigen la cabecera `X-Internal-Key` con la clave INTERNAL_API_KEY del .env, y Spring Boot (la única
 puerta del navegador) responde 404 a cualquier ruta /api/internal.
@@ -18,8 +21,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models import Establishment
+from app.models import Establishment, Review
+from app.services.catalog import LOAD_OPTIONS
 from app.services.embeddings import Embedder, get_embedder, plan_sync
+from app.services.query_parser import QueryIntent
+from app.services.recommendations import facts_for, validate_text
 
 MAX_TEXTS = 64
 PLAN_BATCH = 200
@@ -107,3 +113,47 @@ def pendientes(limite: int = Query(64, ge=1, le=MAX_TEXTS), db: Session = Depend
         if hay_mas:
             break
     return PendientesOut(modelo=embedder.model_name, pendientes=encontrados, hay_mas=hay_mas, obsoletos=obsoletos)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Asistente RAG: fichas de las fuentes recuperadas y validación de la respuesta
+# ---------------------------------------------------------------------------------------------------------------
+
+class IdsIn(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=10)
+
+
+def _fichas(db: Session, ids: list[int]) -> list[dict]:
+    """Fichas de hechos (solo datos guardados) de los negocios ACTIVOS, en el orden recibido.
+    Un negocio oculto o marcado como duplicado no se devuelve: nunca puede ser fuente de una respuesta."""
+    ids = list(dict.fromkeys(ids))
+    found = {e.id: e for e in db.scalars(select(Establishment).options(*LOAD_OPTIONS)
+                                         .where(Establishment.id.in_(ids), Establishment.status == "active"))}
+    reviews: dict[int, list[str]] = {}
+    for r in db.scalars(select(Review).where(Review.establishment_id.in_(list(found)), Review.status == "approved",
+                                              Review.comment.is_not(None)).order_by(Review.created_at.desc())):
+        reviews.setdefault(r.establishment_id, []).append(r.comment)
+    return [facts_for(found[i], reviews.get(i)) for i in ids if i in found]
+
+
+@router.post("/asistente/fichas")
+def fichas(data: IdsIn, db: Session = Depends(get_db)) -> dict:
+    return {"fichas": _fichas(db, data.ids)}
+
+
+class ValidarIn(BaseModel):
+    respuesta: str = Field(max_length=4000)
+    pasos: list[str] = Field(default_factory=list, max_length=10)
+    ids: list[int] = Field(min_length=1, max_length=10)
+
+
+@router.post("/asistente/validar")
+def validar(data: ValidarIn, db: Session = Depends(get_db)) -> dict:
+    """Segunda barrera contra datos inventados: borra las frases con precios, horas o calificaciones que no
+    estén en las fichas de las fuentes (la misma validación de las recomendaciones de la búsqueda)."""
+    facts = {"fuentes": _fichas(db, data.ids)}
+    intent = QueryIntent(need="")
+    respuesta = validate_text(data.respuesta, facts, intent)
+    pasos = [p for p in (validate_text(p, facts, intent) for p in data.pasos) if len(p) >= 5]
+    return {"respuesta": respuesta, "pasos": pasos,
+            "frases_eliminadas": data.respuesta.strip() != respuesta or len(pasos) != len(data.pasos)}

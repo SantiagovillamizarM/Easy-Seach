@@ -113,3 +113,44 @@ def test_respeta_el_limite_e_informa_si_hay_mas(client, negocio):
     body, _ = _pendientes_de(client, negocio.id, limite=1)
     assert len(body["pendientes"]) == 1
     assert body["hay_mas"] is True
+
+
+# ------------------------------------------------------------------ asistente RAG
+
+def test_fichas_solo_de_negocios_activos_y_en_el_orden_pedido(client, db, negocio):
+    from decimal import Decimal
+    oculto = Establishment(name="Negocio Oculto", slug="negocio-oculto-interno", municipality_id=negocio.municipality_id,
+                           latitude=7.07, longitude=-73.17, source="manual", status="hidden")
+    db.add(oculto)
+    negocio.price_min, negocio.price_max = Decimal("5000"), Decimal("12000")
+    db.flush()
+
+    r = client.post("/api/internal/asistente/fichas", headers=KEY, json={"ids": [oculto.id, negocio.id, 999999]})
+    assert r.status_code == 200
+    fichas = r.json()["fichas"]
+    assert [f["id"] for f in fichas] == [negocio.id]          # el oculto y el inexistente no son fuentes
+    assert fichas[0]["nombre"] == "Arepas Prueba"
+    assert fichas[0]["rango_precios"] == "$5.000 - $12.000"
+    assert "Arepa de huevo" in fichas[0]["productos_servicios"]
+
+
+def test_validar_borra_precios_inventados_y_conserva_los_reales(client, db, negocio):
+    from decimal import Decimal
+    negocio.price_min, negocio.price_max = Decimal("5000"), Decimal("12000")
+    db.flush()
+    r = client.post("/api/internal/asistente/validar", headers=KEY, json={
+        "respuesta": "Arepas Prueba vende arepas rellenas. Sus precios van de $5.000 a $12.000. El combo cuesta $3.500.",
+        "pasos": ["Pide la arepa de huevo.", "Lleva $50.000 para el combo familiar."],
+        "ids": [negocio.id],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert "$5.000" in body["respuesta"] and "$3.500" not in body["respuesta"]
+    assert body["pasos"] == ["Pide la arepa de huevo."]
+    assert body["frases_eliminadas"] is True
+
+
+def test_rutas_del_asistente_exigen_clave(client, negocio):
+    assert client.post("/api/internal/asistente/fichas", json={"ids": [negocio.id]}).status_code == 401
+    assert client.post("/api/internal/asistente/validar",
+                       json={"respuesta": "x", "ids": [negocio.id]}).status_code == 401

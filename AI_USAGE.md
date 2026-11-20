@@ -73,4 +73,22 @@ rutas en Spring.
 | El texto canónico y su hash los calcula FastAPI | Construir el texto con SQL dentro de n8n | Una sola regla de "qué está desactualizado" para el script, el panel y n8n |
 | Credenciales creadas al arrancar desde el `.env` | Configurarlas a mano en la interfaz | Reproducible con `docker compose up` y sin claves en el repositorio |
 
+**Componentes asistidos (bloque B):** migración de las tablas del asistente, entidades JPA, servicio y
+controlador del asistente, cliente de n8n, manejador de errores, flujo RAG
+(`n8n/workflows/02-asistente-rag.json`), rutas internas de fichas y validación, script de calibración del umbral
+y pruebas (pytest y JUnit).
+
+| Decisión | Alternativas consideradas | Quién decidió y por qué |
+|---|---|---|
+| Umbral 0,82 | 0,835 (primera calibración) | La IA lo midió con 50 preguntas; 0,835 perdía preguntas legítimas redactadas como problemas cotidianos |
+| Dos barreras: umbral + Gemini indica si las fuentes responden | Solo umbral alto | Con solo umbral había que elegir entre perder preguntas legítimas o aceptar irrelevantes |
+| Validar la respuesta con `validate_text` (ya existente) | Confiar en el prompt | Reutiliza la defensa anti-invención de la búsqueda |
+| Spring guarda PENDIENTE antes de llamar a n8n | Guardar todo al final | Si n8n falla o tarda, la consulta queda registrada con su estado |
+| Spring vuelve a validar las fuentes contra la base | Confiar en n8n | Regla de negocio: toda fuente debe existir y estar activa |
+| Tablas creadas por Alembic, entidades en Spring | Hibernate `ddl-auto=update` | Una sola fuente del esquema |
+| Pruebas del asistente contra la base de pruebas real | Repositorios simulados | Comprueban las restricciones y el mapeo JPA reales |
+
+Las pruebas con la app real revelaron tres fallas del prompt (recomendar negocios que no sirven, inventar la
+ubicación, mencionar ids) que se corrigieron y se volvieron a probar; están descritas en `docs/AVANCE.md`.
+
 **Revisión humana:** ✏️

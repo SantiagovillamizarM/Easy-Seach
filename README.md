@@ -161,6 +161,23 @@ $clave = (Select-String -Path .env -Pattern '^N8N_WEBHOOK_KEY=(.+)$').Matches.Gr
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5690/webhook/easysearch/indexar -Headers @{ "X-N8N-Key" = $clave }
 ```
 
+**Flujo 2: asistente RAG.** Lo llama solo Spring Boot (`POST /api/asistente/consultas`):
+
+1. Convierte la pregunta en vector (modelo e5).
+2. Busca en pgvector los 5 negocios **activos** más parecidos (similitud = 1 − distancia coseno).
+3. Si ninguno supera el **umbral (0,82)**, responde `SIN_RESULTADOS` sin llamar a la IA.
+4. Si alguno lo supera, pide a FastAPI sus fichas (solo datos guardados) y le pide a Gemini una orientación usando
+   **solo** esas fichas. Si Gemini indica que las fichas no responden la pregunta, también es `SIN_RESULTADOS`.
+5. Valida la respuesta contra las fichas (borra precios u horas inventados) y la devuelve con fuentes y
+   similitudes. Si falla cualquier paso, responde `ERROR` con el motivo.
+
+Spring guarda cada consulta (`PENDIENTE` → `RESPONDIDA` / `SIN_RESULTADOS` / `ERROR`), vuelve a comprobar que
+cada fuente exista y esté activa, y permite ver el historial y calificar cada respuesta de 1 a 5.
+
+**Por qué el umbral es 0,82:** se midió con `scripts/calibrar_umbral.py` (30 preguntas que los negocios sí
+responden y 20 sin relación). Con 0,82 se aceptan 29 de 30 relevantes y se rechazan 18 de 20 sin relación; las 2
+que pasan (una receta de lasaña y series de Netflix) las frena Gemini. Se cambia con `ASISTENTE_UMBRAL`.
+
 ## Ejecutar el proyecto (cada vez)
 
 Necesitas **tres terminales** (en VS Code: botón `+` del panel de terminal).
@@ -213,8 +230,10 @@ cd gateway
 .\mvnw test
 ```
 
-No necesitan la base de datos ni FastAPI: el proxy se prueba con un FastAPI falso que registra lo que recibe, y
-la seguridad con usuarios simulados y tokens firmados igual que los de FastAPI (perfil `test`).
+- Proxy y seguridad (perfil `test`): no necesitan la base de datos; usan un FastAPI falso y usuarios simulados.
+- Asistente (perfil `it`): usan la **base de pruebas real** (`easysearch_test`) y un n8n falso. Necesitan
+  PostgreSQL encendido y la base de pruebas migrada, que se migra sola al correr antes las pruebas de FastAPI
+  (`pytest`). Cada prueba deshace sus cambios.
 
 ### Revisar el frontend con ESLint
 
@@ -271,6 +290,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ├── gateway/               puerta de entrada Spring Boot (Java)
 │   └── src/main/java/com/easysearch/gateway/
 │       ├── config/        propiedades, CORS, rutas propias de Spring y Swagger
+│       ├── asistente/     asistente IA: entidades JPA, servicio, cliente de n8n y endpoints
 │       ├── seguridad/     validación del token JWT, permisos y errores 401/403
 │       ├── usuario/       entidad JPA Usuario (tabla users, solo lectura) y su repositorio
 │       ├── sistema/       estado de los servicios y sesión actual

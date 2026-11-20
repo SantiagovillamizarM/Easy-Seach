@@ -18,6 +18,15 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Tablas cuyo modelo vive en Spring Boot (entidades JPA), no en SQLAlchemy. Sus migraciones se escriben a mano;
+# sin esta lista, "alembic revision --autogenerate" propondría borrarlas por no encontrarlas en app/models.
+SPRING_TABLES = {"consultas_ia", "respuestas_ia", "fuentes_respuesta", "calificaciones"}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    table = obj if type_ == "table" else getattr(obj, "table", None)
+    return not (table is not None and table.name in SPRING_TABLES)
+
 
 def run_migrations_offline() -> None:
     context.configure(
@@ -26,6 +35,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -38,7 +48,8 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True,
+                          include_object=include_object)
         with context.begin_transaction():
             context.run_migrations()
 

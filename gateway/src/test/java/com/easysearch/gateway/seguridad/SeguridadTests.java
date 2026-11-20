@@ -145,7 +145,8 @@ class SeguridadTests {
 				.andExpect(status().isForbidden())
 				.andExpect(header().string("X-Error-Code", "email_not_verified"))
 				.andExpect(jsonPath("$.detail").value("Confirma tu correo para continuar. Revisa tu bandeja de entrada."));
-		mvc.perform(get("/api/asistente/consultas").header("Authorization", bearer(token("8", AHORA, CLAVE))))
+		// Con correo confirmado pasa la seguridad (esta ruta no existe: 404, y no se reenvía a FastAPI)
+		mvc.perform(get("/api/asistente/no-existe").header("Authorization", bearer(token("8", AHORA, CLAVE))))
 				.andExpect(status().isNotFound());
 	}
 

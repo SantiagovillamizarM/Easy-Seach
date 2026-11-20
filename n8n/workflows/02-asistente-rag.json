@@ -1,0 +1,650 @@
+{
+  "id": "EsAsistenteRag01",
+  "name": "Easy Search · 2. Asistente RAG (pgvector + Gemini)",
+  "nodes": [
+    {
+      "id": "94159ec4-702f-51c6-b9b6-b3b86704c40e",
+      "name": "Pregunta desde Spring Boot",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "easysearch/asistente",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "f061915c-f4cf-5265-b0c1-d11e0a102681",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsWebhookSpring1",
+          "name": "EasySearch webhook (Spring)"
+        }
+      }
+    },
+    {
+      "id": "490dafc1-def0-50af-aa2e-ddd61a8cf27f",
+      "name": "Validar entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Spring Boot ya valida la pregunta; aquí se vuelve a validar porque el flujo no debe confiar en nadie\nconst b = $input.first().json.body || {};\nconst pregunta = String(b.pregunta ?? '').trim();\nif (pregunta.length < 3 || pregunta.length > 500) {\n  throw new Error('La pregunta debe tener entre 3 y 500 caracteres');\n}\nconst umbral = Number(b.umbral);\nif (!(umbral > 0 && umbral < 1)) {\n  throw new Error('El umbral debe estar entre 0 y 1');\n}\nconst maxFuentes = Math.min(Math.max(parseInt(b.max_fuentes ?? 5, 10) || 5, 1), 5);\nreturn [{ json: { consulta_id: b.consulta_id ?? null, pregunta, umbral, max_fuentes: maxFuentes } }];"
+      }
+    },
+    {
+      "id": "e4da29e6-6cf7-531e-b6b1-2d19ebebaa55",
+      "name": "Vector de la pregunta (e5)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EASYSEARCH_FASTAPI_URL }}/api/internal/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ textos: [$json.pregunta], tipo: 'consulta' }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsFastapiInterna",
+          "name": "EasySearch FastAPI interna"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "42a11400-e1d6-54b6-b8c8-1c077905df57",
+      "name": "Buscar en pgvector",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Similitud = 1 - distancia coseno. Por cada negocio ACTIVO se toma su vector más parecido\n-- (el del negocio o el de alguno de sus productos). Los ocultos y duplicados nunca son fuente.\nSELECT e.id AS establecimiento_id,\n       e.name AS nombre,\n       round(max(1 - (em.embedding <=> $1::vector))::numeric, 4) AS similitud\nFROM embeddings em\nJOIN establishments e ON e.id = em.establishment_id\nWHERE e.status = 'active'\nGROUP BY e.id, e.name\nORDER BY similitud DESC\nLIMIT $2;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.vectores[0]) }},{{ $('Validar entrada').first().json.max_fuentes }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "EsPostgres000001",
+          "name": "EasySearch PostgreSQL"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "aa970c03-b282-55c3-98a0-ffe3da4b050b",
+      "name": "Filtrar por umbral",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Candidatos de pgvector ordenados por similitud (ya solo negocios activos). Se quedan los que superan el umbral.\nconst entrada = $('Validar entrada').first().json;\nconst candidatos = $input.all()\n  .map((i) => i.json)\n  .filter((c) => c.establecimiento_id != null)\n  .map((c) => ({ establecimiento_id: Number(c.establecimiento_id), nombre: c.nombre, similitud: Number(c.similitud) }));\nconst fuentes = candidatos.filter((c) => c.similitud >= entrada.umbral);\nreturn [{\n  json: {\n    fuentes,\n    candidatos,\n    mejor_similitud: candidatos.length ? candidatos[0].similitud : null,\n    umbral: entrada.umbral,\n  },\n}];"
+      }
+    },
+    {
+      "id": "7e05b106-6b01-5f05-95aa-6315e7f109f3",
+      "name": "¿Alguna fuente supera el umbral?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "eb20bffa-5a02-551c-999c-c1d49fa17086",
+              "leftValue": "={{ $json.fuentes.length }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "23155ffa-32dc-5be1-82e5-3b533d393010",
+      "name": "Sin fuentes relevantes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        520
+      ],
+      "parameters": {
+        "jsCode": "const f = $input.first().json;\nreturn [{ json: { estado: 'SIN_RESULTADOS', motivo: 'Ningún negocio supera el umbral de similitud',\n                  mejor_similitud: f.mejor_similitud, umbral: f.umbral, candidatos: f.candidatos } }];"
+      }
+    },
+    {
+      "id": "3a77b3ba-8600-591b-a415-2612369f07eb",
+      "name": "Fichas de las fuentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EASYSEARCH_FASTAPI_URL }}/api/internal/asistente/fichas",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ids: $json.fuentes.map(f => f.establecimiento_id) }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsFastapiInterna",
+          "name": "EasySearch FastAPI interna"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "fc2b4f8e-8028-5ac2-9b7b-ff63bbaf844e",
+      "name": "Armar prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Solo las fichas que FastAPI devolvió (si un negocio se desactivó entre la búsqueda y este paso, ya no viene)\nconst fichas = $input.first().json.fichas || [];\nconst recuperadas = $('Filtrar por umbral').first().json.fuentes;\nconst ids = new Set(fichas.map((f) => f.id));\nconst fuentes = recuperadas.filter((f) => ids.has(f.establecimiento_id));\nconst pregunta = $('Validar entrada').first().json.pregunta;\nconst cuerpo = {\n  systemInstruction: { parts: [{ text: \"Eres el asistente de Easy Search, una plataforma para encontrar negocios, productos y servicios en Bucaramanga y su área metropolitana (Colombia).\\nRecibirás la pregunta de un usuario y las FICHAS de los negocios que la búsqueda semántica encontró como más relacionados.\\n\\nReglas OBLIGATORIAS:\\n- Las fichas vienen de una búsqueda por similitud y pueden incluir negocios que NO sirven para lo que el usuario pide (ej. un bar o un supermercado cuando pide una farmacia). Descarta esas fichas: no las menciones ni las incluyas en fuentes_usadas. Solo cuenta un negocio si su ficha muestra que ofrece lo que se pide.\\n- UBICACIÓN: la ubicación de cada negocio es SOLO la del campo \\\"ubicacion\\\" de su ficha. Nunca digas que un negocio está en el barrio o municipio que pidió el usuario si su ficha dice otro. Si el usuario pidió una zona y el negocio está en otra, dilo claramente (ej. \\\"no encontré opciones en Cabecera; la más cercana registrada está en Piedecuesta\\\").\\n- Si después de descartar no queda ningún negocio que sirva, responde tiene_respuesta = false aunque haya fichas.\\n- Usa EXCLUSIVAMENTE la información de las fichas. No inventes negocios, productos, precios, horarios, direcciones, teléfonos, reseñas ni calificaciones.\\n- NO deduzcas servicios ni especialidades a partir del NOMBRE de un negocio: usa solo los campos de su ficha.\\n- Si las fichas NO permiten responder la pregunta (por ejemplo pide una receta, información general, tareas, noticias, o algo que ninguno de esos negocios ofrece), responde tiene_respuesta = false, deja pasos y fuentes_usadas vacíos y en respuesta explica en una frase que no hay información suficiente en Easy Search.\\n- Si sí se puede responder: tiene_respuesta = true; respuesta = 2 a 4 frases en español, en segunda persona, orientando al usuario entre las opciones y nombrando los negocios; pasos = 2 a 4 pasos concretos y accionables basados en las fichas (por ejemplo qué negocio revisar primero y por qué, qué producto preguntar, confirmar el precio o el horario directamente con el negocio); fuentes_usadas = ids de las fichas en las que te basaste.\\n- Si una ficha tiene poca información, dilo con honestidad en lugar de rellenar.\\n- Nombra los negocios solo por su nombre (y su barrio o municipio si ayuda a distinguirlos). NUNCA menciones ids, números de ficha ni la palabra \\\"ficha\\\": el usuario no los conoce.\\n- Tono amable y directo. Sin listas dentro de \\\"respuesta\\\".\" }] },\n  contents: [{ role: 'user', parts: [{ text: JSON.stringify({ pregunta, fichas }) }] }],\n  generationConfig: { responseMimeType: 'application/json', responseSchema: {\"type\": \"object\", \"properties\": {\"tiene_respuesta\": {\"type\": \"boolean\"}, \"respuesta\": {\"type\": \"string\"}, \"pasos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"fuentes_usadas\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"tiene_respuesta\", \"respuesta\", \"pasos\", \"fuentes_usadas\"]}, temperature: 0.2 },\n};\nreturn [{ json: { fuentes, cuerpo: JSON.stringify(cuerpo) } }];"
+      }
+    },
+    {
+      "id": "22291dd1-7e5f-5b39-a4e4-324de208d924",
+      "name": "Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $env.GEMINI_MODEL }}:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Armar prompt').first().json.cuerpo }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsGeminiApiKey01",
+          "name": "Gemini API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "dd43ce28-da74-5ca5-a9a8-7009e0462d68",
+      "name": "Gemini (respaldo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $env.GEMINI_FALLBACK_MODEL }}:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Armar prompt').first().json.cuerpo }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsGeminiApiKey01",
+          "name": "Gemini API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "56e4fac5-4e5c-500f-8ac3-36d7dfb06a6c",
+      "name": "Leer respuesta de Gemini",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Respuesta de Gemini (modelo principal o de respaldo, el que haya respondido)\nconst data = $input.first().json;\nlet r;\ntry {\n  r = JSON.parse(data.candidates[0].content.parts[0].text);\n} catch (e) {\n  throw new Error('Gemini devolvió una respuesta que no es JSON válido');\n}\nconst fuentes = $('Armar prompt').first().json.fuentes;\nconst recuperados = new Set(fuentes.map((f) => f.establecimiento_id));\n// Solo cuentan como fuentes los ids que la búsqueda recuperó: si Gemini cita otro id, se descarta\nconst usadas = (r.fuentes_usadas || []).map(Number).filter((id) => recuperados.has(id));\nreturn [{\n  json: {\n    tiene_respuesta: r.tiene_respuesta === true && usadas.length > 0,\n    respuesta: String(r.respuesta || '').trim(),\n    pasos: (r.pasos || []).map((p) => String(p).trim()).filter(Boolean).slice(0, 6),\n    ids: usadas,\n    modelo: data.modelVersion || $env.GEMINI_MODEL,\n  },\n}];"
+      }
+    },
+    {
+      "id": "035b62ca-3567-58e7-8a7d-2e078cbf0c0b",
+      "name": "¿Las fuentes responden la pregunta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2280,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ed8aadfa-4acc-5eda-b1d4-23a29e63de4a",
+              "leftValue": "={{ $json.tiene_respuesta }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "204c8639-7a60-56e9-89e2-978976465836",
+      "name": "Fuentes no responden",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const f = $('Filtrar por umbral').first().json;\nreturn [{ json: { estado: 'SIN_RESULTADOS', motivo: 'Las fuentes encontradas no responden la pregunta',\n                  explicacion: $input.first().json.respuesta, mejor_similitud: f.mejor_similitud, umbral: f.umbral } }];"
+      }
+    },
+    {
+      "id": "6eb47e65-3ace-567f-8d56-0b433ffdd7a1",
+      "name": "Validar contra las fichas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2500,
+        120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EASYSEARCH_FASTAPI_URL }}/api/internal/asistente/validar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ respuesta: $json.respuesta, pasos: $json.pasos, ids: $json.ids }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EsFastapiInterna",
+          "name": "EasySearch FastAPI interna"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "9b975f3f-113e-5ccc-8629-7af5a0b29379",
+      "name": "Armar respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        120
+      ],
+      "parameters": {
+        "jsCode": "// Resultado final para Spring Boot\nconst validado = $input.first().json;               // respuesta y pasos ya sin datos inventados\nconst gemini = $('Leer respuesta de Gemini').first().json;\nconst filtro = $('Filtrar por umbral').first().json;\nconst porId = new Map($('Armar prompt').first().json.fuentes.map((f) => [f.establecimiento_id, f]));\nconst fuentes = gemini.ids.map((id) => porId.get(id)).filter(Boolean);\nif ((validado.respuesta || '').length < 15) {\n  // La validación eliminó casi todo: era información sin respaldo en las fichas\n  return [{ json: { estado: 'SIN_RESULTADOS', motivo: 'La respuesta generada no tenía respaldo en los datos',\n                    mejor_similitud: filtro.mejor_similitud, umbral: filtro.umbral } }];\n}\nreturn [{\n  json: {\n    estado: 'RESPONDIDA',\n    respuesta: validado.respuesta,\n    pasos: validado.pasos,\n    fuentes,\n    mejor_similitud: filtro.mejor_similitud,\n    umbral: filtro.umbral,\n    modelo: gemini.modelo,\n    frases_eliminadas: validado.frases_eliminadas === true,\n  },\n}];"
+      }
+    },
+    {
+      "id": "26f2ec80-48c2-510a-a6ba-353bf3618b37",
+      "name": "Responder a Spring Boot",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3000,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "570577a3-5000-5085-9c87-de2505b5f368",
+      "name": "Describir error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        700
+      ],
+      "parameters": {
+        "jsCode": "// Llega aquí cuando falla un paso (salida de error de los nodos HTTP y Postgres)\nconst mensajes = {\n  'Vector de la pregunta (e5)': 'El servicio de embeddings no respondió',\n  'Buscar en pgvector': 'La búsqueda en pgvector falló',\n  'Fichas de las fuentes': 'No se pudieron leer las fichas de los negocios',\n  'Gemini (respaldo)': 'Gemini no respondió (modelo principal y de respaldo)',\n  'Validar contra las fichas': 'No se pudo validar la respuesta contra los datos',\n};\nconst paso = $prevNode.name;\nconst tecnico = String($input.first().json.error?.message || $input.first().json.error || '').slice(0, 200);\nreturn [{ json: { estado: 'ERROR', detalle: mensajes[paso] || `Falló el paso ${paso}`, paso, tecnico } }];"
+      }
+    },
+    {
+      "id": "6ff4320b-1944-5982-9ffe-dd307b0424d3",
+      "name": "Responder error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3000,
+        700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Pregunta desde Spring Boot": {
+      "main": [
+        [
+          {
+            "node": "Validar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar entrada": {
+      "main": [
+        [
+          {
+            "node": "Vector de la pregunta (e5)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector de la pregunta (e5)": {
+      "main": [
+        [
+          {
+            "node": "Buscar en pgvector",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describir error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar en pgvector": {
+      "main": [
+        [
+          {
+            "node": "Filtrar por umbral",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describir error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar por umbral": {
+      "main": [
+        [
+          {
+            "node": "¿Alguna fuente supera el umbral?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Alguna fuente supera el umbral?": {
+      "main": [
+        [
+          {
+            "node": "Fichas de las fuentes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin fuentes relevantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sin fuentes relevantes": {
+      "main": [
+        [
+          {
+            "node": "Responder a Spring Boot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fichas de las fuentes": {
+      "main": [
+        [
+          {
+            "node": "Armar prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describir error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "main": [
+        [
+          {
+            "node": "Leer respuesta de Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini (respaldo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (respaldo)": {
+      "main": [
+        [
+          {
+            "node": "Leer respuesta de Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describir error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer respuesta de Gemini": {
+      "main": [
+        [
+          {
+            "node": "¿Las fuentes responden la pregunta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Las fuentes responden la pregunta?": {
+      "main": [
+        [
+          {
+            "node": "Validar contra las fichas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fuentes no responden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fuentes no responden": {
+      "main": [
+        [
+          {
+            "node": "Responder a Spring Boot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar contra las fichas": {
+      "main": [
+        [
+          {
+            "node": "Armar respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Describir error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder a Spring Boot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describir error": {
+      "main": [
+        [
+          {
+            "node": "Responder error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "pinData": {},
+  "active": false
+}

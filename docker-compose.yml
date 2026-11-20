@@ -39,6 +39,7 @@ services:
       N8N_WEBHOOK_KEY: ${N8N_WEBHOOK_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-2.5-flash}
       # FastAPI corre en la PC (fuera de Docker); Docker Desktop la expone como host.docker.internal
       EASYSEARCH_FASTAPI_URL: ${N8N_FASTAPI_URL:-http://host.docker.internal:8010}
       # Clave con la que n8n cifra las credenciales que guarda (debe ser siempre la misma)
