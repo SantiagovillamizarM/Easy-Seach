@@ -6,6 +6,9 @@ recomendaciones con IA basadas solo en datos reales.
 
 - Propuesta técnica y plan de trabajo: [docs/Propuesta_Easy_Search.pdf](docs/Propuesta_Easy_Search.pdf)
 - Registro de avance: [docs/AVANCE.md](docs/AVANCE.md)
+- Diagramas: [arquitectura](docs/diagramas/arquitectura.md) y [entidad-relación](docs/diagramas/entidad-relacion.md)
+  (imágenes PNG en [docs/diagramas/imagenes/](docs/diagramas/imagenes/))
+- Uso de inteligencia artificial en el desarrollo: [AI_USAGE.md](AI_USAGE.md)
 
 ## Tecnologías
 
@@ -337,7 +340,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch
 ├── docker-compose.yml     PostgreSQL + pgvector y n8n; con --profile completo, todo el sistema
 ├── docker/initdb/         scripts SQL de la base inicial: extensiones, esquema y datos reales
 ├── .env.example           plantilla de variables de entorno
-├── docs/                  propuesta, avance y documentación
+├── docs/                  propuesta, avance, diagramas (docs/diagramas) y evidencias (docs/evidencias)
 ├── gateway/               puerta de entrada Spring Boot (Java); Dockerfile en dos etapas (Maven → JRE)
 │   └── src/main/java/com/easysearch/gateway/
 │       ├── config/        propiedades, CORS, rutas propias de Spring y Swagger

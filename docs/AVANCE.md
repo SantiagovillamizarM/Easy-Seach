@@ -599,7 +599,19 @@ de datos, dashboard e informe de análisis) no, porque Easy Search es un proyect
   Sports Gym; "necesito una farmacia" → sin resultados (no hay farmacias entre los datos iniciales).
 - Al terminar se borró el proyecto de prueba y se restauró el original (2.209 negocios, 2.319 vectores).
 
+**Bloque C — Diagramas:**
+- `docs/diagramas/entidad-relacion.md`: tres diagramas Mermaid (catálogo y búsqueda semántica; usuarios e
+  interacción; asistente IA), **generados desde la base real** con `scripts/generar_diagrama_er.py`: 20 tablas,
+  33 relaciones, tipos, PK, FK y únicas.
+- `docs/diagramas/arquitectura.md`: componentes con sus tecnologías y puertos, seguridad del recorrido de una
+  petición, secuencia del asistente RAG y flujo de indexación de n8n.
+- Los 7 diagramas se dibujaron con Mermaid en Chrome (sin errores de sintaxis) y se exportaron como PNG en
+  `docs/diagramas/imagenes/` para la presentación.
+
 **Problemas encontrados y solución:**
+- La primera versión del diagrama mostraba `respuestas_ia → fuentes_respuesta` como uno a uno: la restricción
+  única es compuesta (respuesta + negocio) y el script marcaba cada columna como única → solo cuentan las únicas
+  de una columna.
 - `pg_dump --exclude-extension` no existe en PostgreSQL 16 → se quitó; el esquema crea las extensiones con
   `IF NOT EXISTS`, compatible con `01-extensions.sql`.
 - Con un volumen nuevo n8n tarda más en arrancar (ejecuta sus migraciones internas); el asistente respondió
