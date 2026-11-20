@@ -44,6 +44,8 @@ function Hero() {
       {/* Estrellas en movimiento con paralaje; las luces CSS del hero quedan detrás como nebulosa */}
       <StarField />
       <div className="hero-grain" aria-hidden="true" />
+      {/* Las estrellas y la nebulosa se disuelven en el azul noche al final del hero (sin blanco) */}
+      <div className="hero-fade" aria-hidden="true" />
 
       <div className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-28 pt-12 text-center sm:pb-32 sm:pt-20">
         <span
@@ -123,7 +125,7 @@ function Shortcuts() {
 
 function HowItWorks() {
   return (
-    <section className="mx-auto max-w-5xl px-4 pb-20 pt-20 sm:pt-28">
+    <section className="mx-auto max-w-5xl px-4 pb-20 pt-44 sm:pt-80">
       <Reveal className="mx-auto max-w-2xl text-center">
         <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Cómo funciona</p>
         <h2 className="mt-2 text-balance text-3xl font-bold sm:text-4xl">De una frase a lugares reales, en tres pasos</h2>
@@ -221,8 +223,11 @@ export default function HomePage() {
   return (
     <>
       <Hero />
-      <Shortcuts />
-      <HowItWorks />
+      {/* El espacio continúa bajo el hero y se aclara poco a poco hasta el fondo de la página */}
+      <div className="space-to-light">
+        <Shortcuts />
+        <HowItWorks />
+      </div>
     </>
   );
 }
