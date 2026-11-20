@@ -11,10 +11,16 @@ function Header() {
   const isHome = pathname === "/";
   // Al bajar, el encabezado se compacta y gana fondo y sombra para separarse del contenido
   const scrolled = useScrolled();
+  // En el inicio, arriba del todo, el encabezado se funde con el hero nocturno
+  const dark = isHome && !scrolled;
   return (
     <header
       className={`sticky top-0 z-[1000] border-b backdrop-blur transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
-        scrolled ? "border-line/80 bg-white/90 shadow-[0_4px_20px_rgb(11_18_36/0.06)]" : "border-transparent bg-white/60"
+        dark
+          ? "border-white/5 bg-night"
+          : scrolled
+            ? "border-line/80 bg-white/90 shadow-[0_4px_20px_rgb(11_18_36/0.06)]"
+            : "border-transparent bg-white/60"
       }`}
     >
       <div
@@ -22,7 +28,7 @@ function Header() {
           scrolled ? "py-2" : "py-3.5"
         }`}
       >
-        <Logo />
+        <Logo inverted={dark} />
         {!isHome ? (
           <div className="hidden flex-1 md:block">
             <SearchBar compact />
@@ -32,8 +38,12 @@ function Header() {
         )}
         <Link
           to="/asistente"
-          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold md:ml-0 ${
-            pathname === "/asistente" ? "bg-brand-50 text-brand-700" : "text-ink-soft hover:bg-brand-50 hover:text-brand-700"
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors md:ml-0 ${
+            pathname === "/asistente"
+              ? "bg-brand-50 text-brand-700"
+              : dark
+                ? "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-ink-soft hover:bg-brand-50 hover:text-brand-700"
           }`}
         >
           <Bot className="h-4 w-4" aria-hidden="true" />
