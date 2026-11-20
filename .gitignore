@@ -32,3 +32,6 @@ backend/data/osm_cache/
 
 # Menús y documentos de referencia de los locales (los datos ya están en backend/data)
 /Menu_*.pdf
+
+# Configuración local de Claude Code (skills del proyecto y ajustes personales): no se sube al repositorio
+/.claude/
