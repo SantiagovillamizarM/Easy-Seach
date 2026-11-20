@@ -1,0 +1,97 @@
+"""Importador CSV de locales: identificación estable (osm / slug fijo) y cargas repetidas sin duplicar."""
+import pytest
+from sqlalchemy import func, select
+
+from app.models import Category, Establishment, Place
+from scripts.import_csv import RowError, process_row, read_rows
+
+
+@pytest.fixture()
+def ctx(db):
+    muni = Place(name="Floridablanca", normalized_name="floridablanca", kind="municipio", latitude=7.06, longitude=-73.09)
+    cat = Category(name="Comida rápida", slug="comida-rapida")
+    db.add_all([muni, cat])
+    db.flush()
+    osm = Establishment(name="Terpel", slug="terpel-floridablanca-3", municipality_id=muni.id, latitude=7.06,
+                        longitude=-73.09, source="osm", osm_type="node", osm_id=987654)
+    db.add(osm)
+    db.flush()
+    return {"municipalities": {"floridablanca": muni}, "categories": {"comida-rapida": cat}, "osm": osm}
+
+
+def _row(**values):
+    return {k: values.get(k, "") for k in ("osm", "slug", "nombre", "municipio", "latitud", "longitud", "descripcion",
+                                           "categorias", "precio_min", "precio_max", "productos", "horario")}
+
+
+def _run(db, ctx, row):
+    return process_row(db, row, ctx["municipalities"], ctx["categories"])
+
+
+NEW = _row(slug="burger-house-floridablanca", nombre="Burger House", municipio="Floridablanca",
+           latitud="7.0612", longitud="-73.0951", categorias="comida-rapida", precio_min="15000",
+           descripcion="Hamburguesas artesanales a la parrilla",
+           productos="#Hamburguesas|Hamburguesa sencilla:15000|# Combos |Combo doble:25.000:Doble carne: con papas",
+           horario="Mo-Sa 11:00-22:00; Su off")
+
+
+def test_new_local_with_fixed_slug_is_idempotent(db, ctx):
+    action, est = _run(db, ctx, NEW)
+    assert action == "creado" and est.slug == "burger-house-floridablanca" and est.source == "manual"
+    assert [o.name for o in est.offerings] == ["Hamburguesa sencilla", "Combo doble"]
+    assert est.offerings[1].description == "Doble carne: con papas"   # la descripción puede llevar ":"
+    assert [o.section for o in est.offerings] == ["Hamburguesas", "Combos"]
+    assert est.opening_hours and est.categories[0].slug == "comida-rapida"
+
+    # Cargar el mismo archivo otra vez (o en otra computadora) actualiza, no duplica
+    action, again = _run(db, ctx, {**NEW, "precio_max": "40000"})
+    assert action == "actualizado" and again.id == est.id and again.price_max == 40000
+    assert db.scalar(select(func.count()).where(Establishment.slug.like("burger-house%"))) == 1
+    assert len(again.offerings) == 2
+
+
+def test_osm_reference_updates_the_right_local(db, ctx):
+    action, est = _run(db, ctx, _row(osm="node/987654", descripcion="Estación con tienda y baños"))
+    assert action == "actualizado" and est.id == ctx["osm"].id
+    assert est.description == "Estación con tienda y baños" and est.source == "manual"   # OSM ya no lo sobrescribe
+    assert est.name == "Terpel"   # las columnas vacías no se tocan
+
+
+def test_read_rows_keeps_commas_and_apostrophes(tmp_path):
+    for sep in (",", ";"):
+        f = tmp_path / f"locales{sep == ';'}.csv"
+        f.write_text(f'osm{sep}nombre{sep}descripcion\nnode/1{sep}Garrotero\'s Pub{sep}"Hamburguesas, picadas; y cócteles"\n',
+                     encoding="utf-8")
+        rows = read_rows(f)
+        assert rows[0]["nombre"] == "Garrotero's Pub"
+        assert rows[0]["descripcion"] == "Hamburguesas, picadas; y cócteles"
+
+
+def test_invalid_rows_are_reported(db, ctx):
+    with pytest.raises(RowError, match="No existe el local de OpenStreetMap"):
+        _run(db, ctx, _row(osm="way/1"))
+    with pytest.raises(RowError, match="formato"):
+        _run(db, ctx, _row(osm="nodo-123"))
+    with pytest.raises(RowError, match="necesita nombre, municipio"):
+        _run(db, ctx, _row(slug="no-existe", descripcion="x"))
+    with pytest.raises(RowError, match="Slug inválido"):
+        _run(db, ctx, {**NEW, "slug": "Burger House!"})
+    with pytest.raises(RowError, match="Precio inválido"):
+        _run(db, ctx, {**NEW, "slug": "otro-local", "productos": "Perro:barato"})
+
+
+def test_offering_names_and_descriptions_may_contain_colons():
+    from scripts.import_csv import _split_offering, parse_offerings
+    assert _split_offering("Combo: papas + gaseosa:15000") == ("Combo: papas + gaseosa", "15000", "")
+    assert _split_offering("Mensualidad:80000:Pagos: efectivo y Nequi") == ("Mensualidad", "80000",
+                                                                          "Pagos: efectivo y Nequi")
+    assert _split_offering("Alineación") == ("Alineación", "", "")
+    assert _split_offering("Despinche::Incluye revisión") == ("Despinche", "", "Incluye revisión")
+    assert _split_offering("Limonada:$ 6.000") == ("Limonada", "$ 6.000", "")
+    assert parse_offerings("Limonada:$ 6.000", "product")[0].price == 6000
+
+
+def test_prices_with_decimals_are_rejected():
+    from scripts.import_csv import parse_offerings
+    with pytest.raises(RowError, match="decimales"):
+        parse_offerings("Gaseosa:12500,50", "product")

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str
     cors_origins: str = "http://127.0.0.1:5173"
+    # Dirección pública del frontend: los correos enlazan aquí (ej. "Responder la reseña")
+    app_url: str = "http://127.0.0.1:5173"
 
     # --- Autenticación ---
     # Clave para firmar los tokens JWT. Obligatoria, sin valor por defecto.
@@ -50,6 +52,32 @@ class Settings(BaseSettings):
     gemini_fallback_model: str = "gemini-2.5-flash"
     llm_timeout_seconds: float = 12.0
 
+    # --- Correo (códigos de confirmación). Gmail gratis con "contraseña de aplicación" ---
+    # Sin SMTP en desarrollo, el código se muestra en la terminal del backend en lugar de enviarse.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_name: str = "Easy Search"
+    smtp_timeout_seconds: float = 15.0
+
+    # --- Anti-robots: Cloudflare Turnstile (gratis). Sin clave secreta en desarrollo, no se exige ---
+    turnstile_site_key: str | None = None      # pública: la usa el navegador para mostrar el widget
+    turnstile_secret_key: str | None = None    # privada: solo el servidor la usa para verificar
+
+    # --- Búsquedas de prueba sin cuenta (por IP, cada 24 horas) y tope diario entre todos los invitados ---
+    # El tope protege la cuota de la IA aunque alguien cambie de IP muchas veces.
+    guest_searches_per_day: int = 3
+    guest_searches_daily_total: int = 300
+
+    # --- Tráfico en vivo: TomTom (gratis ~2.500 consultas/día). Sin clave, no se muestran avisos de trancón ---
+    tomtom_api_key: str | None = None
+    tomtom_daily_limit: int = 2300             # margen por debajo de la capa gratuita
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_user and self.smtp_password)
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -68,6 +96,14 @@ class Settings(BaseSettings):
         if any(o.startswith("http://") and "127.0.0.1" not in o and "localhost" not in o
                for o in self.cors_origins_list):
             problems.append("CORS_ORIGINS debe usar https:// en producción")
+        if not self.app_url.startswith("https://"):
+            problems.append("APP_URL debe ser la dirección pública con https:// (los correos enlazan ahí)")
+        if not self.smtp_configured:
+            problems.append("Configura SMTP_HOST, SMTP_USER y SMTP_PASSWORD: sin correo nadie puede confirmar su cuenta")
+        if not (self.turnstile_site_key and self.turnstile_secret_key):
+            problems.append("Configura TURNSTILE_SITE_KEY y TURNSTILE_SECRET_KEY (protección contra robots)")
+        elif self.turnstile_secret_key.startswith(("1x000", "2x000", "3x000")):
+            problems.append("TURNSTILE_SECRET_KEY es una clave de PRUEBA de Cloudflare: usa la clave real")
         if problems:
             raise ValueError("Configuración insegura para producción:\n- " + "\n- ".join(problems))
         return self

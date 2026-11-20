@@ -105,6 +105,9 @@ def establishment_text(est: Establishment) -> str:
     if est.description:
         parts.append(est.description.strip())
     offerings = [o for o in est.offerings if o.is_available]
+    sections = list(dict.fromkeys(o.section for o in offerings if o.section))
+    if sections:
+        parts.append("Carta: " + ", ".join(sections) + ".")
     if offerings:
         parts.append("Productos y servicios: " + ", ".join(o.name for o in offerings[:40]) + ".")
     location = ", ".join(p for p in [est.neighborhood, est.municipality.name if est.municipality else None] if p)
@@ -115,7 +118,8 @@ def establishment_text(est: Establishment) -> str:
 
 def offering_text(offering: Offering, est: Establishment) -> str:
     kind = "Servicio" if offering.kind == "service" else "Producto"
-    text = f"{kind}: {offering.name}. Ofrecido por {est.name}"
+    section = f" ({offering.section})" if offering.section else ""   # "Michelada Hato (Micheladas)"
+    text = f"{kind}: {offering.name}{section}. Ofrecido por {est.name}"
     if est.categories:
         text += f" ({', '.join(c.name for c in est.categories)})"
     text += "."

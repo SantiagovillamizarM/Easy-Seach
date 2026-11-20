@@ -49,6 +49,21 @@ def _money(value) -> str:
     return "$" + f"{int(Decimal(value)):,}".replace(",", ".")
 
 
+def _varied_sample(offerings: list, limit: int) -> list:
+    """Hasta `limit` productos turnándose entre secciones (1 hamburguesa, 1 bebida, 1 postre…), en el orden
+    de la carta. Así la IA conoce la variedad del local y no solo sus 15 primeras hamburguesas."""
+    groups: dict[str | None, list] = {}
+    for o in sorted(offerings, key=lambda o: o.id or 0):
+        groups.setdefault(o.section, []).append(o)
+    queues = list(groups.values())
+    sample: list = []
+    while len(sample) < limit and any(queues):
+        for q in queues:
+            if q and len(sample) < limit:
+                sample.append(q.pop(0))
+    return sample
+
+
 def facts_for(est: Establishment, reviews: list[str] | None = None) -> dict:
     """Solo datos reales. Lo que no existe NO aparece (la IA no tiene de dónde inventarlo)."""
     facts: dict = {
@@ -64,7 +79,7 @@ def facts_for(est: Establishment, reviews: list[str] | None = None) -> dict:
         facts["descripcion"] = est.description[:600]
     if est.price_min is not None or est.price_max is not None:
         facts["rango_precios"] = " - ".join(_money(v) for v in (est.price_min, est.price_max) if v is not None)
-    offerings = [o for o in est.offerings if o.is_available][:15]
+    offerings = _varied_sample([o for o in est.offerings if o.is_available], 15)
     if offerings:
         facts["productos_servicios"] = [
             f"{o.name} ({_money(o.price)})" if o.price is not None else o.name for o in offerings

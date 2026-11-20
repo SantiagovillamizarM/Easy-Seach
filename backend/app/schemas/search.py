@@ -95,3 +95,4 @@ class SearchResponse(BaseModel):
     notices: list[str]
     applied_filters: dict
     results: list[SearchHitOut]
+    guest_remaining: int | None = None   # búsquedas de prueba que le quedan a un invitado (None = con cuenta)

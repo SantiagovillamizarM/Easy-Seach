@@ -1,4 +1,4 @@
-import { CheckCircle2, KeyRound, LogOut, UserRound } from "lucide-react";
+import { Bell, CheckCircle2, KeyRound, LogOut, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -6,6 +6,23 @@ import { api } from "../lib/api.js";
 import { Field, FormError, PasswordField } from "./AuthPages.jsx";
 
 const ROLE_LABELS = { user: "Usuario", owner: "Propietario de negocio", admin: "Administrador" };
+
+// Interruptor accesible: es un checkbox con apariencia de switch
+function Toggle({ id, label, hint, checked, disabled, onChange }) {
+  return (
+    <label htmlFor={id} className="flex cursor-pointer items-start justify-between gap-4 py-3">
+      <span>
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="block text-xs text-ink-soft">{hint}</span>
+      </span>
+      <span className="relative mt-0.5 inline-flex shrink-0">
+        <input id={id} type="checkbox" role="switch" className="peer sr-only" checked={checked} disabled={disabled} onChange={onChange} />
+        <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-brand-600 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 peer-focus-visible:ring-offset-2 peer-disabled:opacity-60" />
+        <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      </span>
+    </label>
+  );
+}
 
 function Success({ message }) {
   if (!message) return null;
@@ -24,6 +41,7 @@ export default function ProfilePage() {
   const [nameState, setNameState] = useState({ loading: false, error: null, ok: null });
   const [pw, setPw] = useState({ current_password: "", new_password: "", confirm: "" });
   const [pwState, setPwState] = useState({ loading: false, error: null, ok: null });
+  const [notifState, setNotifState] = useState({ saving: null, error: null });
 
   useEffect(() => {
     document.title = "Mi perfil · Easy Search";
@@ -37,6 +55,16 @@ export default function ProfilePage() {
       setNameState({ loading: false, error: null, ok: "Nombre actualizado." });
     } catch (err) {
       setNameState({ loading: false, error: err.message, ok: null });
+    }
+  }
+
+  async function toggleNotification(field) {
+    setNotifState({ saving: field, error: null });
+    try {
+      updateUser(await api.updateNotifications({ [field]: !(user[field] ?? true) }));
+      setNotifState({ saving: null, error: null });
+    } catch (err) {
+      setNotifState({ saving: null, error: err.message });
     }
   }
 
@@ -125,6 +153,37 @@ export default function ProfilePage() {
             Actualizar contraseña
           </button>
         </form>
+      </section>
+
+      <section className="card mt-5 p-5">
+        <h2 className="mb-1 flex items-center gap-2 font-bold">
+          <Bell className="h-4 w-4 text-brand-600" aria-hidden="true" />
+          Avisos por correo
+        </h2>
+        <p className="text-sm text-ink-soft">
+          Los correos de seguridad (códigos y recuperar la contraseña) siempre llegan. Estos avisos los puedes apagar.
+        </p>
+        <div className="mt-2 divide-y divide-line">
+          {(user.role === "owner" || user.role === "admin") && (
+            <Toggle
+              id="notify-new-reviews"
+              label="Reseñas nuevas de mi negocio"
+              hint="Te escribimos cuando un cliente publica una reseña, para que puedas responderla."
+              checked={user.notify_new_reviews ?? true}
+              disabled={notifState.saving === "notify_new_reviews"}
+              onChange={() => toggleNotification("notify_new_reviews")}
+            />
+          )}
+          <Toggle
+            id="notify-review-replies"
+            label="Respuestas a mis reseñas"
+            hint="Te escribimos cuando un negocio responde una reseña que publicaste."
+            checked={user.notify_review_replies ?? true}
+            disabled={notifState.saving === "notify_review_replies"}
+            onChange={() => toggleNotification("notify_review_replies")}
+          />
+        </div>
+        <FormError message={notifState.error} />
       </section>
 
       <button

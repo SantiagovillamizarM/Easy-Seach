@@ -1,10 +1,11 @@
-import { ArrowLeft, CalendarClock, ExternalLink, Image, Info, Tag } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Image, Info, MessageSquare, Tag } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import HoursEditor from "../components/panel/HoursEditor.jsx";
 import InfoForm from "../components/panel/InfoForm.jsx";
 import OfferingsEditor from "../components/panel/OfferingsEditor.jsx";
 import PhotosEditor from "../components/panel/PhotosEditor.jsx";
+import ReviewsReplies from "../components/panel/ReviewsReplies.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 
@@ -13,6 +14,7 @@ const TABS = [
   { key: "horario", label: "Horario", icon: CalendarClock, Component: HoursEditor },
   { key: "productos", label: "Productos y servicios", icon: Tag, Component: OfferingsEditor },
   { key: "fotos", label: "Fotos", icon: Image, Component: PhotosEditor },
+  { key: "resenas", label: "Reseñas", icon: MessageSquare, Component: ReviewsReplies },
 ];
 
 export default function OwnerEditorPage() {
@@ -99,7 +101,7 @@ export default function OwnerEditorPage() {
               aria-selected={selected}
               aria-controls="panel-tab"
               onClick={() => setParams(t.key === "info" ? {} : { tab: t.key }, { replace: true })}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition sm:justify-start ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition last:col-span-2 sm:justify-start ${
                 selected ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-brand-50 hover:text-ink"
               }`}
             >

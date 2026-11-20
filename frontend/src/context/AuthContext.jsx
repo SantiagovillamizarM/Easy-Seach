@@ -74,8 +74,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(
-    async (email, password) => {
-      const res = await api.login(email, password);
+    async (email, password, captchaToken) => {
+      const res = await api.login(email, password, captchaToken);
       applySession({ token: res.access_token, user: res.user });
       return res.user;
     },

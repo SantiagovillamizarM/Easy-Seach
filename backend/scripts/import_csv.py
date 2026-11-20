@@ -1,13 +1,20 @@
 """Carga o completa establecimientos desde un archivo CSV (se puede editar en Excel).
 
 Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.import_csv data\\mis_negocios.csv --dry-run   # solo valida
-    .\\.venv\\Scripts\\python -m scripts.import_csv data\\mis_negocios.csv             # guarda
+    .\\.venv\\Scripts\\python -m scripts.import_csv                    # carga data\\locales_easysearch.csv
+    .\\.venv\\Scripts\\python -m scripts.import_csv --dry-run          # solo valida
+    .\\.venv\\Scripts\\python -m scripts.import_csv data\\otro.csv      # otro archivo
 
-- Si la columna `slug` tiene valor, se ACTUALIZA ese establecimiento (solo las columnas con datos).
-- Si `slug` está vacío, se CREA uno nuevo (requiere nombre, municipio, latitud y longitud).
-- `productos` y `servicios`, si tienen datos, REEMPLAZAN la lista actual. Formato: "Nombre:precio|Nombre:precio"
-  (el precio es opcional: "Despinche|Alineación:50000").
+Cómo se identifica cada fila (se puede ejecutar varias veces: nunca duplica):
+- `osm` (ej. "node/123456"): local que vino de OpenStreetMap. Es el identificador PERMANENTE: igual en
+  cualquier computadora. (El slug de un local de OSM puede cambiar según el orden de importación.)
+- `slug`: si existe, se ACTUALIZA; si no existe y la fila trae nombre, municipio, latitud y longitud,
+  se CREA con ese slug (así la próxima vez se actualiza en lugar de duplicarse).
+- Sin `osm` ni `slug`: se crea un local nuevo con un slug automático (evítalo en archivos compartidos).
+- Solo se cambian las columnas que tienen datos.
+- `productos` y `servicios`, si tienen datos, REEMPLAZAN la lista actual.
+  Formato: "#Sección|Nombre:precio:descripción|Nombre:precio" (sección, precio y descripción opcionales:
+  "Despinche|Alineación:50000"). "#Bebidas" agrupa en esa sección los productos que siguen.
 - `horario` usa el formato de OpenStreetMap, ej: "Mo-Fr 08:00-18:00; Sa 08:00-12:00; Su off".
 - Las filas con errores se informan y no se guardan; las demás sí.
 
@@ -15,6 +22,8 @@ Ver la guía completa en docs/CARGA_MANUAL.md
 """
 import argparse
 import csv
+import io
+import re
 import sys
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -31,14 +40,18 @@ from app.schemas.catalog import EstablishmentCreate, EstablishmentUpdate
 from app.services.catalog import apply_opening_hours_text
 from app.services.embeddings import get_embedder, sync_establishments
 
+DEFAULT_FILE = Path(__file__).resolve().parents[1] / "data" / "locales_easysearch.csv"
+_OSM_REF = re.compile(r"^(node|way|relation)/(\d+)$")
+
 COLUMNS = [
-    "slug", "nombre", "municipio", "latitud", "longitud", "direccion", "barrio", "descripcion", "categorias",
-    "telefono", "whatsapp", "sitio_web", "instagram", "facebook", "precio_min", "precio_max", "nivel_precio",
-    "horario", "productos", "servicios",
+    "osm", "slug", "nombre", "municipio", "latitud", "longitud", "direccion", "barrio", "descripcion", "categorias",
+    "telefono", "whatsapp", "correo", "sitio_web", "instagram", "facebook", "precio_min", "precio_max",
+    "nivel_precio", "horario", "productos", "servicios",
 ]
 FIELD_MAP = {  # columna CSV -> campo del modelo
     "nombre": "name", "latitud": "latitude", "longitud": "longitude", "direccion": "address",
     "barrio": "neighborhood", "descripcion": "description", "telefono": "phone", "whatsapp": "whatsapp",
+    "correo": "email",
     "sitio_web": "website", "instagram": "instagram", "facebook": "facebook", "precio_min": "price_min",
     "precio_max": "price_max", "nivel_precio": "price_level",
 }
@@ -48,23 +61,55 @@ class RowError(Exception):
     pass
 
 
+_PRICE_SLOT = re.compile(r"^\s*\$?\s*[\d][\d.,\s]*$|^\s*$")   # "22000", "$ 22.000" o vacío (precio omitido)
+_DECIMALS = re.compile(r"\d[.,]\d{1,2}\s*$")                     # "12500,50" o "9.5": no son pesos enteros
+
+
+def _split_offering(part: str) -> tuple[str, str, str]:
+    """'Nombre:precio:descripción' → (nombre, precio, descripción).
+
+    El precio es el PRIMER trozo después del nombre que parece un precio (o está vacío), así el nombre y la
+    descripción pueden tener ":" ("Combo: papas + gaseosa:15000", "Mensualidad:80000:Pagos: efectivo").
+    Sin ":" todo es el nombre. Con ":" pero sin ningún trozo que parezca precio ("Pizza:abc"), es un error de
+    escritura: para un nombre con ":" y sin precio, deja el precio vacío ("Combo: papas::").
+    """
+    pieces = part.split(":")
+    if len(pieces) == 1:
+        return part.strip(), "", ""
+    for i in range(1, len(pieces)):
+        if _PRICE_SLOT.match(pieces[i]):
+            return ":".join(pieces[:i]).strip(), pieces[i].strip(), ":".join(pieces[i + 1:]).strip()
+    raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
+
+
 def parse_offerings(text: str, kind: str) -> list[Offering]:
+    """"#Sección|Nombre:precio:descripción|Nombre:precio|Nombre" (precio y descripción opcionales).
+
+    "#Hamburguesas" marca la sección de los productos que siguen (agrupa la carta en pestañas).
+    La descripción puede llevar ":" (solo se separan los dos primeros), pero no "|".
+    """
     items = []
+    section = None
     for part in text.split("|"):
         part = part.strip()
         if not part:
             continue
-        name, _, price = part.rpartition(":") if ":" in part else (part, "", "")
-        name = name.strip()
+        if part.startswith("#"):
+            section = " ".join(part[1:].split())[:60] or None
+            continue
+        name, price, description = _split_offering(part)
         if len(name) < 2:
             raise RowError(f"Nombre de {kind} inválido: '{part}'")
         value = None
-        if price.strip():
+        if price:
+            if _DECIMALS.search(price):
+                raise RowError(f"Precio con decimales en '{part[:60]}': escribe pesos enteros (ej. 22000)")
             try:
-                value = Decimal(price.strip().replace(".", "").replace("$", "").replace(" ", ""))
+                value = Decimal(price.replace(".", "").replace(",", "").replace("$", "").replace(" ", ""))
             except InvalidOperation:
-                raise RowError(f"Precio inválido en '{part}' (usa solo números, ej. 22000)")
-        items.append(Offering(kind=kind, name=name[:200], price=value))
+                raise RowError(f"Precio inválido en '{part[:60]}' (usa solo números, ej. 22000)")
+        items.append(Offering(kind=kind, section=section, name=name[:200], price=value,
+                              description=description.strip()[:1000] or None))
     return items
 
 
@@ -87,12 +132,23 @@ def process_row(db, row: dict, municipalities: dict, categories: dict) -> tuple[
                 raise RowError(f"Categoría desconocida: '{slug.strip()}' (ver docs/CARGA_MANUAL.md)")
             cat_list.append(cat)
 
+    est = None
+    with_offerings = select(Establishment).options(selectinload(Establishment.offerings))
+    if values["osm"]:
+        ref = _OSM_REF.match(values["osm"].lower())
+        if ref is None:
+            raise RowError(f"Referencia OSM inválida: '{values['osm']}' (formato: node/123 o way/123)")
+        est = db.scalar(with_offerings.where(Establishment.osm_type == ref[1], Establishment.osm_id == int(ref[2])))
+        if est is None:
+            raise RowError(f"No existe el local de OpenStreetMap {values['osm']} (¿ya ejecutaste import_osm?)")
+    elif values["slug"]:
+        est = db.scalar(with_offerings.where(Establishment.slug == values["slug"]))
+        if est is None and not (values["nombre"] and values["municipio"] and values["latitud"] and values["longitud"]):
+            raise RowError(f"No existe '{values['slug']}'. Para crearlo, la fila necesita nombre, municipio, "
+                           "latitud y longitud")
+
     try:
-        if values["slug"]:
-            est = db.scalar(select(Establishment).options(selectinload(Establishment.offerings))
-                            .where(Establishment.slug == values["slug"]))
-            if est is None:
-                raise RowError(f"No existe un establecimiento con slug '{values['slug']}'")
+        if est is not None:
             validated = EstablishmentUpdate(**data).model_dump(exclude_unset=True)
             new_min = validated.get("price_min", est.price_min)
             new_max = validated.get("price_max", est.price_max)
@@ -104,10 +160,16 @@ def process_row(db, row: dict, municipalities: dict, categories: dict) -> tuple[
         else:
             validated = EstablishmentCreate(**data).model_dump(exclude={"category_ids"})
             est = Establishment(**validated)
-            base = slugify(f"{validated['name']} {muni.name}")
-            slug, n = base, 2
-            while db.scalar(select(Establishment.id).where(Establishment.slug == slug)):
-                slug, n = f"{base}-{n}", n + 1
+            if values["slug"]:
+                slug = slugify(values["slug"])  # slug fijo: la próxima carga actualiza en vez de duplicar
+                if slug != values["slug"]:
+                    raise RowError(f"Slug inválido '{values['slug']}': usa solo minúsculas, números y guiones "
+                                   f"(ej. '{slug}')")
+            else:
+                base = slugify(f"{validated['name']} {muni.name}")
+                slug, n = base, 2
+                while db.scalar(select(Establishment.id).where(Establishment.slug == slug)):
+                    slug, n = f"{base}-{n}", n + 1
             est.slug = slug
             db.add(est)
             action = "creado"
@@ -135,18 +197,32 @@ def process_row(db, row: dict, municipalities: dict, categories: dict) -> tuple[
     return action, est
 
 
+def read_rows(path: Path) -> list[dict]:
+    """Lee el CSV. Separador coma o punto y coma (Excel en español usa ";"); comillas dobles estándar.
+
+    No se usa csv.Sniffer: "adivinaba" mal las comillas con textos como "Garrotero's" y partía las
+    descripciones que tienen comas.
+    """
+    text = path.read_text(encoding="utf-8-sig")  # utf-8-sig: soporta archivos guardados por Excel
+    header = text.split("\n", 1)[0]
+    delimiter = ";" if header.count(";") > header.count(",") else ","
+    return list(csv.DictReader(io.StringIO(text), delimiter=delimiter))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Carga establecimientos desde CSV")
-    parser.add_argument("archivo", type=Path)
+    parser.add_argument("archivo", type=Path, nargs="?", default=DEFAULT_FILE,
+                        help="CSV a cargar (por defecto data/locales_easysearch.csv, el del proyecto)")
     parser.add_argument("--dry-run", action="store_true", help="Solo validar, no guardar nada")
     args = parser.parse_args()
 
     if not args.archivo.exists():
         sys.exit(f"No existe el archivo {args.archivo}")
-    text = args.archivo.read_text(encoding="utf-8-sig")  # utf-8-sig: soporta archivos guardados por Excel
-    dialect = csv.Sniffer().sniff(text.splitlines()[0], delimiters=",;")
-    rows = list(csv.DictReader(text.splitlines(), dialect=dialect))
-    missing = [c for c in ("slug", "nombre") if c not in (rows[0].keys() if rows else [])]
+    rows = read_rows(args.archivo)
+    if not rows:
+        print(f"{args.archivo.name} no tiene locales todavía (solo encabezados). Nada que cargar.")
+        return
+    missing = [c for c in ("slug", "nombre") if c not in rows[0].keys()]
     if missing:
         sys.exit(f"Faltan columnas en el CSV: {missing}. Usa la plantilla data/plantilla_establecimientos.csv")
 

@@ -2,10 +2,11 @@
 // Todas las peticiones van a /api (Vite las reenvía al backend en desarrollo).
 
 export class ApiError extends Error {
-  constructor(message, status, details) {
+  constructor(message, status, details, code = null) {
     super(message);
     this.status = status;
     this.details = details;
+    this.code = code; // cabecera X-Error-Code (ej. "guest_limit", "email_not_verified")
   }
 }
 
@@ -36,6 +37,8 @@ const FIELD_NAMES = {
   price_max: "Precio máximo",
   description: "Descripción",
   date: "Fecha",
+  code: "Código",
+  text: "Respuesta",
 };
 
 function errorMessage(status, body) {
@@ -81,7 +84,9 @@ async function request(path, { method = "GET", body, form, multipart, signal } =
   if (response.status === 401 && authToken && onUnauthorized) onUnauthorized();
   if (response.status === 204) return null;
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(errorMessage(response.status, data), response.status, data);
+  if (!response.ok) {
+    throw new ApiError(errorMessage(response.status, data), response.status, data, response.headers.get("X-Error-Code"));
+  }
   return data;
 }
 
@@ -93,12 +98,25 @@ export const api = {
   establishment: (slug, opts) => request(`/establishments/${encodeURIComponent(slug)}`, opts),
   categories: (opts) => request("/categories", opts),
   places: (params = {}, opts) => request(`/places?${new URLSearchParams(params)}`, opts),
+  traffic: (id, coords, opts) => request(`/establishments/${id}/traffic`, { method: "POST", body: coords, ...opts }),
   // Cuenta
-  login: (email, password) => request("/auth/login", { method: "POST", form: { username: email, password } }),
+  login: (email, password, captchaToken) =>
+    request("/auth/login", {
+      method: "POST",
+      form: { username: email, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) },
+    }),
   register: (data) => request("/auth/register", { method: "POST", body: data }),
+  captchaConfig: (opts) => request("/auth/captcha-config", opts),
+  verifyEmail: (code) => request("/auth/verify-email", { method: "POST", body: { code } }),
+  forgotPassword: (email, captchaToken) =>
+    request("/auth/forgot-password", { method: "POST", body: { email, captcha_token: captchaToken || null } }),
+  resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: data }),
+  resendCode: () => request("/auth/resend-code", { method: "POST" }),
   me: (opts) => request("/auth/me", opts),
   updateMe: (data) => request("/auth/me", { method: "PATCH", body: data }),
   changePassword: (data) => request("/auth/change-password", { method: "POST", body: data }),
+  updateNotifications: (data) => request("/auth/me/notifications", { method: "PATCH", body: data }),
+  unsubscribe: (token) => request("/auth/unsubscribe", { method: "POST", body: { token } }),
   // Favoritos e historial (del usuario con sesión)
   favorites: (opts) => request("/me/favorites", opts),
   favoriteIds: (opts) => request("/me/favorites/ids", opts),
@@ -116,6 +134,8 @@ export const api = {
   updateReview: (id, data) => request(`/reviews/${id}`, { method: "PATCH", body: data }),
   deleteReview: (id) => request(`/reviews/${id}`, { method: "DELETE" }),
   reportReview: (id, data = {}) => request(`/reviews/${id}/report`, { method: "POST", body: data }),
+  replyToReview: (id, text) => request(`/reviews/${id}/reply`, { method: "PUT", body: { text } }),
+  deleteReply: (id) => request(`/reviews/${id}/reply`, { method: "DELETE" }),
   // Perfiles comerciales
   createClaim: (establishmentId, data) =>
     request(`/establishments/${establishmentId}/claims`, { method: "POST", body: data }),
@@ -123,6 +143,7 @@ export const api = {
   // Panel comercial (propietario o admin)
   ownerEstablishments: (opts) => request("/owner/establishments", opts),
   ownerEstablishment: (id, opts) => request(`/owner/establishments/${id}`, opts),
+  ownerReviews: (id, params = {}, opts) => request(`/owner/establishments/${id}/reviews?${qs(params)}`, opts),
   updateEstablishment: (id, data) => request(`/establishments/${id}`, { method: "PATCH", body: data }),
   replaceHours: (id, slots) => request(`/establishments/${id}/hours`, { method: "PUT", body: { slots } }),
   addSpecialHours: (id, data) => request(`/establishments/${id}/special-hours`, { method: "POST", body: data }),

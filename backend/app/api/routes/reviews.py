@@ -5,38 +5,39 @@ Reglas:
 - Solo el autor puede editar su reseña; el autor o un administrador pueden eliminarla.
 - Un propietario no puede reseñar su propio establecimiento.
 - Solo las reseñas aprobadas son públicas y cuentan para la calificación.
+- El propietario del establecimiento (o un administrador) puede responder públicamente cada reseña aprobada.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_verified_user
 from app.core.rate_limit import limit_by_user
+from app.core.text import short_name
 from app.db.session import get_db
 from app.models import Establishment, Report, Review, User
-from app.schemas.review import MyReviewOut, ReportIn, ReviewIn, ReviewsPage
+from app.schemas.review import MyReviewOut, ReplyIn, ReportIn, ReviewIn, ReviewOut, ReviewsPage
 from app.services.llm import LLMProvider, get_llm
-from app.services.moderation import moderate, recalculate_rating
+from app.services.moderation import check_rules, moderate, recalculate_rating
+from app.services.notifications import notify_owner_new_review, notify_reviewer_reply
 
 router = APIRouter(tags=["reviews"])
 
 
-def _author_name(full_name: str) -> str:
-    """'Laura Patricia Gómez' -> 'Laura G.' (privacidad: no se muestra el nombre completo)."""
-    parts = full_name.split()
-    return parts[0] if len(parts) == 1 else f"{parts[0]} {parts[-1][0].upper()}."
-
-
-def _review_out(review: Review, author: User) -> dict:
+def review_out(review: Review, author: User) -> dict:
     return {
         "id": review.id,
         "rating": review.rating,
         "comment": review.comment,
-        "author": _author_name(author.full_name),
+        "author": short_name(author.full_name),
         "created_at": review.created_at,
         "edited": (review.updated_at - review.created_at).total_seconds() > 60,
         "status": review.status,
         "moderation_reason": review.moderation_reason,
+        "owner_reply": review.owner_reply,
+        "owner_reply_at": review.owner_reply_at if review.owner_reply else None,
     }
 
 
@@ -68,14 +69,14 @@ def list_reviews(
         "rating_count": est.rating_count,
         "distribution": distribution,
         "total": sum(distribution.values()),
-        "items": [_review_out(r, u) for r, u in rows],
+        "items": [review_out(r, u) for r, u in rows],
     }
 
 
 @router.get("/establishments/{establishment_id}/reviews/mine", response_model=MyReviewOut | None)
 def my_review(establishment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     review = db.scalar(select(Review).where(Review.establishment_id == establishment_id, Review.user_id == user.id))
-    return _review_out(review, user) if review else None
+    return review_out(review, user) if review else None
 
 
 @router.post("/establishments/{establishment_id}/reviews", response_model=MyReviewOut,
@@ -83,7 +84,8 @@ def my_review(establishment_id: int, user: User = Depends(get_current_user), db:
 def create_review(
     establishment_id: int,
     data: ReviewIn,
-    user: User = Depends(get_current_user),
+    background: BackgroundTasks,
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
 ):
@@ -102,7 +104,8 @@ def create_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
-    return _review_out(review, user)
+    notify_owner_new_review(db, review, background)   # solo si quedó publicada
+    return review_out(review, user)
 
 
 def _own_review(db: Session, review_id: int, user: User, allow_admin: bool = False) -> Review:
@@ -118,11 +121,13 @@ def _own_review(db: Session, review_id: int, user: User, allow_admin: bool = Fal
 def update_review(
     review_id: int,
     data: ReviewIn,
-    user: User = Depends(get_current_user),
+    background: BackgroundTasks,
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
 ):
     review = _own_review(db, review_id, user)
+    was_published = review.status == "approved"
     est = db.get(Establishment, review.establishment_id)
     # Toda edición se vuelve a moderar
     result = moderate(db, user_id=user.id, rating=data.rating, comment=data.comment,
@@ -133,7 +138,9 @@ def update_review(
     recalculate_rating(db, est)
     db.commit()
     db.refresh(review)
-    return _review_out(review, user)
+    if not was_published:   # editar una reseña que ya estaba publicada no genera otro correo
+        notify_owner_new_review(db, review, background)
+    return review_out(review, user)
 
 
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -147,9 +154,60 @@ def delete_review(review_id: int, user: User = Depends(get_current_user), db: Se
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# ------------------------------- Respuesta del propietario --------------------------------
+
+def _replyable_review(db: Session, review_id: int, user: User) -> Review:
+    """Solo el propietario de ESE establecimiento (o un admin) responde, y solo reseñas publicadas."""
+    review = db.get(Review, review_id)
+    if review is None or review.status != "approved":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Reseña no encontrada")
+    est = db.get(Establishment, review.establishment_id)
+    is_owner = user.role == "owner" and est is not None and est.owner_id == user.id
+    if user.role != "admin" and not is_owner:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Solo el propietario del negocio puede responder")
+    return review
+
+
+def _set_reply(db: Session, review: Review, text: str | None) -> None:
+    # updated_at se conserva: responder no es "editar" la reseña del cliente.
+    # Al borrar, owner_reply_at se conserva: indica que el cliente ya recibió el aviso de respuesta.
+    values = {"owner_reply": text, "updated_at": Review.updated_at}
+    if text:
+        values["owner_reply_at"] = datetime.now(timezone.utc)
+    db.execute(update(Review).where(Review.id == review.id).values(**values))
+    db.commit()
+    db.refresh(review)
+
+
+@router.put("/reviews/{review_id}/reply", response_model=ReviewOut,
+            dependencies=[Depends(limit_by_user("review-replies", 30, 3600))])
+def reply_to_review(review_id: int, data: ReplyIn, background: BackgroundTasks,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Crea o edita la respuesta pública. Se publica de inmediato si pasa las reglas básicas (sin groserías,
+    enlaces, teléfonos ni mayúsculas sostenidas): el propietario ya fue verificado al aprobar su perfil.
+    La primera respuesta le llega por correo al autor de la reseña."""
+    review = _replyable_review(db, review_id, user)
+    problem = check_rules(data.text)
+    if problem:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=problem.replace("La reseña", "La respuesta")
+                            .replace("Las reseñas", "Las respuestas").replace("toda la reseña", "toda la respuesta"))
+    first_reply = review.owner_reply_at is None   # nunca respondida (borrar y volver a responder no cuenta)
+    _set_reply(db, review, data.text)
+    if first_reply:   # editar la respuesta no vuelve a escribirle al cliente
+        notify_reviewer_reply(db, review, background)
+    return review_out(review, db.get(User, review.user_id))
+
+
+@router.delete("/reviews/{review_id}/reply", status_code=status.HTTP_204_NO_CONTENT)
+def delete_reply(review_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    review = _replyable_review(db, review_id, user)
+    _set_reply(db, review, None)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/reviews/{review_id}/report", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(limit_by_user("reports", 20, 3600))])
-def report_review(review_id: int, data: ReportIn, user: User = Depends(get_current_user),
+def report_review(review_id: int, data: ReportIn, user: User = Depends(get_verified_user),
                   db: Session = Depends(get_db)) -> dict:
     """Cualquier usuario puede reportar una reseña inapropiada. Un reporte por usuario y reseña."""
     review = db.get(Review, review_id)

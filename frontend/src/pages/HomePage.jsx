@@ -1,6 +1,7 @@
 import { ArrowRight, Coffee, MapPinned, MessageSquareText, Pill, ShieldCheck, Sparkles, Utensils, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
 import SearchBar from "../components/SearchBar.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const EXAMPLES = [
   "Quiero comer una hamburguesa en Piedecuesta",
@@ -35,6 +36,7 @@ const STEPS = [
 ];
 
 export default function HomePage() {
+  const { user } = useAuth();
   return (
     <>
       <section className="hero-mesh">
@@ -54,6 +56,14 @@ export default function HomePage() {
           <div className="mt-8 w-full text-left">
             <SearchBar autoFocus />
           </div>
+          {!user && (
+            <p className="mt-3 text-sm text-ink-soft">
+              Pruébalo sin cuenta con unas búsquedas gratis. Para buscar sin límites,{" "}
+              <Link to="/registro?next=%2F" className="font-semibold text-brand-700 hover:underline">crea tu cuenta en 1 minuto</Link>
+              {" "}o{" "}
+              <Link to="/ingresar" className="font-semibold text-brand-700 hover:underline">inicia sesión</Link>.
+            </p>
+          )}
 
           <div className="mt-6 w-full">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">Prueba con</p>
@@ -109,7 +119,7 @@ export default function HomePage() {
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-open" aria-hidden="true" />
           <p className="text-sm text-ink">
             <strong>Información real, sin inventos.</strong> Si no conocemos el precio o el horario de un lugar, te lo
-            decimos. Tu ubicación solo se usa para la búsqueda y nunca se guarda.
+            decimos. Tu ubicación solo se usa para la búsqueda y los avisos de trancón, y nunca se guarda.
           </p>
         </div>
       </section>

@@ -9,6 +9,14 @@ from app.services.llm import LLMError
 from app.services.query_parser import extract_budget, parse_query, parse_with_rules
 from tests.conftest import _make_user, _token
 
+
+@pytest.fixture(autouse=True)
+def _logged_in(request):
+    """La búsqueda exige sesión con correo confirmado: toda prueba que use el cliente inicia sesión."""
+    if "client" in request.fixturenames:
+        request.getfixturevalue("searcher")
+
+
 # ------------------------------- Intérprete por reglas -----------------------------------
 
 
@@ -29,6 +37,19 @@ def test_rules_near_me_vs_near_a_place():
     assert parse_with_rules("algo rico cerca de mi").near_me is True
     assert parse_with_rules("pizza cerca").near_me is True
     assert parse_with_rules("bar cerca de Cabecera").near_me is False
+
+
+def test_rules_understand_new_business_types():
+    """Fase 9: gimnasios, motos, hoteles, bancos, educación, comidas… (y "giro" no confunde a Girón)."""
+    cases = {"un gym en floridablanca": "gimnasios", "donde comprar una moto": "motos",
+             "hotel barato en bucaramanga": "hoteles", "cajero automatico": "bancos",
+             "almuerzo ejecutivo cerca": "restaurantes", "cerrajero urgente": "oficios",
+             "clases de ingles": "educacion", "un abogado laboral": "servicios-profesionales",
+             "cine en cabecera": "entretenimiento"}
+    for query, slug in cases.items():
+        assert slug in parse_with_rules(query).category_slugs, query
+    assert "bancos" not in parse_with_rules("pizza en girón").category_slugs
+    assert "bancos" in parse_with_rules("hacer un giro a bogota").category_slugs
 
 
 def test_rules_keywords_match_only_at_word_start():
@@ -138,6 +159,26 @@ def _names(response):
     return [r["name"] for r in response.json()["results"]]
 
 
+def test_nothing_mentions_the_product_gives_honest_notice(client, world):
+    """Buscar "pizza" donde ningún lugar la menciona: solo resultados relacionados y un aviso (Fase 9)."""
+    body = client.post("/api/search", json={"q": "pizza en Piedecuesta"}).json()
+    assert body["results"], "se muestran opciones de comida rápida relacionadas"
+    assert all(r["relevance"] == "relacionada" for r in body["results"])
+    assert any("Ningún lugar en Piedecuesta menciona «pizza»" in n for n in body["notices"])
+    assert all(r["matched_text"] is None for r in body["results"])   # sin "Coincide: …" engañoso
+    # Cuando sí se menciona, la relevancia es alta y no hay aviso
+    body = client.post("/api/search", json={"q": "hamburguesas en Piedecuesta"}).json()
+    assert body["results"][0]["relevance"] == "alta"
+    assert not any("Ningún lugar" in n for n in body["notices"])
+
+
+def test_matched_snippet_requires_the_searched_word():
+    from app.services.search import _matched_snippet
+    content = "Producto: Picada clásica (2 personas) (Picadas). Ofrecido por Garrotero's Pub."
+    assert _matched_snippet("offering", content, ["pizza"]) is None
+    assert _matched_snippet("offering", content, ["picadas"]) == "Producto: Picada clásica (2 personas) (Picadas)"
+
+
 def test_search_filters_by_written_location(client, world):
     r = client.post("/api/search", json={"q": "quiero una hamburguesa en Piedecuesta"})
     assert r.status_code == 200
@@ -201,5 +242,67 @@ def test_search_validation(client):
 
 
 def test_semantic_preview_is_admin_only(client, admin_headers):
-    assert client.get("/api/semantic-preview", params={"q": "pizza"}).status_code == 401
+    # El cliente tiene la sesión de un usuario normal (fixture automática): no es admin → 403
+    assert client.get("/api/semantic-preview", params={"q": "pizza"}).status_code == 403
     assert client.get("/api/semantic-preview", params={"q": "pizza"}, headers=admin_headers).status_code == 200
+
+
+def test_specific_keywords_and_business_types():
+    """Fase 9: "pizza" es un producto concreto; "bar" o "montallantas" son tipos de negocio; "grandes" no cuenta."""
+    from app.services.search import _is_business_type, _specific_keywords
+    assert _is_business_type("bar") and _is_business_type("montallantas") and _is_business_type("droguería")
+    assert not _is_business_type("pizza") and not _is_business_type("frenos")
+    assert _specific_keywords(["pizzerias", "pizzas", "grandes"]) == ["pizzerias", "pizzas"]
+    assert _specific_keywords(["bar", "tomar", "cerveza"]) == ["cerveza"]
+
+
+def test_relevance_rules():
+    from app.services.search import _mentions, _relevance
+    assert _mentions("Lis Burger", ["hamburguesas"])               # sinónimo en inglés
+    assert _mentions("Unifrenos", ["frenos"]) and not _mentions("Picada clásica", ["pizza"])
+    # Producto sin tipo de negocio ("pizza"): solo lo que lo menciona es "alta"
+    assert _relevance(False, True, False, True, False, False) == "relacionada"
+    assert _relevance(False, True, True, True, False, False) == "alta"
+    # Con tipo de negocio ("bar para tomar cerveza"): manda la categoría
+    assert _relevance(False, True, False, True, True, False) == "alta"
+    # Nadie lo menciona: todo es aproximado
+    assert _relevance(True, True, False, True, False, True) == "relacionada"
+
+
+def test_rules_understand_local_food_words():
+    """Encontrado al buscar "pollerías en Girón": comida típica y de barrio que no se reconocía."""
+    for query in ["pollerias giron", "lechona", "cabro", "pepitoria", "piqueteadero", "picadas", "bandeja paisa",
+                  "broaster", "alitas", "ceviche", "shawarma", "pandebono"]:
+        assert set(parse_with_rules(query).category_slugs) & {"restaurantes", "comida-rapida", "panaderias"}, query
+    assert parse_with_rules("discoteca").category_slugs == ["bares"]
+    assert parse_with_rules("jugar billar").category_slugs == ["entretenimiento"]
+    assert parse_with_rules("carniceria").category_slugs == ["mercados-tiendas"]
+
+
+def test_polleria_matches_chicken_places():
+    from app.services.search import _mentions
+    assert _mentions("Pollo Asado", ["pollerias"]) and _mentions("Broaster El Rey", ["polleria"])
+    assert _mentions("Pollería La Granja", ["pollo"])
+    assert not _mentions("Hamburgo 1718", ["pollerias"])
+
+
+def test_far_notice_only_when_searching_near_me(client, world):
+    """Con GPS activo pero escribiendo el lugar ("en Bucaramanga"), no se dice "cerca de ti no hay…"."""
+    gps = {"latitude": 6.9879, "longitude": -73.0503}   # Piedecuesta, a ~16 km de Bucaramanga
+    body = client.post("/api/search", json={"q": "hamburguesas en Bucaramanga", **gps}).json()
+    assert body["location"]["source"] == "texto"
+    assert not any("Cerca de ti" in n for n in body["notices"])
+
+
+def test_mention_beats_maximum_gps_proximity():
+    """Con GPS el bono por cercanía llega a 3.0 UNIT: lo que SÍ vende lo buscado debe pesar más."""
+    from app.services.search import MENTION_BOOST
+    assert MENTION_BOOST > 2.0 + 1.0
+
+
+def test_multi_word_keywords_are_found():
+    """La IA a veces devuelve frases ("comida china"): antes nunca coincidían con nada."""
+    from app.services.search import _mentions
+    assert _mentions("Restaurante Comida China Wok", ["comida china"])
+    assert _mentions("Bandejas paisas y frijoladas", ["bandeja paisa"])
+    assert not _mentions("Comida rápida El Paisa", ["comida china"])

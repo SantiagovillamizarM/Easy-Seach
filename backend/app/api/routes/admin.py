@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import Date, cast, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -32,6 +32,7 @@ from app.schemas.admin import DuplicateDismissIn, EstablishmentAdminUpdate, Revi
 from app.schemas.owner import AdminClaimOut, ClaimDecision
 from app.services.catalog import LOAD_OPTIONS, to_summary
 from app.services.moderation import recalculate_rating
+from app.services.notifications import notify_owner_new_review
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_roles("admin"))])
 
@@ -193,9 +194,16 @@ def _decide_review(db: Session, review_id: int, admin: User, new_status: str, re
 
 
 @router.post("/reviews/{review_id}/approve")
-def approve_review(review_id: int, admin: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    """Publica la reseña. Si tenía reportes, se descartan (el moderador decidió que es aceptable)."""
-    return _decide_review(db, review_id, admin, "approved", None, "dismissed")
+def approve_review(review_id: int, background: BackgroundTasks, admin: User = Depends(require_roles("admin")),
+                   db: Session = Depends(get_db)):
+    """Publica la reseña. Si tenía reportes, se descartan (el moderador decidió que es aceptable).
+    Si estaba en revisión, el propietario recibe el aviso de reseña nueva."""
+    review = db.get(Review, review_id)
+    was_published = review is not None and review.status == "approved"
+    result = _decide_review(db, review_id, admin, "approved", None, "dismissed")
+    if not was_published:
+        notify_owner_new_review(db, db.get(Review, review_id), background)
+    return result
 
 
 @router.post("/reviews/{review_id}/reject")

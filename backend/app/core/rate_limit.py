@@ -50,6 +50,12 @@ class RateLimiter:
                 return max(1, math.ceil(recent[0] + window - now))
             return None
 
+    def count(self, key: str, window: float) -> int:
+        """Cuántos intentos hay dentro de la ventana (solo consulta)."""
+        now = time.monotonic()
+        with self._lock:
+            return sum(1 for t in self._hits.get(key, ()) if t > now - window)
+
     def record(self, key: str) -> None:
         """Suma un intento sin comprobar el límite (p. ej. un login fallido)."""
         with self._lock:

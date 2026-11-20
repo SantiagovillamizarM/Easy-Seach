@@ -17,3 +17,11 @@ def slugify(text: str, max_length: int = 80) -> str:
     """'Hamburguesas El Corral – Cabecera' -> 'hamburguesas-el-corral-cabecera'"""
     slug = re.sub(r"[^a-z0-9]+", "-", normalize(text)).strip("-")
     return slug[:max_length].rstrip("-") or "sin-nombre"
+
+
+def short_name(full_name: str) -> str:
+    """'Laura Patricia Gómez' -> 'Laura G.' (privacidad: en público no se muestra el nombre completo)."""
+    parts = full_name.split()
+    if not parts:
+        return "Usuario"
+    return parts[0] if len(parts) == 1 else f"{parts[0]} {parts[-1][0].upper()}."

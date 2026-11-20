@@ -42,6 +42,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return _user_from_token(token, db)
 
 
+def get_verified_user(user: User = Depends(get_current_user)) -> User:
+    """Exige una cuenta con el correo confirmado (búsqueda, IA, reseñas, solicitudes).
+
+    Evita que robots o cuentas falsas consuman la cuota de la IA o publiquen spam.
+    """
+    if not user.email_verified:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Confirma tu correo para continuar. Revisa tu bandeja de entrada.",
+                            headers={"X-Error-Code": "email_not_verified"})
+    return user
+
+
 def get_optional_user(
     token: str | None = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)
 ) -> User | None:

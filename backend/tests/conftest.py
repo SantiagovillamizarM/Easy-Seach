@@ -7,8 +7,14 @@ deshace al final, así las pruebas no dependen unas de otras.
 import hashlib
 import math
 import os
+from datetime import datetime, timezone
 
 os.environ["APP_ENV"] = "test"  # evita precargar el modelo real de embeddings durante las pruebas
+# Las pruebas nunca llaman a Cloudflare ni envían correos reales, aunque el .env tenga las claves
+os.environ["TURNSTILE_SITE_KEY"] = ""
+os.environ["TURNSTILE_SECRET_KEY"] = ""
+os.environ["SMTP_HOST"] = ""
+os.environ["TOMTOM_API_KEY"] = ""   # ni a TomTom (tráfico)
 
 import pytest  # noqa: E402
 from alembic import command
@@ -26,6 +32,7 @@ from app.main import app
 from app.models import User
 from app.services.embeddings import get_embedder
 from app.services.llm import get_llm
+from app.services.traffic import get_traffic_provider
 
 BACKEND_DIR = ROOT_DIR / "backend"
 
@@ -115,13 +122,15 @@ def client(db, fake_embedder):
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
     app.dependency_overrides[get_llm] = lambda: None  # las pruebas NUNCA llaman a la IA real
+    app.dependency_overrides[get_traffic_provider] = lambda: None  # ni al servicio de tráfico
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
 
 
-def _make_user(db, email: str, role: str, password: str = "clave1234") -> User:
-    user = User(email=email, password_hash=hash_password(password), full_name=f"Prueba {role}", role=role)
+def _make_user(db, email: str, role: str, password: str = "clave1234", verified: bool = True) -> User:
+    user = User(email=email, password_hash=hash_password(password), full_name=f"Prueba {role}", role=role,
+                email_verified_at=datetime.now(timezone.utc) if verified else None)
     db.add(user)
     db.flush()
     return user
@@ -137,6 +146,14 @@ def _token(client, email: str, password: str = "clave1234") -> str:
 def user_headers(client, db):
     _make_user(db, "usuario@test.com", "user")
     return {"Authorization": f"Bearer {_token(client, 'usuario@test.com')}"}
+
+
+@pytest.fixture()
+def searcher(client, db):
+    """Cliente con sesión de un usuario confirmado: la búsqueda y la IA lo exigen."""
+    _make_user(db, "sesion@test.com", "user")
+    client.headers["Authorization"] = f"Bearer {_token(client, 'sesion@test.com')}"
+    return client
 
 
 @pytest.fixture()

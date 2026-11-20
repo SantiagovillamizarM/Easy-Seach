@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, auth, catalog, health, me, owner, reviews, search
+from app.api.routes import admin, auth, catalog, health, me, owner, reviews, search, traffic
 from app.core.config import get_settings
 from app.services.photos import PUBLIC_PREFIX, upload_root
 
@@ -83,6 +83,7 @@ app.add_middleware(
     allow_credentials=False,  # la sesión viaja en la cabecera Authorization, no en cookies
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["X-Error-Code", "Retry-After"],   # el frontend distingue p. ej. "guest_limit"
 )
 
 # Todas las rutas de la API viven bajo /api
@@ -94,6 +95,7 @@ app.include_router(search.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
 app.include_router(reviews.router, prefix="/api")
 app.include_router(owner.router, prefix="/api")
+app.include_router(traffic.router, prefix="/api")
 
 # Fotos subidas por propietarios (archivos ya validados y re-codificados como WebP)
 app.mount(PUBLIC_PREFIX, StaticFiles(directory=upload_root()), name="uploads")

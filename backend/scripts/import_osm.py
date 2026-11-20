@@ -23,9 +23,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.text import normalize, slugify
-from app.data.categories import categories_for_tags, ensure_categories
+from app.data.categories import CATEGORIES, categories_for_tags, ensure_categories
 from app.db.session import SessionLocal
-from app.models import Establishment, Place
+from app.models import DuplicateDismissal, Establishment, Place
+from app.services.places import haversine_km
 from app.services.catalog import apply_opening_hours_text
 
 # Municipios del área metropolitana de Bucaramanga: nombre -> id de la relación administrativa en OSM
@@ -40,19 +41,26 @@ DEPARTMENT = "Santander"
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "osm_cache"
 USER_AGENT = "EasySearch/0.1 (proyecto academico; importacion de datos OSM)"
 
-AMENITIES = (
-    "restaurant|fast_food|cafe|bar|pub|nightclub|biergarten|ice_cream|food_court|pharmacy|fuel|"
-    "car_wash|veterinary|clinic|doctors|dentist|hospital"
-)
+def _wanted_values(key: str) -> str:
+    """Valores de una etiqueta OSM ("amenity", "leisure"…) que usa alguna categoría, como regex "a|b|c".
+    Así la descarga siempre coincide con las categorías: agregar un tipo en categories.py basta."""
+    values = sorted({v for _n, _d, mapping in CATEGORIES.values() for v in mapping.get(key, set())})
+    return "|".join(values)
+
+
+# shop y craft se descargan completos (cualquier comercio u oficio con nombre); el resto, solo lo que usamos
+FILTERED_KEYS = ("amenity", "leisure", "tourism", "office", "healthcare")
 
 
 def build_query(relation_id: int) -> str:
     area_id = 3_600_000_000 + relation_id  # convención de Overpass para convertir relación en área
+    filtered = "\n".join(f'  nwr(area.a)["name"]["{key}"~"^({_wanted_values(key)})$"];'
+                         for key in FILTERED_KEYS if _wanted_values(key))
     return f"""
-[out:json][timeout:180];
+[out:json][timeout:240];
 area({area_id})->.a;
 (
-  nwr(area.a)["name"]["amenity"~"^({AMENITIES})$"];
+{filtered}
   nwr(area.a)["name"]["shop"];
   nwr(area.a)["name"]["craft"];
 );
@@ -185,7 +193,7 @@ def import_municipality(db: Session, name: str, relation_id: int, refresh: bool,
         tags = el.get("tags", {})
         position = coords(el)
         slugs = categories_for_tags(tags)
-        if position is None or not slugs:
+        if position is None or not slugs or not useful_name(tags.get("name", "")):
             skipped += 1
             continue
 
@@ -221,9 +229,72 @@ def import_municipality(db: Session, name: str, relation_id: int, refresh: bool,
             est.opening_hours = []
         db.flush()
 
+    hidden = hide_unmatched(db, municipality.id)
+    duplicates = mark_duplicates(db, municipality.id)
     print(f"  Barrios: {barrios} | Establecimientos nuevos: {created}, actualizados: {updated}, "
-          f"omitidos: {skipped}")
-    return {"created": created, "updated": updated, "skipped": skipped, "barrios": barrios}
+          f"omitidos: {skipped}, ocultados: {hidden}, duplicados: {duplicates}")
+    return {"created": created, "updated": updated, "skipped": skipped, "barrios": barrios, "hidden": hidden,
+            "duplicates": duplicates}
+
+
+DUPLICATE_METERS = 60
+
+
+def _richness(est: Establishment) -> tuple:
+    """El que se conserva: primero el editado a mano, luego el que tenga más datos, luego el más antiguo."""
+    filled = sum(bool(x) for x in (est.phone, est.website, est.description, est.opening_hours, est.address,
+                                   est.offerings))
+    return est.source != "osm" or est.owner_id is not None, filled, -est.id
+
+
+def mark_duplicates(db: Session, municipality_id: int) -> int:
+    """Marca como duplicado el mismo lugar dibujado varias veces en OSM: mismo nombre a menos de 60 m (ej. una
+    Terpel con cada isla de surtidores dibujada aparte, o un local como punto y como edificio).
+
+    Solo se marcan locales de OSM sin dueño; nunca uno editado o reclamado por un propietario, ni un par que un
+    admin ya revisó y confirmó que NO son el mismo (panel admin → Duplicados → "No son duplicados")."""
+    ests = list(db.scalars(select(Establishment).where(Establishment.municipality_id == municipality_id,
+                                                       Establishment.status == "active")))
+    dismissed = {(d.establishment_a_id, d.establishment_b_id) for d in db.scalars(select(DuplicateDismissal))}
+    groups: dict[str, list[Establishment]] = {}
+    for est in ests:
+        groups.setdefault(normalize(est.name), []).append(est)
+
+    marked = 0
+    for group in groups.values():
+        kept: list[Establishment] = []
+        for est in sorted(group, key=_richness, reverse=True):
+            original = next((k for k in kept
+                             if haversine_km(est.latitude, est.longitude, k.latitude, k.longitude) * 1000
+                             < DUPLICATE_METERS
+                             and (min(est.id, k.id), max(est.id, k.id)) not in dismissed), None)
+            if original is not None and est.source == "osm" and est.owner_id is None:
+                est.status, est.duplicate_of_id = "duplicate", original.id
+                marked += 1
+            else:
+                kept.append(est)
+    db.flush()
+    return marked
+
+
+def useful_name(name: str) -> bool:
+    """Una sola letra ("G", "K") es un bloque de un campus, no un negocio. "D1" sí es válido."""
+    return len(name.strip()) >= 2
+
+
+def hide_unmatched(db: Session, municipality_id: int) -> int:
+    """Oculta los locales de OSM que ya no se importarían: sin categoría (ej. colegios, que se dejaron de
+    importar) o con nombre inútil. Los editados o reclamados por un propietario no se tocan, y nada se borra."""
+    hidden = 0
+    for est in db.scalars(select(Establishment).where(Establishment.municipality_id == municipality_id,
+                                                      Establishment.source == "osm",
+                                                      Establishment.owner_id.is_(None),   # reclamado: no se toca
+                                                      Establishment.status == "active")):
+        if not categories_for_tags(est.osm_tags or {}) or not useful_name(est.name):
+            est.status = "hidden"
+            hidden += 1
+    db.flush()
+    return hidden
 
 
 def main() -> None:
@@ -236,14 +307,15 @@ def main() -> None:
     db = SessionLocal()
     try:
         categories = ensure_categories(db)
-        totals = {"created": 0, "updated": 0, "skipped": 0, "barrios": 0}
+        totals = {"created": 0, "updated": 0, "skipped": 0, "barrios": 0, "hidden": 0, "duplicates": 0}
         for name, relation_id in targets.items():
             result = import_municipality(db, name, relation_id, args.refresh, categories)
             db.commit()  # se guarda municipio por municipio
             for k in totals:
                 totals[k] += result[k]
         print(f"\nTOTAL → nuevos: {totals['created']}, actualizados: {totals['updated']}, "
-              f"omitidos: {totals['skipped']}, barrios: {totals['barrios']}")
+              f"omitidos: {totals['skipped']}, barrios: {totals['barrios']}, ocultados: {totals['hidden']}, "
+              f"duplicados: {totals['duplicates']}")
         print("Siguiente paso: generar los embeddings con  python -m scripts.reindex_embeddings")
     except Exception as exc:
         db.rollback()

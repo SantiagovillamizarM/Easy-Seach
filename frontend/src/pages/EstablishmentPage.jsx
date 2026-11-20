@@ -16,12 +16,13 @@ import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import FavoriteButton from "../components/FavoriteButton.jsx";
 import HoursBadge from "../components/HoursBadge.jsx";
+import OfferingsMenu from "../components/OfferingsMenu.jsx";
 import OwnerClaimCard from "../components/OwnerClaimCard.jsx";
 import ReviewsSection from "../components/ReviewsSection.jsx";
+import TrafficNotice from "../components/TrafficNotice.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
 import {
-  formatPrice,
   formatPriceRange,
   formatTime,
   instagramUrl,
@@ -114,8 +115,6 @@ export default function EstablishmentPage() {
   const schedule = weeklySchedule(est.opening_hours);
   const todayIndex = (new Date().getDay() + 6) % 7; // JS: 0 = domingo → nuestro 0 = lunes
   const wa = whatsappNumber(est.whatsapp);
-  const products = est.offerings.filter((o) => o.kind === "product");
-  const services = est.offerings.filter((o) => o.kind === "service");
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${est.latitude},${est.longitude}`;
 
   return (
@@ -144,7 +143,7 @@ export default function EstablishmentPage() {
             <span className="inline-flex items-center gap-1 font-semibold text-ink">
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
               {Number(est.rating_avg).toFixed(1)}
-              <span className="font-normal text-ink-soft">({est.rating_count} reseñas)</span>
+              <span className="font-normal text-ink-soft">({est.rating_count} {est.rating_count === 1 ? "reseña" : "reseñas"})</span>
             </span>
           ) : (
             <span>Sin reseñas todavía</span>
@@ -168,6 +167,8 @@ export default function EstablishmentPage() {
           <ActionLink href={safeExternalUrl(est.website)} icon={Globe}>Sitio web</ActionLink>
           <ActionLink href={instagramUrl(est.instagram)} icon={AtSign}>Instagram</ActionLink>
         </div>
+
+        <TrafficNotice establishmentId={est.id} />
       </header>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -180,33 +181,7 @@ export default function EstablishmentPage() {
             )}
           </Section>
 
-          {(products.length > 0 || services.length > 0) && (
-            <Section title="Productos y servicios" icon={Tag}>
-              {[
-                { title: "Productos", items: products },
-                { title: "Servicios", items: services },
-              ]
-                .filter((g) => g.items.length > 0)
-                .map((group) => (
-                  <div key={group.title} className="mb-4 last:mb-0">
-                    <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-soft">{group.title}</h3>
-                    <ul className="divide-y divide-line">
-                      {group.items.map((o) => (
-                        <li key={o.id} className="flex items-start justify-between gap-4 py-2.5">
-                          <div>
-                            <p className="text-sm font-semibold">{o.name}</p>
-                            {o.description && <p className="text-xs text-ink-soft">{o.description}</p>}
-                          </div>
-                          <span className="shrink-0 text-sm font-semibold">
-                            {formatPrice(o.price) ?? <span className="font-normal italic text-ink-soft">Sin precio</span>}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-            </Section>
-          )}
+          {est.offerings.length > 0 && <OfferingsMenu offerings={est.offerings} />}
 
           {est.photos.length > 0 && (
             <Section title="Fotos">

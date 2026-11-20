@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
-import { LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
+import { ForgotPasswordPage, LoginPage, RegisterPage } from "./pages/AuthPages.jsx";
 import EstablishmentPage from "./pages/EstablishmentPage.jsx";
 import FavoritesPage from "./pages/FavoritesPage.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
@@ -12,6 +12,8 @@ import OwnerEditorPage from "./pages/OwnerEditorPage.jsx";
 import OwnerPanelPage from "./pages/OwnerPanelPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import ResultsPage from "./pages/ResultsPage.jsx";
+import UnsubscribePage from "./pages/UnsubscribePage.jsx";
+import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 
 // Panel administrativo: se descarga solo cuando un administrador entra (no pesa para los demás usuarios)
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
@@ -35,10 +37,14 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="buscar" element={<ResultsPage />} />
+        {/* Buscar exige cuenta con correo confirmado: protege la cuota de la IA frente a robots */}
+        <Route path="buscar" element={<RequireAuth verified guestAllowed><ResultsPage /></RequireAuth>} />
+        <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
         <Route path="lugar/:slug" element={<EstablishmentPage />} />
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />
+        <Route path="recuperar" element={<ForgotPasswordPage />} />
+        <Route path="correos/baja" element={<UnsubscribePage />} />
         <Route path="perfil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="favoritos" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="historial" element={<RequireAuth><HistoryPage /></RequireAuth>} />

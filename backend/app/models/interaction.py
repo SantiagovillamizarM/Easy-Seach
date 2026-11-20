@@ -69,6 +69,9 @@ class Review(TimestampMixin, Base):
     comment: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
     moderation_reason: Mapped[str | None] = mapped_column(String(300))
+    # Respuesta pública del propietario del establecimiento (una por reseña; se puede editar o borrar)
+    owner_reply: Mapped[str | None] = mapped_column(Text)
+    owner_reply_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Report(TimestampMixin, Base):

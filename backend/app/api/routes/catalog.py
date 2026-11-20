@@ -47,7 +47,7 @@ def to_detail(est: Establishment) -> dict:
         "website": est.website, "instagram": est.instagram, "facebook": est.facebook,
         "timezone": est.timezone, "hours_verified_at": est.hours_verified_at, "source": est.source,
         "owner_id": est.owner_id,
-        "offerings": [o for o in est.offerings if o.is_available],
+        "offerings": sorted((o for o in est.offerings if o.is_available), key=lambda o: o.id),  # orden de la carta
         "photos": est.photos,
         "opening_hours": sorted(est.opening_hours, key=lambda h: (h.day_of_week, h.opens_at)),
         "special_hours": sorted((s for s in est.special_hours if s.date >= today), key=lambda s: s.date),

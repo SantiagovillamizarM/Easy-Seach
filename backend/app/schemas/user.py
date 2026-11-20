@@ -21,6 +21,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=2, max_length=120)
+    captcha_token: str | None = Field(None, max_length=2048, description="Token de Cloudflare Turnstile")
 
     @field_validator("email")
     @classmethod
@@ -38,6 +39,36 @@ class UserCreate(BaseModel):
         return check_password(v)
 
 
+class VerifyEmailIn(BaseModel):
+    code: str = Field(pattern=r"^\s*\d{6}\s*$", description="Código de 6 dígitos enviado al correo")
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+    captcha_token: str | None = Field(None, max_length=2048, description="Token de Cloudflare Turnstile")
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ResetPasswordIn(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\s*\d{6}\s*$", description="Código de 6 dígitos enviado al correo")
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return check_password(v)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,7 +77,20 @@ class UserOut(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    email_verified: bool = False
     created_at: datetime
+    notify_new_reviews: bool = True       # aviso al dueño: le publicaron una reseña
+    notify_review_replies: bool = True    # aviso al cliente: el negocio respondió su reseña
+
+
+class NotificationPrefs(BaseModel):
+    """Solo se cambian los campos enviados."""
+    notify_new_reviews: bool | None = None
+    notify_review_replies: bool | None = None
+
+
+class UnsubscribeIn(BaseModel):
+    token: str = Field(min_length=10, max_length=120)
 
 
 class Token(BaseModel):
