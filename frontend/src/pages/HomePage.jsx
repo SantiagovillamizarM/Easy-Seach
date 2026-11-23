@@ -109,6 +109,7 @@ export default function HomePage() {
         <div className="hero-grain" aria-hidden="true" />
       </div>
       <StarField canvasClassName="home-sky-stars" />
+      <div className="home-sky-blend" aria-hidden="true" />
       <Hero />
       <div className="space-to-light">
         <Shortcuts />

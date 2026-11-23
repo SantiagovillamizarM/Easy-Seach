@@ -231,7 +231,7 @@
 
 /* Un solo lienzo recorre el hero y el degradado bajo los accesos rápidos. */
 .home-sky {
-  --fade-len: 20rem;
+  --fade-len: 24rem;
   position: relative;
   isolation: isolate;
   display: grid;
@@ -253,12 +253,16 @@
     linear-gradient(
         180deg,
         #0a0f1f 0%,
-        #0d1328 12%,
-        #171c3d 26%,
-        #30356a 42%,
-        #6a6ea8 58%,
-        #a6a9d4 72%,
-        #dcdeef 86%,
+        #0e1430 10%,
+        #161c40 20%,
+        #222a55 30%,
+        #343b6e 40%,
+        #4b5288 50%,
+        #676da2 60%,
+        #868bbb 70%,
+        #a8acd2 79%,
+        #c9cbe6 87%,
+        #e3e5f5 94%,
         var(--color-canvas) 100%
       )
       bottom / 100% var(--fade-len) no-repeat,
@@ -285,6 +289,24 @@
     transparent calc(100% - var(--fade-len) * 0.25)
   );
 }
+/* Fundido final hacia el fondo de la página: va encima del cielo, la nebulosa, el grano y las
+   estrellas (que tiñen de gris-lavanda el final del degradado) y baja 3px más allá del borde para
+   tapar cualquier costura de subpíxel. Así el cielo termina exactamente en el color de la página. */
+.home-sky-blend {
+  grid-area: 1 / 1 / 3 / 2;
+  align-self: end;
+  z-index: -1;
+  height: calc(var(--fade-len) * 0.5);
+  margin-bottom: -3px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(242 245 253 / 0) 0%,
+    rgb(242 245 253 / 0.3) 40%,
+    rgb(242 245 253 / 0.75) 75%,
+    var(--color-canvas) 97%
+  );
+}
 .space-to-light {
   grid-area: 2 / 1 / 4 / 2;
   display: flow-root;
@@ -292,7 +314,12 @@
 }
 @media (min-width: 640px) {
   .home-sky {
-    --fade-len: 24rem;
+    --fade-len: 32rem;
+  }
+}
+@media (min-width: 1024px) {
+  .home-sky {
+    --fade-len: 38rem;
   }
 }
 
