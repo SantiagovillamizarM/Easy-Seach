@@ -54,23 +54,19 @@
   color-scheme: light;
 }
 
-/* ---------- Ventana: vidrio blanco esmerilado ---------- */
-.results-workspace .rw-window {
+/* ---------- Fondo: blanco de borde a borde ----------
+   Sin marco ni tarjeta: el blanco y las esferas cubren toda el área de resultados, desde el
+   encabezado hasta el pie, y el contenido va centrado encima. */
+.results-workspace {
   position: relative;
   isolation: isolate;
   overflow: clip;
-  padding: clamp(0.85rem, 2.2vw, 2rem);
-  border: 1px solid #ffffffe6;
-  border-radius: clamp(1.5rem, 2.4vw, 2.4rem);
+  min-height: calc(100svh - var(--header-h, 4.5rem));
   background:
-    radial-gradient(circle, #1b246614 1px, transparent 1.3px) 0 0 / 26px 26px,
-    linear-gradient(160deg, #fbfbfd, #f1f2f6 55%, #ebedf2);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    inset 0 0 0 1px #ffffff80,
-    0 40px 80px -44px #1b246640,
-    0 14px 30px -20px #1b246626;
+    radial-gradient(circle, #1b246612 1px, transparent 1.3px) 0 0 / 26px 26px,
+    linear-gradient(180deg, #fdfdfe, #f4f5f8 60%, #eff0f4);
 }
+.results-workspace .rw-window { position: relative; }
 
 /* Formas perladas (como esferas de vidrio blanco desenfocadas) que derivan muy lento */
 .rw-backdrop {

@@ -249,10 +249,11 @@ export default function ResultsPage() {
   const filters = <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} busy={loading} />;
 
   return (
-    <div className="results-workspace mx-auto max-w-[96rem] px-3 py-5 sm:px-6 lg:py-7">
-      <div className="rw-window rw-dark">
-      {/* Fondo blanco con formas perladas difuminadas que flotan despacio (detrás del vidrio) */}
+    // El fondo blanco ocupa todo el ancho de la página (sin marco); el contenido va centrado encima
+    <div className="results-workspace">
+      {/* Fondo blanco con formas perladas difuminadas que flotan despacio */}
       <span className="rw-backdrop" aria-hidden="true"><i /><i /><i /><i /></span>
+      <div className="rw-window rw-dark mx-auto max-w-[96rem] px-3 py-5 sm:px-6 lg:py-8">
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
         <header className="rw-top">
