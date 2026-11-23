@@ -251,8 +251,8 @@ export default function ResultsPage() {
   return (
     // El fondo blanco ocupa todo el ancho de la página (sin marco); el contenido va centrado encima
     <div className="results-workspace">
-      {/* Fondo blanco con formas perladas difuminadas que flotan despacio */}
-      <span className="rw-backdrop" aria-hidden="true"><i /><i /><i /><i /></span>
+      {/* Fondo blanco con formas perladas redondeadas que deambulan en todas direcciones */}
+      <span className="rw-backdrop" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</span>
       <div className="rw-window rw-dark mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
