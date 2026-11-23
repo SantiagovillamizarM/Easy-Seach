@@ -93,15 +93,15 @@
     var(--path) var(--t) ease-in-out infinite,
     rw-morph calc(var(--t) * 0.55) ease-in-out infinite alternate;
 }
-.rw-backdrop i:nth-child(1) { --s: 30rem; --x: 62%; --y: -10rem; --t: 34s; --path: rw-wander-a; }
-.rw-backdrop i:nth-child(2) { --s: 22rem; --x: -6rem; --y: 22%; --t: 40s; --path: rw-wander-b; }
-.rw-backdrop i:nth-child(3) { --s: 18rem; --x: 40%; --y: 55%; --t: 30s; --path: rw-wander-c; }
-.rw-backdrop i:nth-child(4) { --s: 14rem; --x: 82%; --y: 62%; --t: 36s; --path: rw-wander-b; animation-direction: reverse, alternate; }
-.rw-backdrop i:nth-child(5) { --s: 11rem; --x: 22%; --y: 8%; --t: 28s; --path: rw-wander-c; animation-direction: reverse, alternate; }
-.rw-backdrop i:nth-child(6) { --s: 16rem; --x: 8%; --y: 78%; --t: 38s; --path: rw-wander-a; animation-direction: reverse, alternate; }
+.rw-backdrop i:nth-child(1) { --s: 30rem; --x: 62%; --y: -10rem; --t: 16s; --path: rw-wander-a; }
+.rw-backdrop i:nth-child(2) { --s: 22rem; --x: -6rem; --y: 22%; --t: 19s; --path: rw-wander-b; }
+.rw-backdrop i:nth-child(3) { --s: 18rem; --x: 40%; --y: 55%; --t: 14s; --path: rw-wander-c; }
+.rw-backdrop i:nth-child(4) { --s: 14rem; --x: 82%; --y: 62%; --t: 17s; --path: rw-wander-b; animation-direction: reverse, alternate; }
+.rw-backdrop i:nth-child(5) { --s: 11rem; --x: 22%; --y: 8%; --t: 13s; --path: rw-wander-c; animation-direction: reverse, alternate; }
+.rw-backdrop i:nth-child(6) { --s: 16rem; --x: 8%; --y: 78%; --t: 18s; --path: rw-wander-a; animation-direction: reverse, alternate; }
 /* Una luz lila muy suave para que el blanco no se vea plano */
 .rw-backdrop i:nth-child(7) {
-  --s: 36rem; --x: 30%; --y: 6rem; --t: 44s; --path: rw-wander-c;
+  --s: 36rem; --x: 30%; --y: 6rem; --t: 22s; --path: rw-wander-c;
   border-radius: 50%;
   background: radial-gradient(closest-side, #ddd6fe73, transparent);
   box-shadow: none;
