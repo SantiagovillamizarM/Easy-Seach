@@ -1,6 +1,7 @@
-import { Check, Clock3, Coins, MapPin, MessageSquareText, Pause, Play, Search, ShieldCheck, Sparkles, Utensils } from "lucide-react";
+import { Check, Clock3, Coins, MapPin, MessageSquareText, Pause, Play, Search, Sparkles, Utensils } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Reveal from "./Reveal.jsx";
+import TrustPanel from "./TrustPanel.jsx";
 import "./how-it-works.css";
 
 const QUERY = "Almuerzo barato en Cabecera abierto ahora";
@@ -232,13 +233,7 @@ export default function HowItWorks() {
           </div>
         </div>
       </Reveal>
-      <Reveal className="mt-4 flex items-start gap-3 rounded-2xl border border-open/20 bg-open-bg/70 p-4 sm:p-5">
-        <ShieldCheck className="h-6 w-6 shrink-0 text-open" aria-hidden="true" />
-        <div>
-          <h3 className="font-bold">Información real, sin inventos</h3>
-          <p className="mt-1 text-sm text-ink">Si no conocemos el precio o el horario de un lugar, te lo decimos. Tu ubicación solo se usa para la búsqueda y los avisos de trancón, y nunca se guarda.</p>
-        </div>
-      </Reveal>
+      <TrustPanel />
     </section>
   );
 }
