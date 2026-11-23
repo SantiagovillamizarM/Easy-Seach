@@ -61,7 +61,7 @@ export default function AdminLayout() {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="Secciones del panel administrativo" className="lg:sticky lg:top-24 lg:self-start">
+      <nav aria-label="Secciones del panel administrativo" className="card p-2 lg:sticky lg:top-24 lg:self-start">
         <p className="mb-2 hidden px-3 text-xs font-bold uppercase tracking-wide text-ink-soft lg:block">Administración</p>
         <ul className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-1">
           {SECTIONS.map(({ to, label, icon: Icon, end, badge }) => {

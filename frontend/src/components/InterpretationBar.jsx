@@ -21,9 +21,9 @@ export default function InterpretationBar({ interpretation, location }) {
   ].filter(Boolean);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="ai-surface results-interpretation flex flex-wrap items-center gap-2 rounded-2xl px-3 py-3 text-sm sm:px-4">
       <span className="inline-flex items-center gap-1.5 font-semibold text-brand-700">
-        <Sparkles className="h-4 w-4" aria-hidden="true" />
+        <span className="dashboard-icon"><Sparkles className="h-4 w-4" aria-hidden="true" /></span>
         Entendimos:
       </span>
       {/* Los chips aparecen uno a uno: la frase se "descompone" igual que en la demostración del inicio */}

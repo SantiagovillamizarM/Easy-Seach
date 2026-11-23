@@ -87,11 +87,11 @@ export default function ProfilePage() {
 
   return (
     <div className="fade-up mx-auto max-w-2xl px-4 py-8">
-      <div className="flex items-center gap-4">
+      <div className="workspace-heading flex items-center gap-4">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-xl font-extrabold text-white">
           {user.full_name.charAt(0).toUpperCase()}
         </span>
-        <div>
+        <div className="min-w-0 break-words">
           <h1 className="text-3xl font-extrabold">{user.full_name}</h1>
           <p className="text-sm text-ink-soft">
             {user.email} · {ROLE_LABELS[user.role] ?? user.role} · Desde{" "}

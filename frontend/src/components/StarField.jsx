@@ -220,7 +220,7 @@ function crearEstrellas(nLejos, nCerca) {
   return { datos, n };
 }
 
-export default function StarField() {
+export default function StarField({ canvasClassName = "" }) {
   const canvasRef = useRef(null);
   const botonRef = useRef(null);
   const motorRef = useRef(null); // { fijarPausa(bool) }
@@ -228,8 +228,7 @@ export default function StarField() {
 
   useEffect(() => {
     const cvs = canvasRef.current;
-    const host = cvs?.parentElement;
-    if (!cvs || !host) return undefined;
+    if (!cvs) return undefined;
 
     const reducido = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const tactil = window.matchMedia?.("(hover: none)").matches ?? false;
@@ -292,7 +291,7 @@ export default function StarField() {
     let dpr = 1;
     const redimensionar = () => {
       dpr = Math.min(window.devicePixelRatio || 1, movil ? 1.5 : 2);
-      const r = host.getBoundingClientRect();
+      const r = cvs.getBoundingClientRect();
       W = Math.max(1, Math.round(r.width * dpr));
       H = Math.max(1, Math.round(r.height * dpr));
       cvs.width = W;
@@ -431,7 +430,7 @@ export default function StarField() {
     // El contenido del hero tapa el lienzo, así que el puntero se escucha en la ventana
     const alMover = (e) => {
       if (!enPantalla) return;
-      const r = host.getBoundingClientRect();
+      const r = cvs.getBoundingClientRect();
       cam.tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
       cam.ty = Math.max(-1, Math.min(1, -(((e.clientY - r.top) / r.height) * 2 - 1)));
       ultimoPuntero = performance.now();
@@ -442,14 +441,14 @@ export default function StarField() {
       enPantalla = entry.isIntersecting;
       arrancar();
     });
-    io.observe(host);
+    io.observe(cvs);
     document.addEventListener("visibilitychange", arrancar);
 
     const ro = new ResizeObserver(() => {
       redimensionar();
       if (!raf) pintar();
     });
-    ro.observe(host);
+    ro.observe(cvs);
 
     const alPerderContexto = (e) => {
       e.preventDefault();
@@ -504,7 +503,7 @@ export default function StarField() {
 
   return (
     <>
-      <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 -z-1 h-full w-full" />
+      <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none absolute inset-0 -z-1 h-full w-full ${canvasClassName}`} />
       <button
         ref={botonRef}
         type="button"
@@ -512,7 +511,8 @@ export default function StarField() {
         aria-pressed={pausado}
         aria-label={pausado ? "Reanudar el fondo de estrellas" : "Pausar el fondo de estrellas"}
         title={pausado ? "Reanudar el fondo de estrellas" : "Pausar el fondo de estrellas"}
-        className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-night/40 text-white/70 backdrop-blur transition-colors hover:border-white/40 hover:text-white"
+        style={{ top: "calc(var(--header-h, 4.25rem) + 1rem)" }}
+        className="absolute right-4 z-10 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-night/40 text-white/70 backdrop-blur transition-colors hover:border-white/40 hover:text-white"
       >
         {pausado ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
       </button>

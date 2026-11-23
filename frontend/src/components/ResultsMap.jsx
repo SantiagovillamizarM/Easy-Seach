@@ -21,12 +21,25 @@ const userIcon = L.divIcon({ className: "", html: '<div class="es-user-dot"></di
 function FitBounds({ points }) {
   const map = useMap();
   useEffect(() => {
-    if (points.length === 0) return;
-    if (points.length === 1) {
-      map.setView(points[0], 16);
-      return;
+    const container = map.getContainer();
+    let needsFit = true;
+
+    function fitVisibleMap() {
+      if (!container.clientWidth || !container.clientHeight) {
+        needsFit = true;
+        return;
+      }
+      map.invalidateSize({ pan: false, debounceMoveend: true });
+      if (!needsFit) return;
+      needsFit = false;
+      if (points.length === 1) map.setView(points[0], 16, { animate: false });
+      if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16, animate: false });
     }
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16 });
+
+    fitVisibleMap();
+    const observer = new ResizeObserver(fitVisibleMap);
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [map, points]);
   return null;
 }
@@ -55,6 +68,8 @@ export default function ResultsMap({ results, userCoords, activeId, onSelect, cl
           key={r.id}
           position={[r.latitude, r.longitude]}
           icon={numberedIcon(i + 1, r.id === activeId)}
+          title={r.name}
+          alt={r.name}
           zIndexOffset={r.id === activeId ? 1000 : 0}
           eventHandlers={{ click: () => onSelect?.(r.id) }}
         >

@@ -1,5 +1,5 @@
 import { LoaderCircle, LocateFixed, Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUserLocation } from "../context/LocationContext.jsx";
 
@@ -8,7 +8,7 @@ function LocationToggle({ compact }) {
 
   if (coords) {
     return (
-      <span className="chip shrink-0 border-open/30 bg-open-bg text-open">
+      <span className="chip search-location shrink-0 border-open/30 bg-open-bg text-open">
         <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
         {compact ? "Cerca de ti" : "Usando tu ubicación"}
         <button type="button" onClick={clear} className="-mr-1 rounded-full p-0.5 hover:bg-open/10" aria-label="Dejar de usar mi ubicación">
@@ -22,7 +22,7 @@ function LocationToggle({ compact }) {
       type="button"
       onClick={request}
       disabled={status === "requesting"}
-      className="chip shrink-0 hover:border-brand-200 hover:text-brand-700"
+      className="chip search-location shrink-0 hover:border-brand-200 hover:text-brand-700"
       title="Buscar cerca de donde estás"
     >
       {status === "requesting" ? (
@@ -40,6 +40,7 @@ export default function SearchBar({ compact = false, autoFocus = false, onDark =
   const [params] = useSearchParams();
   const [value, setValue] = useState(params.get("q") ?? "");
   const { error } = useUserLocation();
+  const searchId = useId();
 
   // Mantener el texto sincronizado si cambia la búsqueda en la URL
   useEffect(() => setValue(params.get("q") ?? ""), [params]);
@@ -59,16 +60,16 @@ export default function SearchBar({ compact = false, autoFocus = false, onDark =
       <form
         role="search"
         onSubmit={submit}
-        className={`flex items-center gap-2 border border-line bg-white transition focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100 ${
+        className={`search-console flex items-center gap-2 border ${
           compact ? "rounded-xl px-3 py-1.5" : "rounded-2xl px-4 py-3 shadow-[var(--shadow-float)] sm:py-4"
         }`}
       >
-        <Search className={`shrink-0 text-brand-600 ${compact ? "h-4 w-4" : "h-6 w-6"}`} aria-hidden="true" />
-        <label htmlFor={compact ? "q-compact" : "q-main"} className="sr-only">
+        <Search className={`search-console-icon shrink-0 text-brand-600 ${compact ? "h-4 w-4" : "h-6 w-6"}`} aria-hidden="true" />
+        <label htmlFor={searchId} className="sr-only">
           ¿Qué necesitas?
         </label>
         <input
-          id={compact ? "q-compact" : "q-main"}
+          id={searchId}
           type="search"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -84,7 +85,7 @@ export default function SearchBar({ compact = false, autoFocus = false, onDark =
         <div className="hidden sm:block">
           <LocationToggle compact={compact} />
         </div>
-        <button type="submit" className={compact ? "btn-primary px-3 py-1.5" : "btn-primary px-5 sm:py-3"} aria-label="Buscar">
+        <button type="submit" className={compact ? "btn-primary h-8 w-8 rounded-full p-0" : "btn-primary px-5 sm:py-3"} aria-label="Buscar">
           {compact ? <Search className="h-4 w-4" /> : "Buscar"}
         </button>
       </form>

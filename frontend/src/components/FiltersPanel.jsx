@@ -1,5 +1,5 @@
-import { MapPin, RotateCcw, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { LoaderCircle, MapPin, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { api } from "../lib/api.js";
 import { useUserLocation } from "../context/LocationContext.jsx";
 
@@ -14,7 +14,7 @@ const RATINGS = [
 ];
 const RADII = ["1", "3", "5", "10", "25"];
 
-function PlacePicker({ value, label, onChange }) {
+function PlacePicker({ id, value, label, onChange }) {
   const [text, setText] = useState(label ?? "");
   const [options, setOptions] = useState([]);
   const [open, setOpen] = useState(false);
@@ -40,14 +40,15 @@ function PlacePicker({ value, label, onChange }) {
     <div className="relative">
       <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" aria-hidden="true" />
       <input
-        id="filter-place"
+        id={id}
+        data-filled={text ? "" : undefined}
         className="input pl-9 pr-8"
         placeholder="Municipio o barrio"
         value={text}
         autoComplete="off"
         role="combobox"
         aria-expanded={options.length > 0}
-        aria-controls="place-options"
+        aria-controls={options.length > 0 ? `${id}-options` : undefined}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => {
@@ -69,7 +70,7 @@ function PlacePicker({ value, label, onChange }) {
         </button>
       )}
       {open && options.length > 0 && (
-        <ul id="place-options" role="listbox" className="card absolute z-20 mt-1 max-h-64 w-full overflow-auto p-1">
+        <ul id={`${id}-options`} role="listbox" className="card absolute z-20 mt-1 max-h-64 w-full overflow-auto p-1">
           {options.map((p) => (
             <li key={p.id}>
               <button
@@ -95,6 +96,11 @@ function PlacePicker({ value, label, onChange }) {
   );
 }
 
+// Indicador circular de grupo: se enciende cuando el grupo tiene un valor elegido
+function GroupDot({ on }) {
+  return <span className="filter-dot" data-on={on || undefined} aria-hidden="true" />;
+}
+
 // Valores iniciales: lo que está en la URL; si no, lo que la IA aplicó a partir del texto.
 function initialDraft(params, applied) {
   const fromAi = {
@@ -107,7 +113,8 @@ function initialDraft(params, applied) {
   return Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? String(fromAi[k] ?? "")]));
 }
 
-export default function FiltersPanel({ params, applied, onApply, onClose }) {
+export default function FiltersPanel({ params, applied, onApply, onClose, busy }) {
+  const id = useId();
   const { coords } = useUserLocation();
   const [categories, setCategories] = useState([]);
   const [draft, setDraft] = useState(() => initialDraft(params, applied));
@@ -121,6 +128,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
   }, []);
 
   const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
+  const activeCount = FILTER_KEYS.filter((key) => key !== "place_label" && draft[key] && draft[key] !== "false").length;
   const budgetError =
     draft.budget_min && draft.budget_max && Number(draft.budget_min) > Number(draft.budget_max)
       ? "El mínimo no puede ser mayor que el máximo"
@@ -128,7 +136,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
 
   function apply(event) {
     event.preventDefault();
-    if (budgetError) return;
+    if (budgetError || busy) return;
     onApply(draft);
   }
 
@@ -139,11 +147,12 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
   }
 
   return (
-    <form onSubmit={apply} className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
+    <form onSubmit={apply} data-busy={busy || undefined} className="filters-form flex h-full min-h-0 flex-col lg:max-h-[calc(100svh-6.5rem)]">
+      <div className="filter-header flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <h2 className="flex items-center gap-2 font-bold">
-          <SlidersHorizontal className="h-4 w-4 text-brand-600" aria-hidden="true" />
+          <span className="filter-icon"><SlidersHorizontal className="h-4 w-4" aria-hidden="true" /></span>
           Filtros
+          {activeCount > 0 && <span className="filter-count" aria-label={`${activeCount} filtros seleccionados`}>{activeCount}</span>}
         </h2>
         {onClose && (
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Cerrar filtros">
@@ -152,20 +161,22 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
         )}
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-        <div>
-          <label htmlFor="filter-place" className="mb-1.5 block text-sm font-semibold">Ubicación</label>
+      <div className="filter-fields min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <div className="filter-group" data-on={draft.place_id ? "" : undefined}>
+          <label htmlFor={`${id}-place`} className="mb-1.5 flex items-center gap-2 text-sm font-semibold"><GroupDot on={Boolean(draft.place_id)} />Ubicación</label>
           <PlacePicker
+            id={`${id}-place`}
             value={draft.place_id}
             label={draft.place_label}
             onChange={(p) => setDraft((d) => ({ ...d, place_id: p ? String(p.id) : "", place_label: p ? p.name : "" }))}
           />
         </div>
 
-        <div>
-          <label htmlFor="filter-radius" className="mb-1.5 block text-sm font-semibold">Distancia máxima</label>
+        <div className="filter-group" data-on={draft.radius_km ? "" : undefined}>
+          <label htmlFor={`${id}-radius`} className="mb-1.5 flex items-center gap-2 text-sm font-semibold"><GroupDot on={Boolean(draft.radius_km)} />Distancia máxima</label>
           <select
-            id="filter-radius"
+            id={`${id}-radius`}
+            data-filled={draft.radius_km ? "" : undefined}
             className="input"
             value={draft.radius_km}
             onChange={(e) => set("radius_km", e.target.value)}
@@ -181,11 +192,12 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
           )}
         </div>
 
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-semibold">Presupuesto (COP)</legend>
+        <fieldset className="filter-group" data-on={draft.budget_min || draft.budget_max ? "" : undefined}>
+          <legend className="mb-1.5 flex items-center gap-2 text-sm font-semibold"><GroupDot on={Boolean(draft.budget_min || draft.budget_max)} />Presupuesto (COP)</legend>
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
+              data-filled={draft.budget_min ? "" : undefined}
               type="number"
               inputMode="numeric"
               min="0"
@@ -197,6 +209,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
             />
             <input
               className="input"
+              data-filled={draft.budget_max ? "" : undefined}
               type="number"
               inputMode="numeric"
               min="0"
@@ -210,8 +223,8 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
           {budgetError && <p className="mt-1 text-xs text-closed">{budgetError}</p>}
         </fieldset>
 
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-semibold">Calificación mínima</legend>
+        <fieldset className="filter-group" data-on={draft.min_rating ? "" : undefined}>
+          <legend className="mb-1.5 flex items-center gap-2 text-sm font-semibold"><GroupDot on={Boolean(draft.min_rating)} />Calificación mínima</legend>
           <div className="grid grid-cols-4 gap-1.5">
             {RATINGS.map((r) => (
               <button
@@ -219,7 +232,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
                 type="button"
                 onClick={() => set("min_rating", r.value)}
                 aria-pressed={draft.min_rating === r.value}
-                className={`rounded-lg border px-2 py-2 text-xs font-semibold transition ${
+                className={`filter-rating rounded-lg border px-2 py-2 text-xs font-semibold transition ${
                   draft.min_rating === r.value
                     ? "border-brand-500 bg-brand-50 text-brand-700"
                     : "border-line bg-white text-ink-soft hover:border-brand-200"
@@ -231,9 +244,9 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
           </div>
         </fieldset>
 
-        <div>
-          <label htmlFor="filter-category" className="mb-1.5 block text-sm font-semibold">Categoría</label>
-          <select id="filter-category" className="input" value={draft.category} onChange={(e) => set("category", e.target.value)}>
+        <div className="filter-group" data-on={draft.category ? "" : undefined}>
+          <label htmlFor={`${id}-category`} className="mb-1.5 flex items-center gap-2 text-sm font-semibold"><GroupDot on={Boolean(draft.category)} />Categoría</label>
+          <select id={`${id}-category`} data-filled={draft.category ? "" : undefined} className="input" value={draft.category} onChange={(e) => set("category", e.target.value)}>
             <option value="">Todas</option>
             {categories.map((c) => (
               <option key={c.slug} value={c.slug}>{c.name}</option>
@@ -241,7 +254,7 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
           </select>
         </div>
 
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
+        <label className="filter-open flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
           <span>
             <span className="block text-sm font-semibold">Abierto ahora</span>
             <span className="block text-xs text-ink-soft">Solo lugares con horario confirmado</span>
@@ -256,13 +269,13 @@ export default function FiltersPanel({ params, applied, onApply, onClose }) {
         </label>
       </div>
 
-      <div className="flex gap-2 border-t border-line px-4 py-3">
-        <button type="button" onClick={reset} className="btn-ghost flex-1">
+      <div className="filter-actions flex shrink-0 gap-2 border-t border-line px-4 py-3">
+        <button type="button" onClick={reset} className="btn-ghost flex-1" disabled={busy}>
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
           Limpiar
         </button>
-        <button type="submit" className="btn-primary flex-1" disabled={Boolean(budgetError)}>
-          Aplicar
+        <button type="submit" className="btn-primary filter-apply relative flex-1 overflow-hidden" data-busy={busy || undefined} disabled={Boolean(budgetError) || busy}>
+          <span className="filter-apply-sheen" aria-hidden="true" />{busy ? <><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> Buscando</> : "Aplicar"}
         </button>
       </div>
     </form>

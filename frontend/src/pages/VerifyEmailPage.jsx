@@ -64,8 +64,9 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="hero-night flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-10" data-dark-hero>
+    <div className="hero-night under-header auth-hero flex items-center justify-center px-4 py-10" data-dark-hero>
       <div className="hero-dots" aria-hidden="true" />
+      <div className="hero-fade" aria-hidden="true" />
       <div className="card fade-up w-full max-w-md p-6 text-center text-ink shadow-[var(--shadow-float)] sm:p-8">
         <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50">
           <MailCheck className="h-7 w-7 text-brand-600" aria-hidden="true" />

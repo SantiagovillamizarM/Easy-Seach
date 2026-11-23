@@ -77,7 +77,7 @@ export default function AssistantPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       {/* Zona de IA: fondo nocturno con el acento menta, igual que en el inicio */}
-      <header className="hero-night fade-up rounded-3xl px-6 pb-16 pt-7 sm:px-8">
+      <header className="hero-night assistant-heading fade-up rounded-3xl px-6 pb-16 pt-7 sm:px-8">
         <div className="hero-dots" aria-hidden="true" />
         <h1 className="flex items-center gap-3 text-3xl font-extrabold sm:text-4xl">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10">

@@ -76,7 +76,7 @@ export default function HistoryPage() {
 
   return (
     <div className="fade-up mx-auto max-w-3xl px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="workspace-heading flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold">
             <History className="h-6 w-6 text-brand-600" aria-hidden="true" />
