@@ -1,5 +1,5 @@
 import { Bot } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import { Suspense, useLayoutEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -122,7 +122,10 @@ export default function Layout() {
       <main className={`flex-1 ${pathname === "/" ? "" : "app-workspace"}`}>
         {/* Si una página falla, el encabezado sigue funcionando y al navegar se recupera */}
         <ErrorBoundary resetKey={pathname}>
-          <Outlet />
+          {/* Mientras llega una página diferida, el espacio se mantiene (sin saltos del pie) */}
+          <Suspense fallback={<div className="min-h-[70vh]" aria-busy="true" />}>
+            <Outlet />
+          </Suspense>
         </ErrorBoundary>
       </main>
       <Footer />
