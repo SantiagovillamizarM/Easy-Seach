@@ -42,12 +42,12 @@ function DemoMap() {
 function DemoScene({ step, typed }) {
   if (step === 0) {
     return (
-      <div className="workflow-window mx-auto w-full max-w-md">
+      <div className="workflow-window mx-auto w-full max-w-md lg:max-w-xl">
         <div className="workflow-search-icon"><Search aria-hidden="true" /></div>
-        <p className="mb-4 mt-4 text-xl font-bold">¿Qué estás buscando?</p>
+        <p className="mb-4 mt-4 text-xl font-bold lg:text-2xl">¿Qué estás buscando?</p>
         <div className="workflow-search">
           <Search className="h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
-          <p className="min-w-0 text-sm font-medium">
+          <p className="min-w-0 text-sm font-medium lg:text-base">
             <span className="sr-only">{QUERY}</span>
             <span aria-hidden="true"><span ref={typed}>{QUERY}</span><span className="workflow-caret" /></span>
           </p>
@@ -60,7 +60,7 @@ function DemoScene({ step, typed }) {
     return (
       <div className="workflow-window">
         <p className="workflow-query"><Search className="h-4 w-4 shrink-0" aria-hidden="true" />{QUERY}</p>
-        <p className="my-4 flex items-center gap-2 text-sm font-semibold text-brand-700">
+        <p className="my-4 flex items-center gap-2 text-sm font-semibold lg:text-base text-brand-700">
           <Sparkles className="workflow-processing h-5 w-5" aria-hidden="true" />
           Analizando tu búsqueda…
         </p>
@@ -68,8 +68,8 @@ function DemoScene({ step, typed }) {
           {CRITERIA.map(([label, value, Icon], i) => (
             <div key={label} className="workflow-criterion workflow-arrival" style={{ "--delay": `${1.05 + i * 0.62}s` }}>
               <Icon className="mb-2 h-5 w-5 text-brand-700" aria-hidden="true" />
-              <dt className="text-xs text-ink-soft">{label}</dt>
-              <dd className="mt-0.5 break-words text-sm font-bold">{value}</dd>
+              <dt className="text-xs text-ink-soft lg:text-sm">{label}</dt>
+              <dd className="mt-0.5 break-words text-sm font-bold lg:text-base">{value}</dd>
             </div>
           ))}
         </dl>
@@ -79,7 +79,7 @@ function DemoScene({ step, typed }) {
 
   return (
     <div className="workflow-window">
-      <p className="workflow-result-status mb-3 flex items-center gap-2 text-sm font-semibold text-brand-700">
+      <p className="workflow-result-status mb-3 flex items-center gap-2 text-sm font-semibold lg:mb-4 lg:text-base text-brand-700">
         <span className="workflow-wait flex items-center gap-2"><Search className="h-4 w-4" aria-hidden="true" />Buscando coincidencias…</span>
         <span className="workflow-found flex items-center gap-2"><Check className="h-4 w-4" aria-hidden="true" />Coincidencias en Cabecera</span>
       </p>
@@ -87,8 +87,8 @@ function DemoScene({ step, typed }) {
         <div className="grid content-center gap-2.5">
           {["0,6 km", "1,2 km"].map((distance, i) => (
             <div key={distance} className="workflow-result workflow-arrival" style={{ "--delay": `${1 + i * 0.7}s` }}>
-              <p className="flex items-center justify-between gap-1 text-sm font-bold">Opción {i ? "B" : "A"} <Check className="h-4 w-4 text-open" aria-hidden="true" /></p>
-              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
+              <p className="flex items-center justify-between gap-1 text-sm font-bold lg:text-base">Opción {i ? "B" : "A"} <Check className="h-4 w-4 text-open" aria-hidden="true" /></p>
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft lg:text-sm">
                 <span className="rounded-full bg-open-bg px-2 py-0.5 font-semibold text-open">Abierto</span>
                 <span>{distance}</span><span>Económico</span>
               </p>
@@ -183,7 +183,7 @@ export default function HowItWorks() {
   }, [step, paused, reduced]);
 
   return (
-    <section className="mx-auto max-w-5xl px-4 pb-20 pt-44 sm:pt-80">
+    <section className="mx-auto max-w-7xl px-4 pb-20 pt-44 sm:pt-80">
       <Reveal className="mx-auto max-w-2xl text-center">
         <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Cómo funciona</p>
         <h2 className="mt-2 text-balance text-3xl font-bold sm:text-4xl">De una frase a lugares reales</h2>
@@ -211,8 +211,8 @@ export default function HowItWorks() {
                     <Icon className="workflow-step-symbol h-5 w-5" aria-hidden="true" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block font-bold">{title}</span>
-                    <span className="mt-1 block text-sm text-ink-soft">{detail}</span>
+                    <span className="block font-bold lg:text-lg">{title}</span>
+                    <span className="mt-1 block text-sm text-ink-soft lg:text-base">{detail}</span>
                   </span>
                 </button>
               </li>
@@ -220,7 +220,7 @@ export default function HowItWorks() {
           </ol>
           <div className="workflow-panel">
             <div className="workflow-toolbar">
-              <span className="flex items-center gap-2 text-sm font-bold text-indigo-50"><Sparkles className="h-4 w-4 text-sky-200" aria-hidden="true" />Demostración de búsqueda</span>
+              <span className="flex items-center gap-2 text-sm font-bold text-indigo-50 lg:text-base"><Sparkles className="h-4 w-4 text-sky-200" aria-hidden="true" />Demostración de búsqueda</span>
               {!reduced && (
                 <button type="button" className="workflow-control" aria-label={paused ? "Reanudar demostración" : "Pausar demostración"} onClick={() => setPaused(!paused)}>
                   {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}

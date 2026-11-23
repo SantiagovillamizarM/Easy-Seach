@@ -67,16 +67,16 @@ export default function TrustPanel() {
       <div className="flex items-start gap-3 sm:items-center">
         <span className="trust-badge"><ShieldCheck className="h-6 w-6" aria-hidden="true" /></span>
         <div>
-          <h3 className="text-lg font-bold">Información real, sin inventos</h3>
-          <p className="mt-0.5 text-sm text-ink">Lo que sabemos de un lugar, lo mostramos; lo que no, te lo decimos. Y no guardamos dónde estás.</p>
+          <h3 className="text-lg font-bold lg:text-xl">Información real, sin inventos</h3>
+          <p className="mt-0.5 text-sm text-ink lg:text-base">Lo que sabemos de un lugar, lo mostramos; lo que no, te lo decimos. Y no guardamos dónde estás.</p>
         </div>
       </div>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-3 lg:mt-6 lg:gap-4">
         {TILES.map(({ title, text, visual }, i) => (
           <li key={title} className="trust-tile" style={{ "--i": i }}>
             <div className="trust-visual" aria-hidden="true">{visual}</div>
-            <h4 className="mt-3 font-bold">{title}</h4>
-            <p className="mt-1 text-sm text-ink-soft">{text}</p>
+            <h4 className="mt-3 font-bold lg:mt-4 lg:text-lg">{title}</h4>
+            <p className="mt-1 text-sm text-ink-soft lg:text-base">{text}</p>
           </li>
         ))}
       </ul>
