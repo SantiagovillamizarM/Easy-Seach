@@ -249,35 +249,35 @@ export default function ResultsPage() {
   const filters = <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} busy={loading} />;
 
   return (
-    <div className="results-workspace mx-auto max-w-[96rem] px-4 py-5 sm:px-6 lg:py-7">
+    <div className="results-workspace mx-auto max-w-[96rem] px-3 py-5 sm:px-6 lg:py-7">
+      <div className="rw-window rw-dark">
+      {/* Fondo blanco con formas perladas difuminadas que flotan despacio (detrás del vidrio) */}
+      <span className="rw-backdrop" aria-hidden="true"><i /><i /><i /><i /></span>
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
-        <header className="results-heading">
-          <span className="results-heading-glow" aria-hidden="true" />
-          <div className="relative flex min-w-0 items-center gap-3 sm:gap-5">
-            <span className="results-emblem shrink-0">
-              <span className="results-emblem-ring" aria-hidden="true" />
-              <MapPin className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="results-eyebrow">Easy Search · búsqueda inteligente</p>
-              <h1 className="text-balance text-2xl font-bold sm:text-4xl">Resultados de búsqueda</h1>
-              {q && <p className="results-query mt-1.5 break-words text-sm">«{q}»</p>}
-            </div>
+        <header className="rw-top">
+          <div className="min-w-0">
+            <p className="rw-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" />Búsqueda inteligente</p>
+            <h1 className="rw-title text-balance">
+              Resultados para{" "}
+              {q ? <span className="rw-title-query">{q}</span> : <span className="rw-title-query">tu búsqueda</span>}
+            </h1>
+            {data?.location?.label && !error && (
+              <p className="rw-subtitle"><MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />{data.location.label}</p>
+            )}
           </div>
           {hasQuery && (
-            <div className="results-heading-stats relative">
-              <div className="results-stat">
-                <span className="results-stat-value">{loading && !data ? "…" : error ? "–" : results.length}</span>
-                <span className="results-stat-label">{results.length === 1 ? "lugar" : "lugares"}</span>
+            <div className="rw-stats">
+              <div className="rw-stat rw-orbit">
+                <span className="rw-stat-label">Encontrados</span>
+                <span className="rw-stat-value">{loading && !data ? "…" : error ? "–" : results.length}</span>
+                <span className="rw-stat-unit">{results.length === 1 ? "lugar" : "lugares"}</span>
               </div>
-              <div className="results-stat">
-                <span className="results-stat-value">{activeFilters}</span>
-                <span className="results-stat-label">{activeFilters === 1 ? "filtro" : "filtros"}</span>
+              <div className="rw-stat rw-orbit">
+                <span className="rw-stat-label">Filtros</span>
+                <span className="rw-stat-value">{activeFilters}</span>
+                <span className="rw-stat-unit">{activeFilters === 1 ? "activo" : "activos"}</span>
               </div>
-              {data?.location?.label && !error && (
-                <span className="results-location"><span className="results-location-dot" aria-hidden="true" /><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{data.location.label}</span>
-              )}
             </div>
           )}
         </header>
@@ -484,6 +484,7 @@ export default function ResultsPage() {
           <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} onClose={closeFilters} busy={loading} />
         </FilterDrawer>
       )}
+      </div>
     </div>
   );
 }

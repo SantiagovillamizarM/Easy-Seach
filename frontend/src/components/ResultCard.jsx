@@ -52,18 +52,6 @@ export default function ResultCard({ result, index, active, onHover, onSelect, r
       data-active={active || undefined}
       className="result-card card card-hover group relative flex gap-3 p-4"
     >
-      {index !== undefined && (
-        <button
-          type="button"
-          className="result-rank relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full font-display text-sm font-bold"
-          aria-label={`Seleccionar ${result.name} en el mapa`}
-          aria-pressed={Boolean(active)}
-          onClick={() => onSelect(result.id)}
-        >
-          {index + 1}
-        </button>
-      )}
-
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1">
@@ -77,17 +65,35 @@ export default function ResultCard({ result, index, active, onHover, onSelect, r
             )}
           </h3>
           {result.rating_count > 0 && (
-            <span className="inline-flex items-center gap-1 text-sm font-semibold">
+            <span className="result-rating inline-flex items-center gap-1 text-sm font-semibold">
               <Star className="h-4 w-4 fill-star text-star" aria-hidden="true" />
               {Number(result.rating_avg).toFixed(1)}
               <span className="font-normal text-ink-soft">({result.rating_count})</span>
             </span>
           )}
           </div>
-          <FavoriteButton establishmentId={result.id} name={result.name} className="-mr-1 -mt-1 shrink-0" />
+          <div className="result-actions relative z-10 -mr-1 -mt-1 flex shrink-0 items-center gap-1.5">
+            {index !== undefined && (
+              <button
+                type="button"
+                className="result-locate"
+                aria-label={`Ver ${result.name} en el mapa`}
+                aria-pressed={Boolean(active)}
+                onClick={() => onSelect(result.id)}
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Mapa</span>
+              </button>
+            )}
+            <FavoriteButton establishmentId={result.id} name={result.name} className="shrink-0" />
+          </div>
         </div>
 
-        <p className="result-category mt-1 text-xs font-semibold text-brand-700">{result.categories.map((c) => c.name).join(" · ")}</p>
+        <p className="result-category mt-1 text-xs font-semibold text-brand-700">
+          {/* Mismo número que el marcador del mapa, como texto discreto */}
+          {index !== undefined && <span className="result-index">{String(index + 1).padStart(2, "0")}</span>}
+          {result.categories.map((c) => c.name).join(" · ")}
+        </p>
 
         <div className="result-meta mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-ink-soft">
           {place && (
@@ -122,7 +128,6 @@ export default function ResultCard({ result, index, active, onHover, onSelect, r
 export function ResultCardSkeleton() {
   return (
     <div className="result-card card flex gap-3 p-4" aria-hidden="true">
-      <div className="skeleton h-9 w-9 rounded-full" />
       <div className="flex-1 space-y-2.5">
         <div className="skeleton h-4 w-1/2 rounded" />
         <div className="skeleton h-3 w-1/3 rounded" />
