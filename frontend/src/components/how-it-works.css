@@ -240,12 +240,16 @@
     animation: workflow-icon 650ms var(--ease-out-soft) var(--delay) backwards;
     animation-play-state: var(--play-state);
   }
-  .workflow-demo:not([data-reduced]) .workflow-wait,
-  .workflow-demo:not([data-reduced]) .workflow-found {
-    animation: workflow-status 950ms step-end both;
+  /* visibility no se interpola: cada texto se fuerza a un solo estado durante 950 ms
+     y al terminar vuelve a su valor base (espera oculta, resultado visible). */
+  .workflow-demo:not([data-reduced]) .workflow-wait {
+    animation: workflow-status-show 950ms;
     animation-play-state: var(--play-state);
   }
-  .workflow-demo:not([data-reduced]) .workflow-found { animation-direction: reverse; }
+  .workflow-demo:not([data-reduced]) .workflow-found {
+    animation: workflow-status-hide 950ms;
+    animation-play-state: var(--play-state);
+  }
   .workflow-demo:not([data-reduced]) .workflow-map {
     animation: workflow-arrive 630ms var(--ease-out-soft) 850ms both;
     animation-play-state: var(--play-state);
@@ -278,7 +282,8 @@
 }
 @keyframes workflow-icon { 45% { transform: scale(1.18); filter: drop-shadow(0 0 5px #9c85fc); } }
 @keyframes workflow-blink { 50% { opacity: 0; } }
-@keyframes workflow-status { from { visibility: visible; } to { visibility: hidden; } }
+@keyframes workflow-status-show { from, to { visibility: visible; } }
+@keyframes workflow-status-hide { from, to { visibility: hidden; } }
 @keyframes workflow-trace { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes workflow-drop {
   from { transform: translateY(-18px); opacity: 0; }
