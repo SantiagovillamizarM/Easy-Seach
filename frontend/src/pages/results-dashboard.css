@@ -136,6 +136,45 @@
   filter: blur(6px);
 }
 
+/* ---------- Neblina interna (fade) ----------
+   Luz lila desenfocada que se funde dentro del recuadro, como humo iluminado desde dentro, más un
+   resplandor tenue en la esquina opuesta. Respira muy despacio. Se usa en las tarjetas de cifras. */
+.rw-haze {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.rw-haze::before,
+.rw-haze::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.rw-haze::before {
+  top: -35%;
+  right: -30%;
+  width: 95%;
+  height: 120%;
+  background: radial-gradient(closest-side, #d4a8ffd9, #a27cff73 42%, transparent);
+  filter: blur(16px);
+  animation: rw-haze-breathe 9s ease-in-out infinite alternate;
+}
+.rw-haze::after {
+  bottom: -55%;
+  left: -25%;
+  width: 80%;
+  height: 100%;
+  background: radial-gradient(closest-side, #7f8cff73, transparent);
+  filter: blur(18px);
+  animation: rw-haze-breathe 11s ease-in-out -4s infinite alternate-reverse;
+}
+@keyframes rw-haze-breathe {
+  from { opacity: 0.75; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 1; transform: translate3d(-8%, 6%, 0) scale(1.12); }
+}
+
 /* ---------- Encabezado ---------- */
 .results-workspace .rw-top {
   display: flex;
@@ -189,18 +228,21 @@
 }
 .rw-subtitle svg { color: #4f46e5; }
 
-.rw-stats { display: flex; gap: 0.75rem; }
+.rw-stats { display: flex; align-items: stretch; }
+.rw-stat-cell { display: grid; min-width: 6.25rem; }
+.rw-stat-divider {
+  width: 1px;
+  margin: 0.15rem 1.1rem;
+  background: linear-gradient(180deg, transparent, #c9b5ff80, transparent);
+}
 .results-workspace .rw-stat {
-  display: grid;
-  min-width: 7rem;
-  padding: 0.65rem 0.9rem 1.1rem;
-  border: 1px solid var(--rw-rim);
+  padding: 0.75rem 1.2rem 0.85rem;
+  border: 1px solid #ffffff1f;
   border-radius: 1.3rem;
-  background: var(--rw-panel);
+  background: linear-gradient(150deg, #1d2148, #141634 55%, #1a1436);
   box-shadow: inset 0 1px 0 #ffffff1a, 0 16px 30px -22px #000;
   animation: rw-rise 460ms var(--rw-ease) 120ms both;
 }
-.results-workspace .rw-stat + .rw-stat { animation-delay: 180ms; }
 .rw-stat-label { color: #a3add3; font-size: 0.75rem; font-weight: 600; }
 .rw-stat-value {
   margin-top: 0.15rem;
@@ -774,7 +816,7 @@
 @media (max-width: 639px) {
   .results-workspace .rw-window { padding: 0.75rem; }
   .rw-stats { width: 100%; }
-  .results-workspace .rw-stat { flex: 1; min-width: 0; }
+  .rw-stat-cell { flex: 1; min-width: 0; }
   .rw-stat-value { font-size: 1.7rem; }
   .results-workspace .results-list { padding: 0.35rem; border: 0; background: none; box-shadow: none; }
   .results-workspace .result-card { padding: 0.9rem; border-radius: 1.2rem; }

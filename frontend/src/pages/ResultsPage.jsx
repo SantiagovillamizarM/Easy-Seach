@@ -270,13 +270,15 @@ export default function ResultsPage() {
             )}
           </div>
           {hasQuery && (
-            <div className="rw-stats">
-              <div className="rw-stat rw-orbit">
+            // Un solo recuadro con neblina: las dos cifras lado a lado, separadas por una línea de luz
+            <div className="rw-stats rw-stat rw-haze">
+              <div className="rw-stat-cell">
                 <span className="rw-stat-label">Encontrados</span>
                 <span className="rw-stat-value">{loading && !data ? "…" : error ? "–" : results.length}</span>
                 <span className="rw-stat-unit">{results.length === 1 ? "lugar" : "lugares"}</span>
               </div>
-              <div className="rw-stat rw-orbit">
+              <span className="rw-stat-divider" aria-hidden="true" />
+              <div className="rw-stat-cell">
                 <span className="rw-stat-label">Filtros</span>
                 <span className="rw-stat-value">{activeFilters}</span>
                 <span className="rw-stat-unit">{activeFilters === 1 ? "activo" : "activos"}</span>
