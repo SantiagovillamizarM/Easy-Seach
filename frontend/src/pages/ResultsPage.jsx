@@ -15,6 +15,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
 import InterpretationBar from "../components/InterpretationBar.jsx";
+import LiquidBackdrop from "../components/LiquidBackdrop.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
@@ -252,8 +253,8 @@ export default function ResultsPage() {
     // El fondo blanco ocupa todo el ancho (sin marco) y, con "under-header", sube por detrás del
     // encabezado transparente, igual que el hero del inicio
     <div className="results-workspace under-header">
-      {/* Fondo blanco con formas perladas redondeadas que deambulan en todas direcciones */}
-      <span className="rw-backdrop" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</span>
+      {/* Fondo líquido blanco y gris perla que fluye (WebGL); sin WebGL queda el degradado blanco */}
+      <div className="rw-backdrop" aria-hidden="true"><LiquidBackdrop className="rw-liquid" /></div>
       <div className="rw-window rw-dark mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">

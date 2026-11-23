@@ -68,70 +68,25 @@
 }
 .results-workspace .rw-window { position: relative; }
 
-/* Formas perladas: siluetas redondeadas y blandas (blanco con sombra gris) que deambulan cada una
-   por su propio recorrido en varias direcciones y cambian de forma muy despacio. */
+/* Fondo líquido (LiquidBackdrop): un lienzo del alto de la ventana que se queda fijo mientras se baja
+   (sticky) dentro del área de resultados. Aparece con un fundido cuando ya pintó el primer cuadro. */
 .rw-backdrop {
   position: absolute;
   z-index: -1;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
 }
-.rw-backdrop i {
-  position: absolute;
-  width: var(--s);
-  height: var(--s);
-  top: var(--y);
-  left: var(--x);
-  border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
-  background: radial-gradient(circle at 34% 30%, #ffffff 0%, #f5f6f9 26%, #dcdfe7 56%, #c1c5d1 74%, #b3b8c6 82%, transparent 84%);
-  box-shadow: inset -24px -30px 60px #a9afbf59, 18px 28px 60px -20px #8e95a84d;
-  filter: blur(12px);
-  opacity: 0.9;
-  will-change: transform, border-radius;
-  animation:
-    var(--path) var(--t) ease-in-out infinite,
-    rw-morph calc(var(--t) * 0.55) ease-in-out infinite alternate;
+.rw-liquid {
+  position: sticky;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100svh;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-out-soft);
 }
-.rw-backdrop i:nth-child(1) { --s: 30rem; --x: 62%; --y: -10rem; --t: 16s; --path: rw-wander-a; }
-.rw-backdrop i:nth-child(2) { --s: 22rem; --x: -6rem; --y: 22%; --t: 19s; --path: rw-wander-b; }
-.rw-backdrop i:nth-child(3) { --s: 18rem; --x: 40%; --y: 55%; --t: 14s; --path: rw-wander-c; }
-.rw-backdrop i:nth-child(4) { --s: 14rem; --x: 82%; --y: 62%; --t: 17s; --path: rw-wander-b; animation-direction: reverse, alternate; }
-.rw-backdrop i:nth-child(5) { --s: 11rem; --x: 22%; --y: 8%; --t: 13s; --path: rw-wander-c; animation-direction: reverse, alternate; }
-.rw-backdrop i:nth-child(6) { --s: 16rem; --x: 8%; --y: 78%; --t: 18s; --path: rw-wander-a; animation-direction: reverse, alternate; }
-/* Una luz lila muy suave para que el blanco no se vea plano */
-.rw-backdrop i:nth-child(7) {
-  --s: 36rem; --x: 30%; --y: 6rem; --t: 22s; --path: rw-wander-c;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, #ddd6fe73, transparent);
-  box-shadow: none;
-  filter: blur(30px);
-}
-/* Recorridos en varias direcciones (ida y vuelta por puntos distintos, sin línea recta) */
-@keyframes rw-wander-a {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  25% { transform: translate3d(-8rem, 6rem, 0) rotate(40deg) scale(1.08); }
-  50% { transform: translate3d(-3rem, 13rem, 0) rotate(95deg) scale(0.94); }
-  75% { transform: translate3d(6rem, 5rem, 0) rotate(150deg) scale(1.05); }
-}
-@keyframes rw-wander-b {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  20% { transform: translate3d(10rem, -4rem, 0) rotate(-35deg) scale(1.1); }
-  45% { transform: translate3d(16rem, 7rem, 0) rotate(-80deg) scale(0.92); }
-  70% { transform: translate3d(5rem, 12rem, 0) rotate(-130deg) scale(1.06); }
-}
-@keyframes rw-wander-c {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  30% { transform: translate3d(-10rem, -6rem, 0) rotate(60deg) scale(0.9); }
-  55% { transform: translate3d(4rem, -11rem, 0) rotate(120deg) scale(1.12); }
-  80% { transform: translate3d(9rem, 3rem, 0) rotate(170deg) scale(0.96); }
-}
-/* Cambio de silueta: siempre redondeada, nunca un círculo perfecto */
-@keyframes rw-morph {
-  0% { border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%; }
-  50% { border-radius: 60% 40% 38% 62% / 55% 62% 38% 45%; }
-  100% { border-radius: 36% 64% 52% 48% / 62% 44% 56% 38%; }
-}
+.rw-liquid[data-ready] { opacity: 1; }
 
 /* Zonas que van directo sobre el blanco: vuelven los colores claros originales */
 .rw-window :is(.rw-top, .results-interpretation, .results-intro > p, .results-viewbar, .results-list-title) {
