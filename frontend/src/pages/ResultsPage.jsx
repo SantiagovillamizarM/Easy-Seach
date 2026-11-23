@@ -24,6 +24,9 @@ import "./results-dashboard.css";
 const ResultsMap = lazy(() => import("../components/ResultsMap.jsx"));
 const EMPTY_RESULTS = [];
 const RECOMMENDED_COUNT = 6; // la IA explica los primeros resultados
+// Tema del dashboard: "light" o "dark" (los colores de ambos están en results-dashboard.css).
+// Cuando exista el selector de modo claro/oscuro, este valor vendrá de la preferencia del usuario.
+const RESULTS_THEME = "light";
 
 function buildPayload(params, coords) {
   const num = (k) => (params.get(k) ? Number(params.get(k)) : undefined);
@@ -255,7 +258,7 @@ export default function ResultsPage() {
     <div className="results-workspace under-header">
       {/* Fondo líquido blanco y gris perla que fluye (WebGL); sin WebGL queda el degradado blanco */}
       <div className="rw-backdrop" aria-hidden="true"><LiquidBackdrop className="rw-liquid" /></div>
-      <div className="rw-window rw-dark mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
+      <div className="rw-window mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6" data-theme={RESULTS_THEME}>
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
         <header className="rw-top">
