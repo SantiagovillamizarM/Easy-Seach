@@ -51,6 +51,11 @@ function Header() {
           ? scrolled
             ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)] backdrop-blur-md"
             : "border-transparent bg-transparent"
+          : isResults
+            // Resultados: el fondo blanco sube por detrás; arriba es transparente y al bajar, vidrio blanco
+            ? scrolled
+              ? "border-white/70 bg-white/65 shadow-[0_10px_30px_-14px_rgb(27_36_102/0.22)] backdrop-blur-xl"
+              : "border-transparent bg-transparent"
           : scrolled
             ? "site-nav-light border-line/80 shadow-[0_4px_20px_rgb(11_18_36/0.09)] backdrop-blur-md"
             : "site-nav-light border-line/70 backdrop-blur-md"

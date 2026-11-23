@@ -249,8 +249,9 @@ export default function ResultsPage() {
   const filters = <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} busy={loading} />;
 
   return (
-    // El fondo blanco ocupa todo el ancho de la página (sin marco); el contenido va centrado encima
-    <div className="results-workspace">
+    // El fondo blanco ocupa todo el ancho (sin marco) y, con "under-header", sube por detrás del
+    // encabezado transparente, igual que el hero del inicio
+    <div className="results-workspace under-header">
       {/* Fondo blanco con formas perladas redondeadas que deambulan en todas direcciones */}
       <span className="rw-backdrop" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</span>
       <div className="rw-window rw-dark mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
