@@ -22,6 +22,12 @@ function Header() {
   const dark = hasDarkHero && (overHero || !scrolled);
   const headerRef = useRef(null);
 
+  // Con hero nocturno, el fondo raíz también es noche: así el rebote al pasar el tope de la página
+  // (scroll elástico del touchpad) no deja ver una franja clara encima del cielo
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute("data-dark-top", hasDarkHero);
+  }, [hasDarkHero]);
+
   // Publica la altura del encabezado (sin compactar) en --header-h: los heros nocturnos la usan para
   // subir por detrás del encabezado transparente y que el cielo empiece desde el borde de la pantalla
   useLayoutEffect(() => {

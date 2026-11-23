@@ -66,6 +66,11 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Fondo que se ve al rebotar más allá de los bordes de la página (el body pinta el suyo encima) */
+    background-color: var(--color-canvas);
+  }
+  html[data-dark-top] {
+    background-color: var(--color-night);
   }
 
   body {
