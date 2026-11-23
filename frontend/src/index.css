@@ -263,7 +263,11 @@
       )
       bottom / 100% var(--fade-len) no-repeat,
     radial-gradient(ellipse at 77% 22%, #18316a62, transparent 48%),
-    var(--color-night);
+    /* El azul noche solo cubre hasta donde empieza el degradado (con 4px de traslape). Si fuera el
+       color de fondo, al redondear subpíxeles (zoom, escala de Windows) asomaba una línea oscura
+       de 1px bajo el final claro del degradado. */
+    linear-gradient(var(--color-night), var(--color-night)) top / 100% calc(100% - var(--fade-len) + 4px) no-repeat,
+    var(--color-canvas);
 }
 .home-sky-background::before {
   background: radial-gradient(closest-side, rgb(79 92 228 / 0.56), transparent);
