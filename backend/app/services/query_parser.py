@@ -36,7 +36,7 @@ class QueryIntent(BaseModel):
     preferences: list[str] = Field(default_factory=list)
     # False cuando no hay nada que buscar: saludos ("hola"), charla, pruebas o texto sin sentido ("asdfgh")
     is_search: bool = True
-    parser: Literal["openai", "gemini", "reglas"] = "reglas"
+    parser: Literal["xai", "openai", "gemini", "reglas"] = "reglas"
 
 
 # ======================================================================================

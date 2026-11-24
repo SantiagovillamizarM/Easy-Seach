@@ -4,7 +4,9 @@ from typing import Protocol
 # Cada proveedor marca su respuesta con este campo para saber qué IA respondió de verdad
 # (con la cadena OpenAI → Gemini puede ser cualquiera de las dos).
 PROVIDER_KEY = "_provider"
-KNOWN_PROVIDERS = ("openai", "gemini")
+KNOWN_PROVIDERS = ("xai", "openai", "gemini")
+# IA de pago: cuentan para el cupo diario por usuario (ver app/services/ai_quota.py)
+PAID_PROVIDERS = ("xai", "openai")
 
 
 class LLMError(Exception):
@@ -24,7 +26,7 @@ class LLMProvider(Protocol):
 
 
 def answered_by(raw: object, llm: object) -> str:
-    """Saca la marca de proveedor de la respuesta y devuelve qué IA respondió ("openai" | "gemini").
+    """Saca la marca de proveedor de la respuesta y devuelve qué IA respondió ("xai" | "openai" | "gemini").
 
     Si no hay marca (proveedores de prueba), se usa el nombre del proveedor; uno desconocido cuenta
     como "gemini" para mantener las etiquetas conocidas por la API.

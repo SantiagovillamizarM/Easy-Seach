@@ -1,4 +1,7 @@
-"""Adaptador para OpenAI (API Chat Completions con salida JSON estructurada y esquema estricto).
+"""Adaptador para OpenAI y Grok (xAI): ambos usan la API Chat Completions con salida JSON estricta.
+
+xAI expone la misma API que OpenAI en https://api.x.ai/v1, así que el mismo adaptador sirve para los dos;
+solo cambian la dirección, el nombre y cómo se controla el razonamiento de cada familia de modelos.
 
 Usa "Structured Outputs" (`response_format: json_schema` con `strict: true`): el modelo está obligado a
 devolver exactamente el esquema pedido. Los esquemas del proyecto están escritos al estilo de Gemini
@@ -15,7 +18,8 @@ from app.services.llm.base import PROVIDER_KEY, LLMError
 
 logger = logging.getLogger(__name__)
 
-API_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+XAI_BASE_URL = "https://api.x.ai/v1"
 
 # Si OpenAI responde 429 (cuota/saldo agotado o límite de ritmo) o 5xx (saturado), se salta durante este
 # tiempo y responde el respaldo (Gemini o reglas) sin hacer esperar al usuario.
@@ -53,10 +57,20 @@ def to_strict_schema(schema: dict) -> dict:
 
 
 def _is_reasoning(model: str) -> bool:
-    """Modelos de razonamiento (serie "o" y GPT-5): solo aceptan la temperatura por defecto y gastan tokens
-    de "razonamiento" que cuentan dentro del tope de la respuesta."""
+    """Modelos de razonamiento: serie "o" y GPT-5 de OpenAI, y los Grok 4.x de xAI (salvo los
+    "non-reasoning"). Gastan tokens de "razonamiento" que cuentan dentro del tope de la respuesta."""
     name = model.lower()
+    if name.startswith("grok"):
+        return "non-reasoning" not in name
     return name.startswith("o") or name.startswith("gpt-5")
+
+
+def _reasoning_effort(model: str) -> str:
+    """El esfuerzo más bajo de cada familia: respuestas rápidas y baratas (los datos ya vienen de la base)."""
+    name = model.lower()
+    if name.startswith("gpt-5"):
+        return "minimal"
+    return "low"  # serie "o" y Grok (valores low | medium | high | xhigh)
 
 
 # Los modelos de razonamiento necesitan margen para pensar antes de escribir la respuesta
@@ -64,18 +78,21 @@ REASONING_TOKEN_FACTOR = 4
 
 
 class OpenAIProvider:
-    name = "openai"
+    """IA de pago con la API de OpenAI. Con `name="xai"` y `base_url=XAI_BASE_URL` es Grok."""
 
-    def __init__(self, api_key: str, model: str, timeout: float = 12.0):
+    def __init__(self, api_key: str, model: str, timeout: float = 12.0, *, name: str = "openai",
+                 base_url: str = OPENAI_BASE_URL):
         self._api_key = api_key
         self.model = model
+        self.name = name
+        self._url = base_url.rstrip("/") + "/chat/completions"
         self._timeout = timeout
         self._cooldown_until = 0.0
 
     def generate_json(self, prompt: str, schema: dict, system: str | None = None,
                       max_tokens: int | None = None) -> dict:
         if self._cooldown_until > time.monotonic():
-            raise LLMError("OpenAI en pausa por cuota agotada o saturación")
+            raise LLMError(f"{self.name} en pausa por cuota agotada o saturación")
 
         messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
         body: dict = {
@@ -88,7 +105,7 @@ class OpenAIProvider:
         }
         reasoning = _is_reasoning(self.model)
         if reasoning:
-            body["reasoning_effort"] = "minimal" if self.model.lower().startswith("gpt-5") else "low"
+            body["reasoning_effort"] = _reasoning_effort(self.model)
         else:
             body["temperature"] = 0
         if max_tokens:
@@ -97,13 +114,13 @@ class OpenAIProvider:
 
         try:
             r = httpx.post(
-                API_URL,
+                self._url,
                 headers={"Authorization": f"Bearer {self._api_key}"},
                 json=body,
                 timeout=self._timeout,
             )
         except httpx.HTTPError as exc:
-            raise LLMError(f"Error de red con OpenAI: {exc.__class__.__name__}") from exc
+            raise LLMError(f"Error de red con {self.name}: {exc.__class__.__name__}") from exc
 
         if r.status_code != 200:
             # No se registra el cuerpo completo para no filtrar datos; solo el código y el tipo de error.
@@ -113,20 +130,20 @@ class OpenAIProvider:
                 kind = ""
             if r.status_code == 429 or r.status_code >= 500:
                 self._cooldown_until = time.monotonic() + COOLDOWN_SECONDS
-            raise LLMError(f"OpenAI respondió HTTP {r.status_code} {kind}".strip())
+            raise LLMError(f"{self.name} respondió HTTP {r.status_code} {kind}".strip())
 
         try:
             choice = r.json()["choices"][0]
             message = choice["message"]
             if message.get("refusal"):
-                raise LLMError("OpenAI se negó a responder la solicitud")
+                raise LLMError(f"{self.name} se negó a responder la solicitud")
             if choice.get("finish_reason") == "length":
                 # No cupo en el tope de tokens: el JSON quedó cortado; responde el respaldo
-                raise LLMError("La respuesta de OpenAI superó el tope de tokens")
+                raise LLMError(f"La respuesta de {self.name} superó el tope de tokens")
             data = json.loads(message["content"])
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            logger.warning("OpenAI (%s) devolvió una respuesta inválida", self.model)
-            raise LLMError(f"Respuesta de OpenAI inválida: {exc.__class__.__name__}") from exc
+            logger.warning("%s (%s) devolvió una respuesta inválida", self.name, self.model)
+            raise LLMError(f"Respuesta de {self.name} inválida: {exc.__class__.__name__}") from exc
         if isinstance(data, dict):
             data[PROVIDER_KEY] = self.name
         return data

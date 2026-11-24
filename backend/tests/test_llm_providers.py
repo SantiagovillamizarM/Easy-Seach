@@ -127,6 +127,7 @@ def test_query_parser_labels_the_provider_that_answered():
 ])
 def test_get_llm_follows_the_configuration(monkeypatch, choice, openai_key, gemini_key, expected):
     settings = SimpleNamespace(llm_provider=choice, openai_api_key=openai_key, openai_model="gpt-4.1-mini",
+                               xai_api_key=None, xai_model="grok-4.7", xai_base_url="https://api.x.ai/v1",
                                gemini_api_key=gemini_key, gemini_model="m", gemini_fallback_model=None,
                                llm_timeout_seconds=5)
     monkeypatch.setattr(llm_module, "get_settings", lambda: settings)
@@ -164,13 +165,14 @@ def test_answer_cut_by_the_token_cap_is_an_error(fake_post):
         OpenAIProvider(api_key="k", model="gpt-4.1-mini").generate_json("x", {"type": "object", "properties": {}}, max_tokens=10)
 
 
-def test_without_openai_keeps_only_the_free_providers():
-    from app.services.llm import without_openai
-    openai_, gemini = _Fake("openai"), _Fake("gemini")
-    assert without_openai(FallbackLLM([openai_, gemini])) is gemini
-    assert without_openai(openai_) is None
-    assert without_openai(gemini) is gemini
-    assert without_openai(None) is None
+def test_without_paid_keeps_only_the_free_providers():
+    from app.services.llm import without_paid
+    xai, openai_, gemini = _Fake("xai"), _Fake("openai"), _Fake("gemini")
+    assert without_paid(FallbackLLM([xai, openai_, gemini])) is gemini
+    assert without_paid(FallbackLLM([xai, openai_])) is None
+    assert without_paid(openai_) is None
+    assert without_paid(gemini) is gemini
+    assert without_paid(None) is None
 
 
 def _history(db, user_id, parser, days_ago=0, n=1):
@@ -226,4 +228,59 @@ def test_search_uses_gemini_after_the_daily_openai_quota(client, db, monkeypatch
     assert body["interpretation"]["parser"] == "gemini"      # cupo de 1 agotado: responde Gemini
     assert openai_.calls == 1 and gemini.calls == 1
     user = db.scalar(select(User).where(User.email == "cupo-api@test.com"))
-    assert ai_quota.openai_searches_today(db, user.id) == 1
+    assert ai_quota.paid_searches_today(db, user.id) == 1
+
+
+
+# ------------------------------- Grok (xAI) ------------------------------------------------------
+
+def test_grok_uses_the_xai_api_with_low_reasoning(fake_post):
+    from app.services.llm.openai_provider import XAI_BASE_URL
+    fake_post.queue.append(_response(content={"ok": True}))
+    grok = OpenAIProvider(api_key="xai-prueba", model="grok-4.7", name="xai", base_url=XAI_BASE_URL)
+    raw = grok.generate_json("x", {"type": "object", "properties": {}}, max_tokens=300)
+    sent = fake_post.calls[0]
+    assert sent["url"] == "https://api.x.ai/v1/chat/completions"
+    assert sent["headers"]["Authorization"] == "Bearer xai-prueba"
+    assert sent["json"]["response_format"]["json_schema"]["strict"] is True
+    assert sent["json"]["reasoning_effort"] == "low" and "temperature" not in sent["json"]
+    assert sent["json"]["max_completion_tokens"] == 1200      # razona: margen para pensar
+    assert answered_by(raw, grok) == "xai"
+
+
+def test_grok_non_reasoning_model_keeps_temperature(fake_post):
+    fake_post.queue.append(_response(content={"ok": True}))
+    OpenAIProvider(api_key="k", model="grok-4.20-0309-non-reasoning", name="xai").generate_json(
+        "x", {"type": "object", "properties": {}}, max_tokens=300)
+    body = fake_post.calls[0]["json"]
+    assert body["temperature"] == 0 and "reasoning_effort" not in body and body["max_completion_tokens"] == 300
+
+
+@pytest.mark.parametrize("choice,expected", [
+    ("auto", ["xai", "openai", "gemini"]),   # Grok primero, luego OpenAI y Gemini de respaldo
+    ("xai", ["xai"]),
+    ("gemini", ["gemini"]),
+])
+def test_get_llm_puts_grok_first(monkeypatch, choice, expected):
+    settings = SimpleNamespace(llm_provider=choice, openai_api_key="k", openai_model="gpt-4.1-mini",
+                               xai_api_key="x", xai_model="grok-4.7", xai_base_url="https://api.x.ai/v1", gemini_api_key="g", gemini_model="m",
+                               gemini_fallback_model=None, llm_timeout_seconds=5)
+    monkeypatch.setattr(llm_module, "get_settings", lambda: settings)
+    llm_module.get_llm.cache_clear()
+    try:
+        result = llm_module.get_llm()
+    finally:
+        llm_module.get_llm.cache_clear()
+    providers = result.providers if isinstance(result, FallbackLLM) else [result]
+    assert [p.name for p in providers] == expected
+
+
+def test_grok_searches_count_for_the_daily_quota(db, monkeypatch):
+    from app.services import ai_quota
+    from tests.conftest import _make_user
+    monkeypatch.setattr(ai_quota, "get_settings", lambda: SimpleNamespace(openai_searches_per_day=2))
+    user = _make_user(db, "cupo-grok@test.com", "user")
+    chain = FallbackLLM([_Fake("xai"), _Fake("gemini")])
+    _history(db, user.id, "xai")
+    _history(db, user.id, "openai")
+    assert ai_quota.llm_for_user(db, user, chain).name == "gemini"   # 1 de Grok + 1 de OpenAI = 2 de 2

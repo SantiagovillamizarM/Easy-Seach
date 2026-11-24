@@ -195,6 +195,8 @@ Reglas OBLIGATORIAS:
 - Si la ficha tiene poca información, dilo con honestidad (ej. "No tenemos detalles de su menú; está registrado
   como comida rápida en Piedecuesta").
 - No repitas el horario: la aplicación ya lo muestra.
+- Escribe para el usuario: NUNCA menciones las palabras "ficha", "fichas", "id" ni "datos registrados en la
+  ficha"; di "no tenemos detalles de…" o "está registrado como…".
 - summary: una frase general orientando al usuario entre las opciones (sin inventar datos)."""
 
 

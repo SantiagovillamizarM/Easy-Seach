@@ -31,6 +31,7 @@ que no entendía y aprobó cada commit; todos los commits del repositorio son su
 | Claude Code (Anthropic, modelo Claude Opus), extensión de VS Code | Asistente de programación | Análisis del enunciado, propuestas de arquitectura, generación y revisión de código, pruebas automatizadas, verificaciones con la app real y documentación |
 | Google Gemini (chat) | Asistente conversacional | Consultas puntuales del autor, entre ellas si Gemini podía reemplazar a OpenRouter |
 | Google Gemini API (`gemini-2.5-flash-lite`, respaldo `gemini-2.5-flash`) | **Componente del producto**, no herramienta de desarrollo | Interpreta las búsquedas, redacta recomendaciones y responde en el asistente RAG, siempre con datos de la base |
+| xAI API (Grok, `grok-4.7`, configurable) | **Componente del producto** (opcional, de pago, IA principal) | Misma API que OpenAI (Chat Completions con JSON estricto): interpreta las búsquedas, redacta recomendaciones, modera reseñas y responde en el asistente RAG; razonamiento en esfuerzo bajo; OpenAI y Gemini de respaldo |
 | OpenAI API (`gpt-4.1-mini`, configurable) | **Componente del producto** (opcional, de pago) | Con clave configurada interpreta las búsquedas, redacta recomendaciones, modera reseñas y responde en el asistente RAG (n8n), con salida JSON estricta; Gemini queda de respaldo automático y las reglas como último plan B |
 | multilingual-e5-small (sentence-transformers) | **Componente del producto** | Genera los embeddings guardados en pgvector para la búsqueda semántica y el asistente |
 

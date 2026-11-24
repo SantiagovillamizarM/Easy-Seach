@@ -190,7 +190,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "// Solo las fichas que FastAPI devolvió (si un negocio se desactivó entre la búsqueda y este paso, ya no viene)\nconst fichas = $input.first().json.fichas || [];\nconst recuperadas = $('Filtrar por umbral').first().json.fuentes;\nconst ids = new Set(fichas.map((f) => f.id));\nconst fuentes = recuperadas.filter((f) => ids.has(f.establecimiento_id));\nconst pregunta = $('Validar entrada').first().json.pregunta;\nconst sistema = \"Eres el asistente de Easy Search, una plataforma para encontrar negocios, productos y servicios en Bucaramanga y su área metropolitana (Colombia). Tu trabajo es entender de verdad lo que la persona necesita y orientarla con criterio entre los negocios registrados.\\nRecibirás la pregunta de un usuario y las FICHAS de los negocios que la búsqueda semántica encontró como más relacionados.\\n\\nCómo razonar (antes de escribir):\\n1. Identifica la NECESIDAD REAL detrás de la pregunta. Si describe un problema en lugar de nombrar un negocio (\\\"se me dañó la pantalla del celular\\\", \\\"me duele una muela\\\", \\\"se me pinchó una llanta\\\"), deduce qué tipo de negocio lo resuelve y busca ese tipo en las fichas.\\n2. Detecta las condiciones que pidió: zona (barrio o municipio), presupuesto, horario (\\\"abierto ahora\\\", \\\"temprano\\\", \\\"domingo\\\"), producto concreto, para quién (niños, mascota, grupo) o preferencias.\\n3. Revisa cada ficha y quédate SOLO con los negocios que sirven para esa necesidad según sus propios datos. Descarta los que no (un bar o un supermercado cuando pide una farmacia): no los menciones ni los incluyas en fuentes_usadas.\\n4. Compara los que sirven y ordénalos con criterio: cuál conviene revisar primero y por qué, usando datos concretos de las fichas (productos o servicios de su carta, precios, horario, ubicación respecto a la zona pedida, calificación y reseñas si las hay).\\n\\nReglas OBLIGATORIAS:\\n- Usa EXCLUSIVAMENTE la información de las fichas. No inventes negocios, productos, precios, horarios, direcciones, teléfonos, reseñas ni calificaciones.\\n- NO deduzcas servicios ni especialidades a partir del NOMBRE de un negocio: usa solo los campos de su ficha.\\n- UBICACIÓN: la ubicación de cada negocio es SOLO la del campo \\\"ubicacion\\\" de su ficha. Nunca digas que un negocio está en la zona que pidió el usuario si su ficha dice otra. Si pidió una zona y no hay opciones ahí, dilo claramente (ej. \\\"no encontré opciones en Cabecera; la más cercana registrada está en Piedecuesta\\\").\\n- Si pidió un presupuesto u horario y la ficha no tiene ese dato, dilo con honestidad y sugiere confirmarlo con el negocio; si el dato existe y no cumple, no lo recomiendes como si cumpliera.\\n- Si después de descartar no queda ningún negocio que sirva, o la pregunta no se puede responder con las fichas (recetas, información general, tareas, noticias, algo que ninguno ofrece), responde tiene_respuesta = false, deja pasos y fuentes_usadas vacíos y en respuesta explica en una o dos frases que no hay información suficiente en Easy Search (y, si ayuda, qué tipo de negocio buscar).\\n- Si sí se puede responder: tiene_respuesta = true; respuesta = 3 a 5 frases en español, en segunda persona, que vayan al grano: la mejor opción primero con su razón concreta y, si hay más, en qué se diferencian; pasos = 2 a 4 pasos concretos y accionables (qué negocio revisar primero y por qué, qué producto o servicio preguntar, qué confirmar antes de ir); fuentes_usadas = ids de las fichas en las que te basaste.\\n- Si una ficha tiene poca información, dilo con honestidad en lugar de rellenar.\\n- Nombra los negocios solo por su nombre (y su barrio o municipio si ayuda a distinguirlos). NUNCA menciones ids, números de ficha ni la palabra \\\"ficha\\\": el usuario no los conoce.\\n- Tono amable, cercano y directo, como alguien de la ciudad que conoce bien los negocios. Sin listas dentro de \\\"respuesta\\\".\";\nconst usuario = JSON.stringify({ pregunta, fichas });\nconst esquema = {\"type\": \"object\", \"properties\": {\"tiene_respuesta\": {\"type\": \"boolean\"}, \"respuesta\": {\"type\": \"string\"}, \"pasos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"fuentes_usadas\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"tiene_respuesta\", \"respuesta\", \"pasos\", \"fuentes_usadas\"]};\n\n// Gemini (respaldo): API generateContent con salida JSON estructurada\nconst cuerpo = {\n  systemInstruction: { parts: [{ text: sistema }] },\n  contents: [{ role: 'user', parts: [{ text: usuario }] }],\n  generationConfig: { responseMimeType: 'application/json', responseSchema: esquema, temperature: 0.2 },\n};\n\n// OpenAI (principal si hay clave): Chat Completions con esquema estricto (obliga a respetar el formato).\n// Los modelos de razonamiento (serie \"o\" y GPT-5) solo aceptan la temperatura por defecto.\nconst modeloOpenAI = $env.OPENAI_MODEL || 'gpt-4.1-mini';\nconst razonamiento = /^(o\\d|gpt-5)/i.test(modeloOpenAI);\nconst cuerpoOpenAI = {\n  model: modeloOpenAI,\n  messages: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }],\n  response_format: { type: 'json_schema', json_schema: { name: 'respuesta_asistente', strict: true, schema: {\"type\": \"object\", \"properties\": {\"tiene_respuesta\": {\"type\": \"boolean\"}, \"respuesta\": {\"type\": \"string\"}, \"pasos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"fuentes_usadas\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"tiene_respuesta\", \"respuesta\", \"pasos\", \"fuentes_usadas\"], \"additionalProperties\": false} } },\n  // Tope de tokens de la respuesta (lo que más cuesta): lo normal son ~500; los modelos de razonamiento\n  // necesitan margen para pensar antes de escribir\n  max_completion_tokens: razonamiento ? 800 * 4 : 800,\n  ...(razonamiento ? { reasoning_effort: /^gpt-5/i.test(modeloOpenAI) ? 'minimal' : 'low' } : { temperature: 0.2 }),\n};\n\n// OpenAI va primero salvo que LLM_PROVIDER fuerce Gemini, no haya clave (solo se mira si existe, no su valor)\n// o el usuario haya agotado su cupo diario de OpenAI (lo decide Spring Boot)\nconst usarOpenAI = ($env.LLM_PROVIDER || 'auto').toLowerCase() !== 'gemini' && Boolean($env.OPENAI_API_KEY)\n  && $('Validar entrada').first().json.permitir_openai === true;\nreturn [{ json: { fuentes, cuerpo: JSON.stringify(cuerpo), cuerpo_openai: JSON.stringify(cuerpoOpenAI), usar_openai: usarOpenAI } }];"
+        "jsCode": "// Solo las fichas que FastAPI devolvió (si un negocio se desactivó entre la búsqueda y este paso, ya no viene)\nconst fichas = $input.first().json.fichas || [];\nconst recuperadas = $('Filtrar por umbral').first().json.fuentes;\nconst ids = new Set(fichas.map((f) => f.id));\nconst fuentes = recuperadas.filter((f) => ids.has(f.establecimiento_id));\nconst pregunta = $('Validar entrada').first().json.pregunta;\nconst sistema = \"Eres el asistente de Easy Search, una plataforma para encontrar negocios, productos y servicios en Bucaramanga y su área metropolitana (Colombia). Tu trabajo es entender de verdad lo que la persona necesita y orientarla con criterio entre los negocios registrados.\\nRecibirás la pregunta de un usuario y las FICHAS de los negocios que la búsqueda semántica encontró como más relacionados.\\n\\nCómo razonar (antes de escribir):\\n1. Identifica la NECESIDAD REAL detrás de la pregunta. Si describe un problema en lugar de nombrar un negocio (\\\"se me dañó la pantalla del celular\\\", \\\"me duele una muela\\\", \\\"se me pinchó una llanta\\\"), deduce qué tipo de negocio lo resuelve y busca ese tipo en las fichas.\\n2. Detecta las condiciones que pidió: zona (barrio o municipio), presupuesto, horario (\\\"abierto ahora\\\", \\\"temprano\\\", \\\"domingo\\\"), producto concreto, para quién (niños, mascota, grupo) o preferencias.\\n3. Revisa cada ficha y quédate SOLO con los negocios que sirven para esa necesidad según sus propios datos. Descarta los que no (un bar o un supermercado cuando pide una farmacia): no los menciones ni los incluyas en fuentes_usadas.\\n4. Compara los que sirven y ordénalos con criterio: cuál conviene revisar primero y por qué, usando datos concretos de las fichas (productos o servicios de su carta, precios, horario, ubicación respecto a la zona pedida, calificación y reseñas si las hay).\\n\\nReglas OBLIGATORIAS:\\n- Usa EXCLUSIVAMENTE la información de las fichas. No inventes negocios, productos, precios, horarios, direcciones, teléfonos, reseñas ni calificaciones.\\n- NO deduzcas servicios ni especialidades a partir del NOMBRE de un negocio: usa solo los campos de su ficha.\\n- UBICACIÓN: la ubicación de cada negocio es SOLO la del campo \\\"ubicacion\\\" de su ficha. Nunca digas que un negocio está en la zona que pidió el usuario si su ficha dice otra. Si pidió una zona y no hay opciones ahí, dilo claramente (ej. \\\"no encontré opciones en Cabecera; la más cercana registrada está en Piedecuesta\\\").\\n- Si pidió un presupuesto u horario y la ficha no tiene ese dato, dilo con honestidad y sugiere confirmarlo con el negocio; si el dato existe y no cumple, no lo recomiendes como si cumpliera.\\n- Si después de descartar no queda ningún negocio que sirva, o la pregunta no se puede responder con las fichas (recetas, información general, tareas, noticias, algo que ninguno ofrece), responde tiene_respuesta = false, deja pasos y fuentes_usadas vacíos y en respuesta explica en una o dos frases que no hay información suficiente en Easy Search (y, si ayuda, qué tipo de negocio buscar).\\n- Si sí se puede responder: tiene_respuesta = true; respuesta = 3 a 5 frases en español, en segunda persona, que vayan al grano: la mejor opción primero con su razón concreta y, si hay más, en qué se diferencian; pasos = 2 a 4 pasos concretos y accionables (qué negocio revisar primero y por qué, qué producto o servicio preguntar, qué confirmar antes de ir); fuentes_usadas = ids de las fichas en las que te basaste.\\n- Si una ficha tiene poca información, dilo con honestidad en lugar de rellenar.\\n- Nombra los negocios solo por su nombre (y su barrio o municipio si ayuda a distinguirlos). NUNCA menciones ids, números de ficha ni la palabra \\\"ficha\\\": el usuario no los conoce.\\n- Tono amable, cercano y directo, como alguien de la ciudad que conoce bien los negocios. Sin listas dentro de \\\"respuesta\\\".\";\nconst usuario = JSON.stringify({ pregunta, fichas });\nconst esquema = {\"type\": \"object\", \"properties\": {\"tiene_respuesta\": {\"type\": \"boolean\"}, \"respuesta\": {\"type\": \"string\"}, \"pasos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"fuentes_usadas\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"tiene_respuesta\", \"respuesta\", \"pasos\", \"fuentes_usadas\"]};\n\n// Gemini (respaldo): API generateContent con salida JSON estructurada\nconst cuerpo = {\n  systemInstruction: { parts: [{ text: sistema }] },\n  contents: [{ role: 'user', parts: [{ text: usuario }] }],\n  generationConfig: { responseMimeType: 'application/json', responseSchema: esquema, temperature: 0.2 },\n};\n\n// IA de pago (principal si hay clave): Grok (xAI) o OpenAI, ambos con la misma API Chat Completions y\n// salida JSON estricta (obliga a respetar el formato). Grok va primero; LLM_PROVIDER puede forzar uno.\n// Solo se mira SI existe cada clave, nunca su valor (las claves viven en la credencial \"IA de pago\").\nconst eleccion = ($env.LLM_PROVIDER || 'auto').toLowerCase();\nconst proveedor = ((eleccion === 'auto' || eleccion === 'xai') && $env.XAI_API_KEY) ? 'xai'\n  : ((eleccion === 'auto' || eleccion === 'openai') && $env.OPENAI_API_KEY) ? 'openai' : null;\nconst modeloPago = proveedor === 'xai' ? ($env.XAI_MODEL || 'grok-4.7') : ($env.OPENAI_MODEL || 'gpt-4.1-mini');\n// Grok: la API oficial o una pasarela compatible con OpenAI (XAI_BASE_URL)\nconst urlPago = proveedor === 'xai'\n  ? ($env.XAI_BASE_URL || 'https://api.x.ai/v1').replace(/\\/+$/, '') + '/chat/completions'\n  : 'https://api.openai.com/v1/chat/completions';\n// Modelos de razonamiento (Grok 4.x, serie \"o\", GPT-5): esfuerzo mínimo (rápido y barato) y margen en el tope\nconst razonamiento = /^(o\\d|gpt-5)/i.test(modeloPago) || (/^grok/i.test(modeloPago) && !/non-reasoning/i.test(modeloPago));\nconst cuerpoPago = {\n  model: modeloPago,\n  messages: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }],\n  response_format: { type: 'json_schema', json_schema: { name: 'respuesta_asistente', strict: true, schema: {\"type\": \"object\", \"properties\": {\"tiene_respuesta\": {\"type\": \"boolean\"}, \"respuesta\": {\"type\": \"string\"}, \"pasos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"fuentes_usadas\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"tiene_respuesta\", \"respuesta\", \"pasos\", \"fuentes_usadas\"], \"additionalProperties\": false} } },\n  // Tope de tokens de la respuesta (lo que más cuesta): lo normal son ~500\n  max_completion_tokens: razonamiento ? 800 * 4 : 800,\n  ...(razonamiento ? { reasoning_effort: /^gpt-5/i.test(modeloPago) ? 'minimal' : 'low' } : { temperature: 0.2 }),\n};\n\n// La IA de pago va primero salvo que no haya clave o el usuario haya agotado su cupo diario\n// (lo decide Spring Boot); si no, responde Gemini (gratis)\nconst usarPago = proveedor !== null && $('Validar entrada').first().json.permitir_openai === true;\nreturn [{ json: { fuentes, cuerpo: JSON.stringify(cuerpo), cuerpo_pago: JSON.stringify(cuerpoPago), url_pago: urlPago, usar_pago: usarPago } }];"
       }
     },
     {
@@ -261,7 +261,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "// Respuesta de la IA que haya respondido: OpenAI (principal) o Gemini (modelo principal o de respaldo)\nconst data = $input.first().json;\nlet r;\nlet modelo;\ntry {\n  if (Array.isArray(data.choices)) {\n    const mensaje = data.choices[0].message;\n    if (mensaje.refusal) throw new Error('OpenAI se negó a responder');\n    r = JSON.parse(mensaje.content);\n    modelo = data.model || $env.OPENAI_MODEL;\n  } else {\n    r = JSON.parse(data.candidates[0].content.parts[0].text);\n    modelo = data.modelVersion || $env.GEMINI_MODEL;\n  }\n} catch (e) {\n  throw new Error('La IA devolvió una respuesta que no es JSON válido');\n}\nconst fuentes = $('Armar prompt').first().json.fuentes;\nconst recuperados = new Set(fuentes.map((f) => f.establecimiento_id));\n// Solo cuentan como fuentes los ids que la búsqueda recuperó: si la IA cita otro id, se descarta\nconst usadas = (r.fuentes_usadas || []).map(Number).filter((id) => recuperados.has(id));\nreturn [{\n  json: {\n    tiene_respuesta: r.tiene_respuesta === true && usadas.length > 0,\n    respuesta: String(r.respuesta || '').trim(),\n    pasos: (r.pasos || []).map((p) => String(p).trim()).filter(Boolean).slice(0, 6),\n    ids: usadas,\n    modelo,\n  },\n}];"
+        "jsCode": "// Respuesta de la IA que haya respondido: la de pago (Grok u OpenAI) o Gemini (principal o de respaldo)\nconst data = $input.first().json;\nlet r;\nlet modelo;\ntry {\n  if (Array.isArray(data.choices)) {\n    const mensaje = data.choices[0].message;\n    if (mensaje.refusal) throw new Error('La IA de pago se negó a responder');\n    r = JSON.parse(mensaje.content);\n    modelo = data.model || 'ia-de-pago';\n  } else {\n    r = JSON.parse(data.candidates[0].content.parts[0].text);\n    modelo = data.modelVersion || $env.GEMINI_MODEL;\n  }\n} catch (e) {\n  throw new Error('La IA devolvió una respuesta que no es JSON válido');\n}\nconst fuentes = $('Armar prompt').first().json.fuentes;\nconst recuperados = new Set(fuentes.map((f) => f.establecimiento_id));\n// Solo cuentan como fuentes los ids que la búsqueda recuperó: si la IA cita otro id, se descarta\nconst usadas = (r.fuentes_usadas || []).map(Number).filter((id) => recuperados.has(id));\nreturn [{\n  json: {\n    tiene_respuesta: r.tiene_respuesta === true && usadas.length > 0,\n    respuesta: String(r.respuesta || '').trim(),\n    pasos: (r.pasos || []).map((p) => String(p).trim()).filter(Boolean).slice(0, 6),\n    ids: usadas,\n    modelo,\n  },\n}];"
       }
     },
     {
@@ -377,7 +377,7 @@
         700
       ],
       "parameters": {
-        "jsCode": "// Llega aquí cuando falla un paso (salida de error de los nodos HTTP y Postgres)\nconst mensajes = {\n  'Vector de la pregunta (e5)': 'El servicio de embeddings no respondió',\n  'Buscar en pgvector': 'La búsqueda en pgvector falló',\n  'Fichas de las fuentes': 'No se pudieron leer las fichas de los negocios',\n  'Gemini (respaldo)': 'Ninguna IA respondió (OpenAI, Gemini y su modelo de respaldo)',\n  'Validar contra las fichas': 'No se pudo validar la respuesta contra los datos',\n};\nconst paso = $prevNode.name;\nconst tecnico = String($input.first().json.error?.message || $input.first().json.error || '').slice(0, 200);\nreturn [{ json: { estado: 'ERROR', detalle: mensajes[paso] || `Falló el paso ${paso}`, paso, tecnico } }];"
+        "jsCode": "// Llega aquí cuando falla un paso (salida de error de los nodos HTTP y Postgres)\nconst mensajes = {\n  'Vector de la pregunta (e5)': 'El servicio de embeddings no respondió',\n  'Buscar en pgvector': 'La búsqueda en pgvector falló',\n  'Fichas de las fuentes': 'No se pudieron leer las fichas de los negocios',\n  'Gemini (respaldo)': 'Ninguna IA respondió (la de pago, Gemini y su modelo de respaldo)',\n  'Validar contra las fichas': 'No se pudo validar la respuesta contra los datos',\n};\nconst paso = $prevNode.name;\nconst tecnico = String($input.first().json.error?.message || $input.first().json.error || '').slice(0, 200);\nreturn [{ json: { estado: 'ERROR', detalle: mensajes[paso] || `Falló el paso ${paso}`, paso, tecnico } }];"
       }
     },
     {
@@ -406,7 +406,7 @@
           "conditions": [
             {
               "id": "96b7a085-734e-52a4-873f-e5f5e191a59b",
-              "leftValue": "={{ $json.usar_openai }}",
+              "leftValue": "={{ $json.usar_pago }}",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
@@ -420,7 +420,7 @@
         "options": {}
       },
       "id": "554ac5a2-ec7c-5da4-af7c-164585839a10",
-      "name": "¿Usar OpenAI?",
+      "name": "¿Usar IA de pago?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -431,18 +431,18 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
+        "url": "={{ $('Armar prompt').first().json.url_pago }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Armar prompt').first().json.cuerpo_openai }}",
+        "jsonBody": "={{ $('Armar prompt').first().json.cuerpo_pago }}",
         "options": {
-          "timeout": 20000
+          "timeout": 25000
         }
       },
       "id": "40315974-7c41-5e0c-9bc0-f1924b9056a9",
-      "name": "OpenAI",
+      "name": "IA de pago",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -452,7 +452,7 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "EsOpenAiApiKey01",
-          "name": "OpenAI API"
+          "name": "IA de pago (Grok u OpenAI)"
         }
       },
       "onError": "continueErrorOutput"
@@ -579,7 +579,7 @@
       "main": [
         [
           {
-            "node": "¿Usar OpenAI?",
+            "node": "¿Usar IA de pago?",
             "type": "main",
             "index": 0
           }
@@ -691,11 +691,22 @@
         ]
       ]
     },
-    "¿Usar OpenAI?": {
+    "Leer respuesta de la IA": {
       "main": [
         [
           {
-            "node": "OpenAI",
+            "node": "¿Las fuentes responden la pregunta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Usar IA de pago?": {
+      "main": [
+        [
+          {
+            "node": "IA de pago",
             "type": "main",
             "index": 0
           }
@@ -709,7 +720,7 @@
         ]
       ]
     },
-    "OpenAI": {
+    "IA de pago": {
       "main": [
         [
           {
@@ -721,17 +732,6 @@
         [
           {
             "node": "Gemini",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Leer respuesta de la IA": {
-      "main": [
-        [
-          {
-            "node": "¿Las fuentes responden la pregunta?",
             "type": "main",
             "index": 0
           }
