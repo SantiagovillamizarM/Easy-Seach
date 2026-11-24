@@ -157,3 +157,20 @@
 }
 .theme-scope[data-theme="dark"] .hero-night.assistant-heading::before { background: radial-gradient(closest-side, rgb(139 92 246 / 0.4), transparent); }
 .theme-scope[data-theme="dark"] .hero-night.assistant-heading::after { background: radial-gradient(closest-side, rgb(96 165 250 / 0.16), transparent); }
+
+/* ---------- Interruptores (switch) ---------- */
+/* El riel apagado se ve sobre el grafito, encendido va en el degradado violeta y la bolita sigue blanca */
+.theme-scope[data-theme="dark"] .switch-track {
+  background-color: #ffffff24;
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+  --tw-ring-offset-color: #0e0d16;
+}
+.theme-scope[data-theme="dark"] .peer:checked ~ .switch-track {
+  background-color: transparent;
+  background-image: linear-gradient(125deg, #4f46e5, #7c3aed 60%, #a855f7);
+  box-shadow: 0 0 14px -2px #9b6cffaa;
+}
+.theme-scope[data-theme="dark"] .switch-knob {
+  background-color: #ffffff;
+  box-shadow: 0 2px 6px #00000080;
+}
