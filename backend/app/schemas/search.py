@@ -56,6 +56,7 @@ class InterpretationOut(BaseModel):
     open_now: bool
     min_rating: float | None
     preferences: list[str]
+    is_search: bool = True   # False: el mensaje no pedía nada (saludo, charla, texto sin sentido)
     parser: Literal["gemini", "reglas"]
 
 

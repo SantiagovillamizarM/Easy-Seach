@@ -306,3 +306,86 @@ def test_multi_word_keywords_are_found():
     assert _mentions("Restaurante Comida China Wok", ["comida china"])
     assert _mentions("Bandejas paisas y frijoladas", ["bandeja paisa"])
     assert not _mentions("Comida rápida El Paisa", ["comida china"])
+
+
+# ------------------------------- Mensajes sin nada que buscar ----------------------------
+# Bug: buscar "hola" devolvía 15 lugares sin relación ("Busca: información general"), porque la
+# búsqueda por vectores siempre encuentra "los más parecidos" aunque no se parezcan en nada.
+
+
+@pytest.mark.parametrize("text", ["hola", "Hola!", "buenas tardes", "gracias", "ok", "test", "asdfgh", "jajaja"])
+def test_rules_detect_messages_without_a_search(text):
+    intent = parse_with_rules(text)
+    assert intent.is_search is False
+    assert intent.need == "" and intent.keywords == [] and intent.category_slugs == []
+
+
+@pytest.mark.parametrize("text", [
+    "pizza", "hola, necesito un plomero", "hola busco donde arreglar la nevera", "algo rico cerca de mi",
+    "barato", "abierto ahora", "instrumentos musicales",
+])
+def test_rules_keep_real_searches(text):
+    assert parse_with_rules(text).is_search is True
+
+
+def test_llm_can_mark_a_message_as_not_a_search():
+    # Aunque la IA invente una necesidad, si dice que no hay búsqueda se descarta todo
+    llm = FakeLLM(_llm_answer(need="información general", keywords=["hola"], category_slugs=[], is_search=False))
+    intent = parse_query("hola prueba-ia", llm)
+    assert intent.is_search is False
+    assert intent.parser == "gemini"
+    assert intent.need == "" and intent.keywords == []
+
+
+def test_llm_cannot_discard_a_query_that_names_a_business_type():
+    # "hamburguesa" es un tipo de negocio que las reglas reconocen: el texto manda sobre la IA
+    llm = FakeLLM(_llm_answer(is_search=False))
+    intent = parse_query("una hamburguesa prueba-tipo", llm)
+    assert intent.is_search is True
+    assert intent.need
+
+
+def test_search_returns_nothing_for_a_greeting(client, db, world):
+    body = client.post("/api/search", json={"q": "hola"}).json()
+    assert body["results"] == []
+    assert body["interpretation"]["is_search"] is False
+    assert body["interpretation"]["need"] == ""
+    assert body["needs_location"] is False
+    assert any("No encontramos qué buscar" in n for n in body["notices"])
+    # Una búsqueda real sigue funcionando igual
+    assert client.post("/api/search", json={"q": "hamburguesas en Piedecuesta"}).json()["results"]
+
+
+
+# ------------------------------- Productos que ningún lugar menciona --------------------------
+# Bug: buscar un producto que nadie vende mostraba 15 lugares sin relación (un pub, un gimnasio…):
+# la raíz corta ("cond…") "coincidía" dentro de otras palabras y, sin menciones, mandaban la cercanía y
+# las categorías afines.
+
+
+@pytest.mark.parametrize("text,keyword,expected", [
+    ("El lago condominio club", "condon", False),          # la raíz es un pedazo de otra palabra
+    ("Plan de acondicionamiento físico", "condon", False),
+    ("Pizzería Napoli", "pizza", True),                     # derivados y compuestos siguen valiendo
+    ("Unifrenos del oriente", "frenos", True),
+    ("Hamburguesería La 33", "hamburguesas", True),
+    ("Llantas y rines", "llanta", True),
+])
+def test_mentions_require_the_whole_root(text, keyword, expected):
+    from app.services.search import _mentions
+    assert _mentions(text, [keyword]) is expected
+
+
+def test_unknown_product_nobody_mentions_returns_nothing(client, world):
+    """Sin menciones ni tipo de negocio conocido: no se inventan "parecidos", se avisa con honestidad."""
+    body = client.post("/api/search", json={"q": "turrones en Piedecuesta"}).json()
+    assert body["results"] == []
+    assert any("Ningún lugar en Piedecuesta menciona «turrones»" in n and "tipo de negocio" in n
+               for n in body["notices"])
+
+
+def test_nobody_mentions_it_keeps_only_the_exact_categories(client, world):
+    """"helado" es de heladerías: si nadie lo menciona, no se rellena con comida rápida "afín"."""
+    body = client.post("/api/search", json={"q": "un helado en Piedecuesta"}).json()
+    assert body["results"] == []
+    assert any("menciona «helado»" in n for n in body["notices"])
