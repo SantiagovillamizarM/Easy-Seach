@@ -347,3 +347,37 @@ button[aria-pressed="true"]:hover > .favorite-heart { transform: scale(1.14); }
   button[aria-pressed="true"]:hover > .favorite-heart { transform: none; }
   .query-suggestion:hover, .query-suggestion:focus-visible { scale: 1; }
 }
+
+/* ---------- Selector de modo claro/oscuro ----------
+   El sol y la luna se cruzan: el que sale gira y se encoge, el que entra aparece girando. */
+.theme-toggle > svg {
+  position: absolute;
+  transition: transform 520ms var(--ease-out-soft), opacity 360ms var(--ease-out-soft);
+}
+.theme-toggle[data-mode="light"] .theme-toggle-moon,
+.theme-toggle[data-mode="dark"] .theme-toggle-sun { opacity: 1; transform: rotate(0deg) scale(1); }
+.theme-toggle[data-mode="light"] .theme-toggle-sun { opacity: 0; transform: rotate(-90deg) scale(0.4); }
+.theme-toggle[data-mode="dark"] .theme-toggle-moon { opacity: 0; transform: rotate(90deg) scale(0.4); }
+.theme-toggle:hover > svg { transform: rotate(-14deg) scale(1.08); }
+.theme-toggle[data-mode="light"]:hover .theme-toggle-sun,
+.theme-toggle[data-mode="dark"]:hover .theme-toggle-moon { transform: rotate(90deg) scale(0.4); }
+
+/* Encabezado sobre el dashboard en modo oscuro: buscador de vidrio oscuro y tokens claros */
+.site-nav-on-dark {
+  --color-ink: #eef1ff;
+  --color-ink-soft: #a3add3;
+  --color-line: #ffffff1c;
+  --color-brand-50: #7c83ff1f;
+  --color-brand-200: #8f97ff66;
+  --color-brand-700: #c4c9ff;
+  --color-open: #6ee7b7;
+  --color-open-bg: #10b98124;
+}
+.site-nav-on-dark.bg-night\/80 { background-color: #0a0911cc; } /* vidrio casi negro al bajar */
+.site-nav-on-dark .search-console { border-color: #ffffff1f; background: #ffffff0a; box-shadow: none; }
+.site-nav-on-dark .search-console:focus-within { border-color: #a78bfa; background: #ffffff12; }
+.site-nav-on-dark .chip { border-color: #ffffff24; background: #ffffff0d; color: var(--color-ink-soft); }
+
+/* Cambio de tema con fundido suave (View Transitions, donde el navegador lo permite) */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 420ms; animation-timing-function: var(--ease-out-soft); }

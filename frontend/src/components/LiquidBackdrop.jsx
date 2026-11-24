@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-// Fondo líquido para el dashboard de resultados (WebGL 1, sin librerías).
+// Fondo líquido para el dashboard de resultados (WebGL 1, sin librerías). Tiene paleta clara y oscura.
 // Ruido fractal con "domain warping" (el ruido se deforma con más ruido) da una superficie que fluye
 // como líquido; se ilumina como un metal satinado blanco y gris para que se vean pliegues y brillos.
 // - Se pinta a media resolución y solo del tamaño de la ventana (se queda fijo mientras bajas).
@@ -15,6 +15,8 @@ const FRAGMENT = `
 precision mediump float;
 uniform vec2 uRes;
 uniform float uTime;
+uniform vec3 uShadow, uLight, uTint; // paleta del tema (claro: perla; oscuro: azul noche)
+uniform float uTintAmt, uSpec;
 
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p){
@@ -48,11 +50,9 @@ void main(){
   vec3 L = normalize(vec3(-0.45, 0.6, 0.66));
   float diff = dot(n, L) * 0.5 + 0.5;
   float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 30.0);
-  vec3 shadow = vec3(0.905, 0.91, 0.932); // gris perla muy claro
-  vec3 light = vec3(0.988, 0.989, 0.994); // casi blanco
-  vec3 col = mix(shadow, light, smoothstep(0.1, 0.9, diff));
-  col = mix(col, vec3(0.93, 0.92, 0.975), (1.0 - diff) * 0.12); // un toque lila en las sombras
-  col += spec * 0.08;
+  vec3 col = mix(uShadow, uLight, smoothstep(0.1, 0.9, diff));
+  col = mix(col, uTint, (1.0 - diff) * uTintAmt); // un toque lila en las sombras
+  col += spec * uSpec;
   gl_FragColor = vec4(min(col, 1.0), 1.0);
 }`;
 
@@ -63,8 +63,23 @@ function compile(gl, type, source) {
   return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
 }
 
-export default function LiquidBackdrop({ className = "" }) {
+// Paletas por tema (RGB 0-1). Claro: blanco y gris perla. Oscuro: casi negro con pliegues
+// violeta grisáceo y sombras moradas muy tenues (combina con el pie y el cielo de la página).
+const PALETTES = {
+  light: { shadow: [0.905, 0.91, 0.932], light: [0.988, 0.989, 0.994], tint: [0.93, 0.92, 0.975], tintAmt: 0.12, spec: 0.08 },
+  dark: { shadow: [0.027, 0.027, 0.045], light: [0.085, 0.075, 0.145], tint: [0.2, 0.1, 0.34], tintAmt: 0.3, spec: 0.06 },
+};
+
+export default function LiquidBackdrop({ className = "", theme = "light" }) {
   const canvasRef = useRef(null);
+  const paletteRef = useRef(PALETTES[theme] ?? PALETTES.light);
+  const redrawRef = useRef(null);
+
+  // Al cambiar de tema se repinta con la nueva paleta (aunque la animación esté en pausa)
+  useEffect(() => {
+    paletteRef.current = PALETTES[theme] ?? PALETTES.light;
+    redrawRef.current?.();
+  }, [theme]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,6 +103,11 @@ export default function LiquidBackdrop({ className = "" }) {
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
     const uRes = gl.getUniformLocation(program, "uRes");
     const uTime = gl.getUniformLocation(program, "uTime");
+    const uShadow = gl.getUniformLocation(program, "uShadow");
+    const uLight = gl.getUniformLocation(program, "uLight");
+    const uTint = gl.getUniformLocation(program, "uTint");
+    const uTintAmt = gl.getUniformLocation(program, "uTintAmt");
+    const uSpec = gl.getUniformLocation(program, "uSpec");
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const SCALE = 0.5; // media resolución: el líquido es suave, no se nota y cuesta 4 veces menos
@@ -109,6 +129,12 @@ export default function LiquidBackdrop({ className = "" }) {
     }
 
     function draw() {
+      const pal = paletteRef.current;
+      gl.uniform3fv(uShadow, pal.shadow);
+      gl.uniform3fv(uLight, pal.light);
+      gl.uniform3fv(uTint, pal.tint);
+      gl.uniform1f(uTintAmt, pal.tintAmt);
+      gl.uniform1f(uSpec, pal.spec);
       gl.uniform1f(uTime, 7.0 + elapsed * SPEED);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       canvas.dataset.ready = "";
@@ -141,8 +167,10 @@ export default function LiquidBackdrop({ className = "" }) {
     reduced.addEventListener("change", sync);
     resize();
     sync();
+    redrawRef.current = () => { if (!frame) draw(); };
 
     return () => {
+      redrawRef.current = null;
       cancelAnimationFrame(frame);
       ro.disconnect();
       io.disconnect();

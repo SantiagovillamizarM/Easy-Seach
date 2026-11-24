@@ -5,6 +5,8 @@ import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
 import SearchBar from "./SearchBar.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 // Páginas que empiezan con un fondo nocturno (data-dark-hero)
@@ -19,14 +21,17 @@ function Header() {
   // En páginas con hero nocturno, el encabezado sigue oscuro mientras el hero está detrás (sin franja blanca)
   const hasDarkHero = DARK_HERO_ROUTES.includes(pathname);
   const overHero = useOverDarkHero(hasDarkHero);
-  const dark = hasDarkHero && (overHero || !scrolled);
+  // Resultados en modo oscuro: el encabezado va oscuro sobre el fondo nocturno del dashboard
+  const { theme } = useTheme();
+  const resultsDark = isResults && theme === "dark";
+  const dark = resultsDark || (hasDarkHero && (overHero || !scrolled));
   const headerRef = useRef(null);
 
   // Con hero nocturno, el fondo raíz también es noche: así el rebote al pasar el tope de la página
   // (scroll elástico del touchpad) no deja ver una franja clara encima del cielo
   useLayoutEffect(() => {
-    document.documentElement.toggleAttribute("data-dark-top", hasDarkHero);
-  }, [hasDarkHero]);
+    document.documentElement.toggleAttribute("data-dark-top", hasDarkHero || resultsDark);
+  }, [hasDarkHero, resultsDark]);
 
   // Publica la altura del encabezado (sin compactar) en --header-h: los heros nocturnos la usan para
   // subir por detrás del encabezado transparente y que el cielo empiece desde el borde de la pantalla
@@ -46,7 +51,7 @@ function Header() {
   return (
     <header
       ref={headerRef}
-      className={`site-nav sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
+      className={`site-nav ${resultsDark ? "site-nav-on-dark" : ""} sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
         dark
           ? scrolled
             ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)] backdrop-blur-md"
@@ -74,6 +79,8 @@ function Header() {
         ) : (
           <div className="flex-1" />
         )}
+        {/* Por ahora el modo oscuro solo existe en el dashboard de resultados */}
+        {isResults && <ThemeToggle dark={dark} />}
         <Link
           to="/asistente"
           aria-label="Asistente"

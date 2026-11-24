@@ -5,12 +5,20 @@
    páginas que comparten ResultCard, ResultsMap o los estilos globales.
 
    TEMAS: todos los colores salen de variables --rw-*. El tema se elige con el atributo
-   data-theme de .rw-window ("light" por defecto, "dark" listo para el futuro selector).
+   data-theme de .results-workspace ("light" o "dark"), que viene del selector del encabezado.
    Para cambiar un color basta con editar el bloque del tema; las reglas no llevan colores fijos.
    ============================================================ */
 
-/* ---------- Tema claro (por defecto) ---------- */
-.rw-window {
+/* ---------- Tema claro (por defecto) ----------
+   Las variables viven en .results-workspace (no en la ventana) para que también cambie el fondo. */
+.results-workspace {
+  --rw-page-bg:
+    radial-gradient(circle, #1b246612 1px, transparent 1.3px) 0 0 / 26px 26px,
+    linear-gradient(180deg, #fdfdfe, #f4f5f8 60%, #eff0f4);
+  --rw-title-grad: linear-gradient(100deg, #4f46e5, #7c3aed 55%, #b45cf0);
+  --rw-eyebrow-icon: #7c3aed;
+  --rw-fav-hover-bg: #fff1f3;
+  --rw-fav-hover-text: #e11d48;
   --rw-text: #0b1224;
   --rw-text-soft: #535c78;
   --rw-text-faint: #8a92ad;
@@ -98,113 +106,125 @@
   color-scheme: light;
 }
 
-/* ---------- Tema oscuro (para el futuro selector) ----------
+/* ---------- Tema oscuro ----------
    Además de las variables --rw-*, redefine los tokens de Tailwind (text-ink, bg-open-bg…) para que
    los componentes compartidos (horario, chips, avisos) se adapten solos al fondo oscuro. */
-.rw-window[data-theme="dark"] {
-  --color-ink: #eef1ff;
-  --color-ink-soft: #a3add3;
-  --color-line: #ffffff1c;
-  --color-muted: #ffffff12;
-  --color-canvas: #0d1431;
-  --color-brand-50: #7c83ff1f;
-  --color-brand-100: #7c83ff33;
-  --color-brand-200: #8f97ff66;
-  --color-brand-600: #8b93ff;
-  --color-brand-700: #b4bbff;
+.results-workspace[data-theme="dark"] {
+  /* Noche fría: base casi negra (como el pie de página), paneles grafito con tinte violeta
+     y luces que mezclan morado, índigo y azul frío, en vez de un azul plano. */
+  --rw-page-bg:
+    radial-gradient(circle, #c4b5fd0f 1px, transparent 1.3px) 0 0 / 26px 26px,
+    radial-gradient(ellipse 55% 40% at 0% 0%, #312e8133, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 100% 20%, #4c1d9526, transparent 70%),
+    linear-gradient(180deg, #07070c, #0a0911 60%, #08080e);
+  --rw-title-grad: linear-gradient(100deg, #a5b4fc, #c4b5fd 50%, #e9a8ff);
+  --rw-eyebrow-icon: #6ee7b7;
+  --rw-fav-hover-bg: #fb71851f;
+  --rw-fav-hover-text: #fda4af;
+
+  --color-ink: #eeedf7;
+  --color-ink-soft: #a6a4bd;
+  --color-line: #ffffff17;
+  --color-muted: #ffffff0f;
+  --color-canvas: #0b0a12;
+  --color-brand-50: #8b5cf61f;
+  --color-brand-100: #8b5cf633;
+  --color-brand-200: #a78bfa59;
+  --color-brand-600: #a594ff;
+  --color-brand-700: #c9bdff;
   --color-open: #6ee7b7;
-  --color-open-bg: #10b98124;
+  --color-open-bg: #10b98121;
   --color-closed: #fdba74;
-  --color-closed-bg: #f9731624;
+  --color-closed-bg: #f9731621;
   --color-warn: #fcd34d;
-  --color-warn-bg: #f59e0b1f;
+  --color-warn-bg: #f59e0b1c;
 
-  --rw-text: #eef1ff;
-  --rw-text-soft: #a3add3;
-  --rw-text-faint: #7f89b8;
-  --rw-accent: #8b93ff;
-  --rw-accent-text: #c4c9ff;
-  --rw-accent-grad: linear-gradient(125deg, #4f5bd5, #6d4fe0 60%, #8b5cf6);
-  --rw-accent-glow: #8b6cffaa;
+  --rw-text: #eeedf7;
+  --rw-text-soft: #a6a4bd;
+  --rw-text-faint: #75738d;
+  --rw-accent: #a594ff;
+  --rw-accent-text: #cbbfff;
+  --rw-accent-grad: linear-gradient(125deg, #4f46e5, #7c3aed 60%, #a855f7);
+  --rw-accent-glow: #9b6cffaa;
 
-  --rw-panel: linear-gradient(165deg, #172049 0%, #10173a 60%, #0e1434 100%);
-  --rw-panel-border: #ffffff17;
-  --rw-panel-border-hover: #a8b4ff40;
-  --rw-panel-shadow: inset 0 1px 0 #ffffff17, 0 24px 44px -30px #000;
+  --rw-panel: linear-gradient(165deg, #16141f 0%, #111019 60%, #0e0d16 100%);
+  --rw-panel-border: #ffffff12;
+  --rw-panel-border-hover: #a78bfa4d;
+  --rw-panel-shadow: inset 0 1px 0 #ffffff12, 0 24px 44px -30px #000;
   --rw-panel-blur: none;
-  --rw-panel-active: linear-gradient(165deg, #1f2a62, #151c4c 60%, #1a1650);
-  --rw-panel-active-border: #b9a8ff80;
-  --rw-panel-active-shadow: inset 0 1px 0 #ffffff2e, 0 0 0 1px #8b6cff33, 0 24px 44px -24px #000, 0 0 40px -14px #8b6cffcc;
+  --rw-panel-active: linear-gradient(165deg, #1f1a33, #171428 60%, #141a2e);
+  --rw-panel-active-border: #b69cff70;
+  --rw-panel-active-shadow: inset 0 1px 0 #ffffff24, 0 0 0 1px #8b5cf62e, 0 24px 44px -24px #000, 0 0 40px -14px #8b5cf6b3;
 
-  --rw-inset: #ffffff08;
-  --rw-inset-border: #ffffff12;
-  --rw-inset-on: #5b5cf61a;
-  --rw-inset-on-border: #8b93ff66;
-  --rw-field: #0a1030;
-  --rw-field-border: #ffffff1f;
+  --rw-inset: #ffffff06;
+  --rw-inset-border: #ffffff10;
+  --rw-inset-on: #8b5cf617;
+  --rw-inset-on-border: #a78bfa59;
+  --rw-field: #0a0910;
+  --rw-field-border: #ffffff1a;
   --rw-field-text: #ffffff;
-  --rw-field-placeholder: #8d97c0;
-  --rw-field-disabled: #ffffff08;
-  --rw-divider: #ffffff12;
-  --rw-scrollbar: #ffffff2e;
+  --rw-field-placeholder: #807e98;
+  --rw-field-disabled: #ffffff06;
+  --rw-divider: #ffffff10;
+  --rw-scrollbar: #ffffff26;
 
-  --rw-pill: #ffffff0d;
-  --rw-pill-border: #ffffff24;
-  --rw-pill-text: #dfe3ff;
-  --rw-pill-hover: #ffffff1a;
+  --rw-pill: #ffffff0a;
+  --rw-pill-border: #ffffff1f;
+  --rw-pill-text: #e2e0f2;
+  --rw-pill-hover: #ffffff14;
 
-  --rw-icon-tile: radial-gradient(circle at 50% 120%, #a98bffaa, transparent 65%), linear-gradient(160deg, #3846a8, #232a6e);
+  --rw-icon-tile: radial-gradient(circle at 50% 120%, #a78bfa99, transparent 65%), linear-gradient(160deg, #2e2756, #1a1733);
   --rw-icon-tile-text: #ffffff;
-  --rw-icon-tile-border: #a8b4ff40;
+  --rw-icon-tile-border: #a78bfa38;
 
-  --rw-ai: linear-gradient(160deg, #222a66, #171d4d);
-  --rw-ai-border: #a8b4ff2e;
-  --rw-ai-text: #e6e9ff;
-  --rw-ai-title: #c9c2ff;
+  --rw-ai: linear-gradient(160deg, #1d1832, #141224 60%, #121a2c);
+  --rw-ai-border: #a78bfa2e;
+  --rw-ai-text: #e9e6fb;
+  --rw-ai-title: #cbbfff;
   --rw-ai-icon: #6ee7b7;
 
-  --rw-glow-a: #d4a8ffd9;
-  --rw-glow-a-mid: #a27cff73;
-  --rw-glow-b: #7f8cff73;
-  --rw-card-glow: #7c6cff55;
-  --rw-card-glow-2: #5b7cff1f;
-  --rw-arc: #d9c8ff;
-  --rw-arc-glow: #a98bffaa;
-  --rw-arc-fill: #8b6cff40;
+  --rw-glow-a: #c084fcc2;         /* morado */
+  --rw-glow-a-mid: #8b5cf666;
+  --rw-glow-b: #60a5fa59;         /* azul frío */
+  --rw-card-glow: #8b5cf64d;
+  --rw-card-glow-2: #3b82f61a;
+  --rw-arc: #d8c8ff;
+  --rw-arc-glow: #a78bfaaa;
+  --rw-arc-fill: #8b5cf63b;
 
-  --rw-badge-text: #b9b3ff;
-  --rw-index: #7f89b8;
-  --rw-index-sep: #4c5585;
+  --rw-badge-text: #c4b5fd;
+  --rw-index: #75738d;
+  --rw-index-sep: #45435a;
   --rw-index-active: #67e8f9;
-  --rw-rating-bg: #f59e0b17;
-  --rw-rating-border: #f59e0b40;
+  --rw-rating-bg: #f59e0b14;
+  --rw-rating-border: #f59e0b38;
   --rw-rating-text: #fde68a;
 
-  --rw-stat: linear-gradient(150deg, #1d2148, #141634 55%, #1a1436);
-  --rw-stat-border: #ffffff1f;
-  --rw-stat-label: #a3add3;
+  --rw-stat: linear-gradient(150deg, #19162a, #110f1c 55%, #151325);
+  --rw-stat-border: #ffffff17;
+  --rw-stat-label: #a6a4bd;
   --rw-stat-value: #ffffff;
-  --rw-stat-unit: #c9c2ff;
-  --rw-stat-divider: #c9b5ff;
+  --rw-stat-unit: #cbbfff;
+  --rw-stat-divider: #c4b5fd;
 
-  --rw-understood: linear-gradient(120deg, #3a3f9a66, #5b3fa04d);
-  --rw-understood-border: #8b93ff55;
-  --rw-understood-text: #e3e6ff;
+  --rw-understood: linear-gradient(120deg, #2a1f4f, #3b1d5e);
+  --rw-understood-border: #a78bfa4d;
+  --rw-understood-text: #efe9ff;
 
-  --rw-map-bg: #1a2148;
-  --rw-map-control: #10173acc;
+  --rw-map-bg: #121019;
+  --rw-map-control: #0e0d16cc;
   --rw-map-control-text: #ffffff;
-  --rw-map-control-border: #ffffff2e;
+  --rw-map-control-border: #ffffff26;
 
-  --rw-skeleton: #ffffff0f;
-  --rw-skeleton-shine: #ffffff17;
-  --rw-focus: #a5b4fc;
+  --rw-skeleton: #ffffff0d;
+  --rw-skeleton-shine: #ffffff14;
+  --rw-focus: #c4b5fd;
   color-scheme: dark;
 }
-.rw-window[data-theme="dark"] .ai-bot { --bot-fill: #1d2456; --bot-line: #a5b4fc; --bot-eye: #e0e7ff; --bot-spark: #c4b5fd; --bot-ring: #8b93ff66; --bot-avatar: radial-gradient(circle at 50% 30%, #2c357a, #1a2150 65%, #141a42); }
+.results-workspace[data-theme="dark"] .ai-bot { --bot-fill: #1c1830; --bot-line: #b9a6ff; --bot-eye: #ede9fe; --bot-spark: #c4b5fd; --bot-ring: #a78bfa59; --bot-avatar: radial-gradient(circle at 50% 30%, #3a2f66, #1f1a38 65%, #15122a); }
 
 /* En oscuro, el mapa y sus ventanas emergentes siguen claros: se devuelven los tokens originales */
-.rw-window[data-theme="dark"] .leaflet-container {
+.results-workspace[data-theme="dark"] .leaflet-container {
   --color-ink: #0b1224;
   --color-ink-soft: #475069;
   --color-line: #e3e7f0;
@@ -218,6 +238,15 @@
   color-scheme: light;
 }
 
+/* Mapa nocturno: solo las teselas se invierten y se tiñen al azul de la página; los marcadores,
+   los controles y las ventanas emergentes conservan sus colores */
+.results-workspace[data-theme="dark"] .leaflet-tile-pane {
+  /* invertidas, a gris y teñidas de azul (sepia girado): el mapa queda en tonos azul noche */
+  filter: invert(1) grayscale(1) brightness(0.7) contrast(1.15) sepia(0.3) hue-rotate(215deg) saturate(1.6);
+}
+.results-workspace[data-theme="dark"] .leaflet-control-attribution { background: #0b0a12cc; color: #a6a4bd; }
+.results-workspace[data-theme="dark"] .leaflet-control-attribution a { color: #c4c9ff; }
+
 /* ---------- Fondo: blanco de borde a borde ----------
    El blanco y el líquido cubren toda el área de resultados, desde el encabezado hasta el pie. */
 .results-workspace {
@@ -225,9 +254,7 @@
   isolation: isolate;
   overflow: clip;
   min-height: 100svh; /* incluye la franja bajo el encabezado (under-header) */
-  background:
-    radial-gradient(circle, #1b246612 1px, transparent 1.3px) 0 0 / 26px 26px,
-    linear-gradient(180deg, #fdfdfe, #f4f5f8 60%, #eff0f4);
+  background: var(--rw-page-bg);
 }
 .results-workspace .rw-window { position: relative; }
 
@@ -334,7 +361,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.rw-eyebrow svg { color: #7c3aed; }
+.rw-eyebrow svg { color: var(--rw-eyebrow-icon); }
 .results-workspace .rw-title {
   max-width: 48rem;
   color: var(--rw-text);
@@ -346,7 +373,7 @@
   overflow-wrap: anywhere;
 }
 .rw-title-query {
-  background: linear-gradient(100deg, #4f46e5, #7c3aed 55%, #b45cf0);
+  background: var(--rw-title-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -784,7 +811,7 @@
   box-shadow: none;
   transition: transform 220ms var(--rw-ease), box-shadow 220ms, background-color 220ms, border-color 220ms, color 220ms;
 }
-.results-workspace .favorite-orbit:hover { border-color: #fda4af; color: #e11d48; background: #fff1f3; }
+.results-workspace .favorite-orbit:hover { border-color: #fda4af; color: var(--rw-fav-hover-text); background: var(--rw-fav-hover-bg); }
 .results-workspace .favorite-orbit[aria-pressed="true"] {
   border-color: #fda4af;
   color: white;

@@ -19,15 +19,14 @@ import LiquidBackdrop from "../components/LiquidBackdrop.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
 import AiBot from "../components/AiBot.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 import { api } from "../lib/api.js";
 import "./results-dashboard.css";
 
 const ResultsMap = lazy(() => import("../components/ResultsMap.jsx"));
 const EMPTY_RESULTS = [];
 const RECOMMENDED_COUNT = 6; // la IA explica los primeros resultados
-// Tema del dashboard: "light" o "dark" (los colores de ambos están en results-dashboard.css).
-// Cuando exista el selector de modo claro/oscuro, este valor vendrá de la preferencia del usuario.
-const RESULTS_THEME = "light";
+
 
 function buildPayload(params, coords) {
   const num = (k) => (params.get(k) ? Number(params.get(k)) : undefined);
@@ -127,6 +126,9 @@ function FilterDrawer({ children, onClose, triggerRef }) {
 export default function ResultsPage() {
   const [params, setParams] = useSearchParams();
   const { coords, request, status: locationStatus, showHint, dismissHint } = useUserLocation();
+  // Tema del dashboard ("light" | "dark"): lo elige el selector del encabezado; los colores de ambos
+  // están en results-dashboard.css
+  const { theme } = useTheme();
   const locating = locationStatus === "auto"; // obteniendo la ubicación guardada al abrir la app
   const [data, setData] = useState(null);
   const [displayedParams, setDisplayedParams] = useState(null);
@@ -256,10 +258,10 @@ export default function ResultsPage() {
   return (
     // El fondo blanco ocupa todo el ancho (sin marco) y, con "under-header", sube por detrás del
     // encabezado transparente, igual que el hero del inicio
-    <div className="results-workspace under-header">
-      {/* Fondo líquido blanco y gris perla que fluye (WebGL); sin WebGL queda el degradado blanco */}
-      <div className="rw-backdrop" aria-hidden="true"><LiquidBackdrop className="rw-liquid" /></div>
-      <div className="rw-window mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6" data-theme={RESULTS_THEME}>
+    <div className="results-workspace under-header" data-theme={theme}>
+      {/* Fondo líquido que fluye (WebGL): perla en claro, azul noche en oscuro; sin WebGL queda el degradado */}
+      <div className="rw-backdrop" aria-hidden="true"><LiquidBackdrop className="rw-liquid" theme={theme} /></div>
+      <div className="rw-window mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
         <header className="rw-top">

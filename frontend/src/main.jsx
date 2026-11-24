@@ -8,6 +8,7 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { FavoritesProvider } from "./context/FavoritesContext.jsx";
 import { LocationProvider } from "./context/LocationContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { enableMotion } from "./lib/motion.js";
 
 // Activa las animaciones de entrada solo cuando hay JavaScript (sin él, todo se ve igual)
@@ -18,13 +19,15 @@ createRoot(document.getElementById("root")).render(
     {/* Última línea de defensa: si falla algo global (p. ej. un contexto), nunca queda la página en blanco */}
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <FavoritesProvider>
-            <LocationProvider>
-              <App />
-            </LocationProvider>
-          </FavoritesProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <FavoritesProvider>
+              <LocationProvider>
+                <App />
+              </LocationProvider>
+            </FavoritesProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>,
