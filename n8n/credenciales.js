@@ -42,7 +42,14 @@ const credenciales = [
     data: { name: "X-N8N-Key", value: env.N8N_WEBHOOK_KEY },
   },
   {
-    // n8n -> Gemini (flujo RAG). Sin clave el flujo responde con estado de error controlado.
+    // n8n -> OpenAI (flujo RAG, IA principal). Sin clave, el flujo salta directo a Gemini.
+    id: "EsOpenAiApiKey01",
+    name: "OpenAI API",
+    type: "httpHeaderAuth",
+    data: { name: "Authorization", value: `Bearer ${env.OPENAI_API_KEY || "sin-configurar"}` },
+  },
+  {
+    // n8n -> Gemini (flujo RAG, respaldo). Sin clave el flujo responde con estado de error controlado.
     id: "EsGeminiApiKey01",
     name: "Gemini API",
     type: "httpHeaderAuth",

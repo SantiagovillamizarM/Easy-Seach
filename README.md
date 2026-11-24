@@ -126,6 +126,9 @@ Abre `.env` y cambia estos valores:
 | `N8N_WEBHOOK_KEY` | Clave aleatoria (Spring Boot la usa para llamar a n8n) | Sí |
 | `N8N_ENCRYPTION_KEY` | Clave aleatoria (n8n cifra sus credenciales). **No la cambies** después del primer arranque | Sí |
 | `GEMINI_API_KEY` | Tu clave de Gemini (créala gratis en https://aistudio.google.com/apikey) | Recomendada: sin ella la búsqueda funciona por reglas y el asistente responde con estado ERROR |
+| `OPENAI_API_KEY` | Tu clave de OpenAI (de pago, https://platform.openai.com/api-keys). Si está, OpenAI responde primero (búsqueda, recomendaciones, moderación y asistente) y Gemini queda de respaldo | Opcional |
+| `OPENAI_MODEL` | Modelo de OpenAI (por defecto `gpt-4.1-mini`) | Opcional |
+| `LLM_PROVIDER` | `auto` (OpenAI y Gemini en cadena), `openai` o `gemini` (solo ese) | Opcional |
 | `SMTP_*` | Correo para los códigos de confirmación (instrucciones en el mismo archivo) | No: sin SMTP el código aparece en la terminal del backend |
 
 Para generar cada clave aleatoria, ejecuta esto en PowerShell (una vez por clave) y copia el resultado:
@@ -221,7 +224,7 @@ cd ..
 ### 6. n8n (flujos de IA)
 
 `docker compose up -d` también levanta n8n. Al arrancar, el contenedor crea sus credenciales con los valores del
-`.env` (`POSTGRES_*`, `INTERNAL_API_KEY`, `N8N_WEBHOOK_KEY`, `GEMINI_API_KEY`), importa los flujos de
+`.env` (`POSTGRES_*`, `INTERNAL_API_KEY`, `N8N_WEBHOOK_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`), importa los flujos de
 `n8n/workflows/` y los publica. No hay que configurar nada a mano.
 
 - Abre http://127.0.0.1:5690 y crea la cuenta local de n8n la primera vez (solo sirve para ver los flujos y sus

@@ -1,3 +1,5 @@
+// Piezas de las respuestas del asistente (estado, fuentes con su similitud y calificación).
+// El chat (AssistantChat.jsx) las usa dentro de cada mensaje.
 import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, SearchX, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -12,7 +14,7 @@ const ESTADOS = {
 };
 
 /** Similitud coseno con 3 decimales: es el valor real que calculó pgvector (verificable). */
-function formatSimilitud(valor) {
+export function formatSimilitud(valor) {
   return Number(valor).toLocaleString("es-CO", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
@@ -27,7 +29,7 @@ export function EstadoBadge({ estado }) {
   );
 }
 
-function Fuentes({ fuentes, umbral }) {
+export function Fuentes({ fuentes, umbral }) {
   return (
     <div className="mt-5">
       <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">
@@ -64,7 +66,7 @@ function Fuentes({ fuentes, umbral }) {
   );
 }
 
-function Calificar({ consulta, onActualizada }) {
+export function Calificar({ consulta, onActualizada }) {
   const actual = consulta.respuesta?.calificacion;
   const [editando, setEditando] = useState(!actual);
   const [puntuacion, setPuntuacion] = useState(actual?.puntuacion ?? 0);
@@ -129,56 +131,5 @@ function Calificar({ consulta, onActualizada }) {
       )}
       {error && <p className="mt-2 text-sm text-closed">{error}</p>}
     </form>
-  );
-}
-
-/** Una consulta al asistente con su respuesta, pasos, fuentes y calificación. */
-export default function AssistantAnswer({ consulta, onActualizada, destacada = false }) {
-  const r = consulta.respuesta;
-  const fecha = new Date(consulta.creadaEn);
-  return (
-    <article className={`card p-5 ${destacada ? "ring-2 ring-brand-100" : ""}`}>
-      <header className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="min-w-0 flex-1 text-base font-bold">{consulta.pregunta}</h2>
-        <EstadoBadge estado={consulta.estado} />
-      </header>
-      <p className="mt-1 text-xs text-ink-soft">
-        {fecha.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}
-        {consulta.duracionMs != null && ` · respondida en ${(consulta.duracionMs / 1000).toLocaleString("es-CO", { maximumFractionDigits: 1 })} s`}
-      </p>
-
-      {consulta.estado === "ERROR" && (
-        <p className="mt-4 rounded-xl bg-closed-bg px-3 py-2.5 text-sm text-closed">
-          {consulta.detalleError || "El asistente no está disponible en este momento."} Intenta de nuevo en unos minutos.
-        </p>
-      )}
-
-      {r && (
-        <>
-          <p className="mt-4 leading-relaxed">{r.texto}</p>
-
-          {consulta.estado === "SIN_RESULTADOS" && (
-            <p className="mt-2 text-xs text-ink-soft">
-              Ningún negocio registrado respondía tu pregunta con suficiente similitud
-              {consulta.mejorSimilitud != null && ` (la más alta fue ${formatSimilitud(consulta.mejorSimilitud)}; el mínimo es ${formatSimilitud(consulta.umbral)})`}.
-              Preferimos decírtelo antes que inventar una respuesta.
-            </p>
-          )}
-
-          {r.pasos.length > 0 && (
-            <div className="mt-5">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-soft">Pasos recomendados</h3>
-              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm">
-                {r.pasos.map((paso, i) => <li key={i}>{paso}</li>)}
-              </ol>
-            </div>
-          )}
-
-          {r.fuentes.length > 0 && <Fuentes fuentes={r.fuentes} umbral={consulta.umbral} />}
-
-          {onActualizada && <Calificar key={consulta.id} consulta={consulta} onActualizada={onActualizada} />}
-        </>
-      )}
-    </article>
   );
 }

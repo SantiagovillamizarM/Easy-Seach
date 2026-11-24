@@ -103,3 +103,103 @@
   .assistant-intro .assistant-avatar { animation: none; }
   .assistant-ink, .assistant-chat { animation: none; }
 }
+
+/* ============================================================
+   Chat (después del primer mensaje): estilo Discord / WhatsApp
+   ============================================================ */
+.assistant-chat-page { min-height: calc(100svh - var(--header-h, 4.5rem)); }
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.2rem;
+  background: var(--surface-light);
+  box-shadow: var(--shadow-card);
+  animation: fade-up var(--duration-enter) var(--ease-out-soft) both;
+}
+
+.chat-thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: 1.5rem 0 1rem;
+}
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  animation: chat-in 420ms var(--ease-out-soft) both;
+}
+@keyframes chat-in { from { opacity: 0; transform: translateY(10px); } }
+
+.chat-row { display: flex; align-items: flex-start; gap: 0.65rem; }
+.chat-row-user { justify-content: flex-end; }
+
+.chat-bubble {
+  max-width: min(88%, 36rem);
+  padding: 0.65rem 0.9rem;
+  border-radius: 1.15rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+/* Tus mensajes: burbuja de color a la derecha */
+.chat-bubble-user {
+  border-bottom-right-radius: 0.35rem;
+  color: #fff;
+  background-image: var(--action-gradient);
+  box-shadow: 0 10px 22px -14px #4338ca;
+  white-space: pre-line;
+}
+.chat-bubble-user .chat-time { display: block; margin-top: 0.2rem; color: #ffffffb8; text-align: right; }
+
+/* Mensajes del asistente: foto de perfil, nombre y burbuja a la izquierda */
+.chat-row-ai .chat-avatar { margin-top: 0.1rem; }
+.chat-ai-body { min-width: 0; flex: 1; max-width: 40rem; }
+.chat-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; }
+.chat-name { color: var(--color-brand-700); font-size: 0.82rem; font-weight: 700; }
+.chat-time { color: var(--color-ink-soft); font-size: 0.68rem; }
+.chat-bubble-ai {
+  max-width: 100%;
+  border: 1px solid var(--color-line);
+  border-top-left-radius: 0.35rem;
+  background: var(--surface-light);
+  box-shadow: var(--shadow-card);
+  color: var(--color-ink);
+}
+.chat-extra { animation: fade-up var(--duration-enter) var(--ease-out-soft) both; }
+
+/* "Escribiendo…": tres puntos que saltan en secuencia */
+.chat-typing { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.1rem; }
+.chat-typing i {
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--color-brand-400);
+  animation: chat-dot 1.1s var(--ease-out-soft) infinite;
+}
+.chat-typing i:nth-child(3) { animation-delay: 0.15s; }
+.chat-typing i:nth-child(4) { animation-delay: 0.3s; }
+@keyframes chat-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* La barra de escribir queda fija abajo, como en cualquier chat */
+.assistant-composer.assistant-composer-docked {
+  position: sticky;
+  z-index: 20;
+  bottom: 0.9rem;
+  margin: 0.5rem 0 0.9rem;
+  backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-turn, .chat-header, .chat-extra { animation: none; }
+  .chat-typing i { animation: none; opacity: 0.7; }
+}
