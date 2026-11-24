@@ -5,7 +5,7 @@ import time
 
 import httpx
 
-from app.services.llm.base import LLMError
+from app.services.llm.base import PROVIDER_KEY, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,10 @@ class GeminiProvider:
             try:
                 data = self._call(model, body)
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return json.loads(text)
+                result = json.loads(text)
+                if isinstance(result, dict):
+                    result[PROVIDER_KEY] = self.name
+                return result
             except LLMError as exc:
                 last_error = exc
                 logger.warning("Gemini (%s) falló: %s", model, exc)

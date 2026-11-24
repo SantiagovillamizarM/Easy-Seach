@@ -49,7 +49,11 @@ class Settings(BaseSettings):
     # Sin clave, esas rutas responden 503 (desactivadas). Nunca se exponen al navegador: Spring Boot las bloquea.
     internal_api_key: str | None = None
 
-    # --- IA generativa (Gemini) ---
+    # --- IA generativa (OpenAI y/o Gemini) ---
+    # "auto": OpenAI primero (si hay clave) y Gemini de respaldo; "openai" o "gemini": solo ese.
+    llm_provider: str = "auto"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4.1-mini"
     # Sin clave, la búsqueda sigue funcionando con el intérprete por reglas.
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash-lite"

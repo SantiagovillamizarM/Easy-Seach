@@ -17,7 +17,7 @@ from decimal import Decimal
 
 from app.core.text import normalize
 from app.models import Establishment
-from app.services.llm import LLMError, LLMProvider
+from app.services.llm import LLMError, LLMProvider, answered_by
 from app.services.query_parser import QueryIntent, _LRU
 
 logger = logging.getLogger(__name__)
@@ -243,6 +243,7 @@ def recommend(query: str, intent: QueryIntent, establishments: list[Establishmen
 
     try:
         raw = llm.generate_json(json.dumps(payload, ensure_ascii=False, default=str), _schema(), system=SYSTEM_PROMPT)
+        provider = answered_by(raw, llm)
     except LLMError as exc:
         logger.warning("Recomendaciones con IA no disponibles: %s", exc)
         return fallback()
@@ -262,11 +263,11 @@ def recommend(query: str, intent: QueryIntent, establishments: list[Establishmen
         if len(text) < 15:  # vacío o todo eliminado por la validación -> plantilla
             items.append(Recommendation(e.id, templates[e.id], gaps[e.id], "reglas"))
         else:
-            items.append(Recommendation(e.id, text, gaps[e.id], "gemini"))
+            items.append(Recommendation(e.id, text, gaps[e.id], provider))
 
     summary = raw.get("summary") if isinstance(raw, dict) else None
     if summary:
         summary = validate_text(summary, {"todas": list(facts.values())}, intent) or None
-    result = RecommendationSet(summary, items, "gemini")
+    result = RecommendationSet(summary, items, provider)
     _cache.put(cache_key, result)
     return result

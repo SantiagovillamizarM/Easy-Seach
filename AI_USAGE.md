@@ -31,6 +31,7 @@ que no entendía y aprobó cada commit; todos los commits del repositorio son su
 | Claude Code (Anthropic, modelo Claude Opus), extensión de VS Code | Asistente de programación | Análisis del enunciado, propuestas de arquitectura, generación y revisión de código, pruebas automatizadas, verificaciones con la app real y documentación |
 | Google Gemini (chat) | Asistente conversacional | Consultas puntuales del autor, entre ellas si Gemini podía reemplazar a OpenRouter |
 | Google Gemini API (`gemini-2.5-flash-lite`, respaldo `gemini-2.5-flash`) | **Componente del producto**, no herramienta de desarrollo | Interpreta las búsquedas, redacta recomendaciones y responde en el asistente RAG, siempre con datos de la base |
+| OpenAI API (`gpt-4.1-mini`, configurable) | **Componente del producto** (opcional, de pago) | Con clave configurada interpreta las búsquedas, redacta recomendaciones y modera reseñas con salida JSON estricta; Gemini queda de respaldo automático y las reglas como último plan B |
 | multilingual-e5-small (sentence-transformers) | **Componente del producto** | Genera los embeddings guardados en pgvector para la búsqueda semántica y el asistente |
 
 ## 3. Forma de trabajo
@@ -77,6 +78,7 @@ indicaciones del autor. El detalle de lo construido, lo verificado y los problem
 | Datos de OpenStreetMap + carga manual | Solo carga manual | Daba datos reales de miles de negocios desde el inicio |
 | Embeddings locales con multilingual-e5-small | API de embeddings de pago | Gratis, en español y sin depender de cuotas externas |
 | Gemini detrás de una interfaz intercambiable | Atar el código a un proveedor | Permite cambiar de proveedor de IA sin tocar la búsqueda |
+| Cadena OpenAI → Gemini → reglas | Reemplazar Gemini por OpenAI | El autor tenía API de pago de OpenAI y quería respuestas más precisas; la cadena mantiene el servicio si se acaba el saldo o un proveedor cae, y el asistente RAG de n8n sigue con Gemini (aval del profesor) |
 | `gemini-2.5-flash-lite` | Otros modelos de Gemini | Pruebas reales: el más rápido que interpretaba bien (1,3 s) |
 | Búsqueda híbrida (vectorial + texto completo) | Solo búsqueda vectorial | Los nombres propios y las palabras exactas se encuentran mejor con texto completo |
 | Validar las respuestas de la IA contra los datos | Confiar en el prompt | Se eliminan precios, horas o calificaciones que la IA no saque de la base |

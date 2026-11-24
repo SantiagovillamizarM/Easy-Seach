@@ -1,6 +1,6 @@
 """Interpretación de la consulta en lenguaje natural.
 
-1. Se intenta con la IA (Gemini) → JSON estructurado.
+1. Se intenta con la IA (OpenAI y/o Gemini, ver app/services/llm) → JSON estructurado.
 2. Si la IA no está configurada o falla, se usa un intérprete por reglas (siempre disponible).
 3. Lo que diga la IA se VERIFICA contra el texto: no se acepta un presupuesto o lugar que el usuario no escribió.
 
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.text import normalize
 from app.data.categories import CATEGORIES
-from app.services.llm import LLMError, LLMProvider
+from app.services.llm import LLMError, LLMProvider, answered_by
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class QueryIntent(BaseModel):
     preferences: list[str] = Field(default_factory=list)
     # False cuando no hay nada que buscar: saludos ("hola"), charla, pruebas o texto sin sentido ("asdfgh")
     is_search: bool = True
-    parser: Literal["gemini", "reglas"] = "reglas"
+    parser: Literal["openai", "gemini", "reglas"] = "reglas"
 
 
 # ======================================================================================
@@ -345,7 +345,8 @@ def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = No
 
     try:
         raw = llm.generate_json(f"Consulta del usuario: {query}", _schema(), system=SYSTEM_PROMPT)
-        intent = QueryIntent(**raw, parser="gemini")
+        provider = answered_by(raw, llm)
+        intent = QueryIntent(**raw, parser=provider)
     except (LLMError, ValidationError, TypeError) as exc:
         logger.warning("IA no disponible para interpretar, se usan reglas: %s", exc)
         return rules
@@ -356,7 +357,7 @@ def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = No
     if not intent.is_search and rules.category_slugs:
         intent.is_search = True
     if not intent.is_search:
-        intent = QueryIntent(need="", keywords=[], is_search=False, parser="gemini")
+        intent = QueryIntent(need="", keywords=[], is_search=False, parser=provider)
         _cache.put(key, intent)
         return intent.model_copy(deep=True)
     if not intent.need.strip():
