@@ -112,6 +112,10 @@
 }
 .theme-scope[data-theme="dark"] .ai-surface { border-color: #a78bfa2e; background: var(--surface-ai); }
 
+/* Fondos blancos translúcidos (barra de guardar del panel, etiquetas sobre fotos) */
+.theme-scope[data-theme="dark"] :is(.bg-white\/90, .bg-white\/95) { background-color: #110f1ae6; }
+.theme-scope[data-theme="dark"] .hover\:bg-white:hover { background-color: #1b1828; }
+
 /* Favorito con etiqueta ("Guardar" / "Guardado") */
 .theme-scope[data-theme="dark"] .bg-rose-50 { background-color: #fb71851f; }
 .theme-scope[data-theme="dark"] .border-rose-200 { border-color: #fb718566; }

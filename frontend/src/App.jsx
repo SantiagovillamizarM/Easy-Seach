@@ -71,12 +71,12 @@ export default function App() {
         <Route path="registro" element={<RegisterPage />} />
         <Route path="recuperar" element={<ForgotPasswordPage />} />
         <Route path="correos/baja" element={<UnsubscribePage />} />
-        <Route path="perfil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-        <Route path="favoritos" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
-        <Route path="historial" element={<RequireAuth><HistoryPage /></RequireAuth>} />
-        <Route path="panel" element={<RequireAuth><OwnerPanelPage /></RequireAuth>} />
-        <Route path="panel/lugar/:id" element={<RequireAuth><OwnerEditorPage /></RequireAuth>} />
-        <Route path="admin" element={<RequireAuth>{adminPage(AdminLayout)}</RequireAuth>}>
+        <Route path="perfil" element={<RequireAuth><ThemedPage><ProfilePage /></ThemedPage></RequireAuth>} />
+        <Route path="favoritos" element={<RequireAuth><ThemedPage><FavoritesPage /></ThemedPage></RequireAuth>} />
+        <Route path="historial" element={<RequireAuth><ThemedPage><HistoryPage /></ThemedPage></RequireAuth>} />
+        <Route path="panel" element={<RequireAuth><ThemedPage><OwnerPanelPage /></ThemedPage></RequireAuth>} />
+        <Route path="panel/lugar/:id" element={<RequireAuth><ThemedPage><OwnerEditorPage /></ThemedPage></RequireAuth>} />
+        <Route path="admin" element={<RequireAuth><ThemedPage>{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
           <Route index element={adminPage(AdminOverview)} />
           <Route path="resenas" element={adminPage(AdminReviews)} />
           <Route path="solicitudes" element={adminPage(AdminClaims)} />

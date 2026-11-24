@@ -10,8 +10,8 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 // Páginas con modo claro/oscuro (selector sol/luna en el encabezado). El resto, por ahora, solo en claro.
-const isThemedRoute = (pathname) =>
-  pathname === "/buscar" || pathname === "/asistente" || pathname.startsWith("/lugar/");
+const THEMED_PREFIXES = ["/buscar", "/asistente", "/lugar/", "/perfil", "/favoritos", "/historial", "/panel", "/admin"];
+const isThemedRoute = (pathname) => THEMED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));
 
 // Páginas que empiezan con un fondo nocturno (data-dark-hero)
 const DARK_HERO_ROUTES = ["/", "/ingresar", "/registro", "/recuperar", "/verificar", "/correos/baja"];

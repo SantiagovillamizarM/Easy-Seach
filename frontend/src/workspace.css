@@ -379,6 +379,18 @@ button[aria-pressed="true"]:hover > .favorite-heart { transform: scale(1.14); }
 .site-nav-on-dark .search-console:focus-within { border-color: #a78bfa; background: #ffffff12; }
 .site-nav-on-dark .chip { border-color: #ffffff24; background: #ffffff0d; color: var(--color-ink-soft); }
 
+/* Menú del usuario sobre el encabezado oscuro: tarjeta grafito */
+.site-nav-on-dark {
+  --color-closed: #fdba74;
+  --color-closed-bg: #f9731621;
+}
+.site-nav-on-dark .site-menu {
+  border-color: #ffffff17;
+  background: linear-gradient(165deg, #16141f, #0e0d16);
+  box-shadow: inset 0 1px 0 #ffffff12, 0 24px 50px -20px #000;
+  color: var(--color-ink);
+}
+
 /* Cambio de tema con fundido suave (View Transitions, donde el navegador lo permite) */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: 420ms; animation-timing-function: var(--ease-out-soft); }
