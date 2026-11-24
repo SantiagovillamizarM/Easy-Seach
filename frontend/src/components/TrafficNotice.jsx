@@ -13,7 +13,7 @@ function joinStreets(streets) {
   return streets.length === 1 ? streets[0] : `${streets[0]} y ${streets[1]}`;
 }
 
-export default function TrafficNotice({ establishmentId }) {
+export default function TrafficNotice({ establishmentId, onReport }) {
   const { user } = useAuth();
   const { coords } = useUserLocation();
   const [report, setReport] = useState(null);
@@ -31,7 +31,14 @@ export default function TrafficNotice({ establishmentId }) {
     return () => controller.abort();
   }, [canAsk, establishmentId, latitude, longitude]);
 
-  if (!canAsk || !report) return null;
+  // La página dibuja en el mapa la ruta y los tramos con trancón
+  const shownReport = canAsk ? report : null;
+  useEffect(() => {
+    onReport?.(shownReport);
+  }, [onReport, shownReport]);
+
+  if (!shownReport) return null;
+  const marked = shownReport.jams?.length > 0;
 
   return (
     <div role="status" className="mt-4 flex items-start gap-3 rounded-2xl border border-warn-line bg-warn-bg p-4">
@@ -39,11 +46,17 @@ export default function TrafficNotice({ establishmentId }) {
         <TrafficCone className="h-5 w-5 text-warn" aria-hidden="true" />
       </span>
       <div className="text-sm">
-        <p className="font-semibold text-ink">Hay trancón en {joinStreets(report.streets)}</p>
+        <p className="font-semibold text-ink">Hay trancón en {joinStreets(shownReport.streets)}</p>
         <p className="text-ink-soft">
-          Si vas a pedir a domicilio, tu pedido se puede demorar entre {report.delay_min} y {report.delay_max} minutos
+          Si vas a pedir a domicilio, tu pedido se puede demorar entre {shownReport.delay_min} y {shownReport.delay_max} minutos
           más de lo normal.
         </p>
+        {marked && (
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-closed">
+            <span className="inline-block h-1 w-5 rounded-full bg-closed" aria-hidden="true" />
+            Lo marcamos en rojo en el mapa, con el nombre de la vía.
+          </p>
+        )}
         <p className="mt-1 text-xs text-ink-soft">Tráfico en vivo de TomTom, calculado con tu ubicación aproximada.</p>
       </div>
     </div>
