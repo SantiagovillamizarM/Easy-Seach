@@ -20,7 +20,7 @@ function linksFor(role) {
   return ACCOUNT_LINKS;
 }
 
-export default function UserMenu() {
+export default function UserMenu({ dark = false }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,7 +45,7 @@ export default function UserMenu() {
     const next = location.pathname === "/" ? "" : `?next=${encodeURIComponent(location.pathname + location.search)}`;
     return (
       <div className="flex shrink-0 items-center gap-2">
-        <Link to={`/ingresar${next}`} className="btn-ghost px-3 py-2">Ingresar</Link>
+        <Link to={`/ingresar${next}`} className={`${dark ? "btn border border-white/20 bg-white/10 text-white hover:bg-white/20" : "btn-ghost"} px-3 py-2`}>Ingresar</Link>
         <Link to={`/registro${next}`} className="btn-primary hidden px-3 py-2 sm:inline-flex">Crear cuenta</Link>
       </div>
     );
@@ -58,16 +58,16 @@ export default function UserMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-xl border border-line bg-white py-1 pl-1 pr-2 hover:border-brand-200"
+        className={`flex items-center gap-2 rounded-xl border py-1 pl-1 pr-2 transition-colors ${dark ? "border-white/20 bg-white/10 text-white hover:border-white/40" : "border-line bg-white hover:border-brand-200"}`}
       >
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">
           {user.full_name.charAt(0).toUpperCase()}
         </span>
         <span className="hidden max-w-32 truncate text-sm font-semibold sm:block">{user.full_name.split(" ")[0]}</span>
-        <ChevronDown className="h-4 w-4 text-ink-soft" aria-hidden="true" />
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""} ${dark ? "text-white/75" : "text-ink-soft"}`} aria-hidden="true" />
       </button>
       {open && (
-        <div role="menu" className="card absolute right-0 z-[1200] mt-2 w-56 p-1.5">
+        <div role="menu" className="card site-menu absolute right-0 z-[1200] mt-2 w-56 p-1.5">
           <p className="truncate px-3 py-2 text-xs text-ink-soft">{user.email}</p>
           {linksFor(user.role).map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-brand-50">

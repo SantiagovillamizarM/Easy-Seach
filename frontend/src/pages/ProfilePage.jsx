@@ -17,8 +17,8 @@ function Toggle({ id, label, hint, checked, disabled, onChange }) {
       </span>
       <span className="relative mt-0.5 inline-flex shrink-0">
         <input id={id} type="checkbox" role="switch" className="peer sr-only" checked={checked} disabled={disabled} onChange={onChange} />
-        <span className="h-6 w-11 rounded-full bg-control-off transition peer-checked:bg-brand-600 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 peer-focus-visible:ring-offset-2 peer-disabled:opacity-60" />
-        <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+        <span className="switch-track h-6 w-11 rounded-full bg-control-off transition peer-checked:bg-brand-600 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400 peer-focus-visible:ring-offset-2 peer-disabled:opacity-60" />
+        <span className="switch-knob pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
       </span>
     </label>
   );
@@ -87,11 +87,11 @@ export default function ProfilePage() {
 
   return (
     <div className="fade-up mx-auto max-w-2xl px-4 py-8">
-      <div className="flex items-center gap-4">
+      <div className="workspace-heading flex items-center gap-4">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-xl font-extrabold text-white">
           {user.full_name.charAt(0).toUpperCase()}
         </span>
-        <div>
+        <div className="min-w-0 break-words">
           <h1 className="text-3xl font-extrabold">{user.full_name}</h1>
           <p className="text-sm text-ink-soft">
             {user.email} · {ROLE_LABELS[user.role] ?? user.role} · Desde{" "}

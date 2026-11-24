@@ -126,7 +126,7 @@ export default function QueryDemo({ userTyping = false }) {
         ref={panelRef}
         role="group"
         aria-label="Ejemplo de cómo Easy Search entiende una búsqueda"
-        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm sm:p-5"
+        className="query-preview rounded-2xl border p-4 backdrop-blur-sm sm:p-5"
       >
         <div className="flex items-center justify-between gap-3">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
@@ -190,7 +190,8 @@ export default function QueryDemo({ userTyping = false }) {
             onMouseEnter={() => preview(i)}
             onFocus={() => preview(i)}
             onBlur={() => setPreviewing(false)}
-            className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors duration-200 ${
+            style={{ "--i": i }}
+            className={`query-suggestion rounded-full border px-3.5 py-1.5 text-sm ${
               i === idx
                 ? "border-ai/40 bg-ai/10 text-white"
                 : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/25 hover:text-white"

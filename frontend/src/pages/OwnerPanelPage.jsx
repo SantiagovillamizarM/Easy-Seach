@@ -114,13 +114,15 @@ export default function OwnerPanelPage() {
 
   return (
     <div className="fade-up mx-auto max-w-4xl px-4 py-8">
-      <h1 className="flex items-center gap-2 text-3xl font-extrabold">
-        <Store className="h-6 w-6 text-brand-600" aria-hidden="true" />
-        Panel comercial
-      </h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        Hola, {user.full_name.split(" ")[0]}. Mantén tu información al día para aparecer mejor en las búsquedas.
-      </p>
+      <header className="workspace-heading">
+        <h1 className="flex items-center gap-2 text-3xl font-extrabold">
+          <Store className="h-6 w-6 text-brand-600" aria-hidden="true" />
+          Panel comercial
+        </h1>
+        <p className="mt-1 text-sm text-ink-soft">
+          Hola, {user.full_name.split(" ")[0]}. Mantén tu información al día para aparecer mejor en las búsquedas.
+        </p>
+      </header>
 
       {error && <p role="alert" className="mt-6 rounded-xl bg-closed-bg p-3 text-sm text-closed">{error}</p>}
 

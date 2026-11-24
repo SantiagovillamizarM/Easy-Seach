@@ -2,23 +2,32 @@ import {
   AlertTriangle,
   Info,
   List,
+  LoaderCircle,
   LocateFixed,
+  MapPin,
   Map as MapIcon,
   SearchX,
   SlidersHorizontal,
   Sparkles,
   UserPlus,
 } from "lucide-react";
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
 import InterpretationBar from "../components/InterpretationBar.jsx";
+import LiquidBackdrop from "../components/LiquidBackdrop.jsx";
+import NightSkyBackdrop from "../components/NightSkyBackdrop.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
+import AiBot from "../components/AiBot.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 import { api } from "../lib/api.js";
+import "./results-dashboard.css";
 
 const ResultsMap = lazy(() => import("../components/ResultsMap.jsx"));
+const EMPTY_RESULTS = [];
 const RECOMMENDED_COUNT = 6; // la IA explica los primeros resultados
+
 
 function buildPayload(params, coords) {
   const num = (k) => (params.get(k) ? Number(params.get(k)) : undefined);
@@ -38,6 +47,34 @@ function buildPayload(params, coords) {
     payload.longitude = coords.longitude;
   }
   return payload;
+}
+
+// Cifra que sube rápido hasta su valor (0 → 15) cuando llegan los resultados.
+// Con movimiento reducido muestra el valor directamente.
+function CountUp({ value, duration = 700 }) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = from.current;
+    if (start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = value;
+      setShown(value);
+      return undefined;
+    }
+    let frame = 0;
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      const eased = 1 - (1 - k) ** 3; // rápido al inicio y suave al final
+      const current = Math.round(start + (value - start) * eased);
+      setShown(current);
+      from.current = current;
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+  return shown;
 }
 
 // Invitado sin cuenta: cuántas búsquedas de prueba le quedan
@@ -85,21 +122,67 @@ function MapFallback() {
   return <div className="skeleton h-full w-full rounded-2xl" />;
 }
 
+function FilterDrawer({ children, onClose, triggerRef }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    const trigger = triggerRef.current;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) onClose();
+    };
+    dialog.showModal();
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => {
+      desktop.removeEventListener("change", closeOnDesktop);
+      dialog.close();
+      if (!desktop.matches) trigger?.focus();
+    };
+  }, [onClose, triggerRef]);
+  return (
+    <dialog
+      ref={ref}
+      aria-label="Filtros"
+      className="filter-drawer lg:hidden"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div className="filter-surface flex h-full flex-col">{children}</div>
+    </dialog>
+  );
+}
+
 export default function ResultsPage() {
   const [params, setParams] = useSearchParams();
   const { coords, request, status: locationStatus, showHint, dismissHint } = useUserLocation();
+  // Tema del dashboard ("light" | "dark"): lo elige el selector del encabezado; los colores de ambos
+  // están en results-dashboard.css
+  const { theme } = useTheme();
   const locating = locationStatus === "auto"; // obteniendo la ubicación guardada al abrir la app
   const [data, setData] = useState(null);
+  const [displayedParams, setDisplayedParams] = useState(null);
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const here = location.pathname + location.search;
-  const [activeId, setActiveId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
   const [mobileView, setMobileView] = useState("list"); // list | map
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersTrigger = useRef(null);
+  const mapHeading = useRef(null);
+  const focusMap = useRef(false);
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
   const [retry, setRetry] = useState(0);
   const [recs, setRecs] = useState({ summary: null, byId: {}, loading: false });
+
+  useEffect(() => {
+    if (mobileView === "map" && focusMap.current) {
+      focusMap.current = false;
+      mapHeading.current?.focus();
+    }
+  }, [mobileView]);
 
   const q = params.get("q") ?? "";
   const paramsKey = params.toString();
@@ -128,7 +211,9 @@ export default function ResultsPage() {
       .search(buildPayload(new URLSearchParams(paramsKey), coords), { signal: controller.signal })
       .then((res) => {
         setData(res);
-        setActiveId(null);
+        setDisplayedParams(paramsKey);
+        setSelectedId(null);
+        setHoveredId(null);
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
@@ -176,14 +261,72 @@ export default function ResultsPage() {
   );
 
   const results = useMemo(() => data?.results ?? [], [data]);
+  const hasQuery = q.trim().length >= 2;
+  const showResults = hasQuery && !error && results.length > 0;
+  const selectResult = (id) => {
+    setSelectedId(id);
+    setHoveredId(null);
+    if (!window.matchMedia("(min-width: 1280px)").matches) {
+      focusMap.current = true;
+      setMobileView("map");
+    }
+  };
 
-  const filters = <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} />;
+  // Marcador del mapa -> resalta la tarjeta y la trae a la vista si la lista está visible
+  const selectFromMap = useCallback((id) => {
+    setSelectedId(id);
+    const card = document.getElementById(`resultado-${id}`);
+    if (card && card.offsetParent !== null) {
+      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      card.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" });
+    }
+  }, []);
+
+  const filters = <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} busy={loading} />;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-5">
+    // El fondo blanco ocupa todo el ancho (sin marco) y, con "under-header", sube por detrás del
+    // encabezado transparente, igual que el hero del inicio
+    <div className="results-workspace under-header" data-theme={theme}>
+      {/* Fondo animado: líquido perla en claro (WebGL) y mini cielo estrellado en oscuro (canvas).
+          Si no se pueden dibujar, queda el degradado del CSS */}
+      <div className="rw-backdrop" aria-hidden="true">
+        {theme === "dark" ? <NightSkyBackdrop className="rw-backdrop-canvas" /> : <LiquidBackdrop className="rw-backdrop-canvas" />}
+      </div>
+      <div className="rw-window mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
       {/* Encabezado de resultados */}
-      <div className="mb-4 space-y-3">
-        {data && <InterpretationBar interpretation={data.interpretation} location={data.location} />}
+      <div className="results-intro mb-4 space-y-3">
+        <header className="rw-top">
+          <div className="min-w-0">
+            <p className="rw-eyebrow"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" />Búsqueda inteligente</p>
+            <h1 className="rw-title text-balance">
+              Resultados para{" "}
+              {q ? <span className="rw-title-query">{q}</span> : <span className="rw-title-query">tu búsqueda</span>}
+            </h1>
+            {data?.location?.label && !error && (
+              <p className="rw-subtitle"><MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />{data.location.label}</p>
+            )}
+          </div>
+          {hasQuery && (
+            // Un solo recuadro con neblina: las dos cifras lado a lado, separadas por una línea de luz
+            <div className="rw-stats rw-stat rw-haze">
+              <div className="rw-stat-cell">
+                <span className="rw-stat-label">Encontrados</span>
+                <span className="rw-stat-value" data-loading={(loading && !data) || undefined}>
+                  {error ? "–" : <CountUp value={loading && !data ? 0 : results.length} />}
+                </span>
+                <span className="rw-stat-unit">{results.length === 1 ? "lugar" : "lugares"}</span>
+              </div>
+              <span className="rw-stat-divider" aria-hidden="true" />
+              <div className="rw-stat-cell">
+                <span className="rw-stat-label">Filtros</span>
+                <span className="rw-stat-value"><CountUp value={activeFilters} duration={450} /></span>
+                <span className="rw-stat-unit">{activeFilters === 1 ? "activo" : "activos"}</span>
+              </div>
+            </div>
+          )}
+        </header>
+        {hasQuery && !error && data && <InterpretationBar interpretation={data.interpretation} location={data.location} />}
 
         {data && data.guest_remaining != null && !error && <GuestBanner remaining={data.guest_remaining} next={here} />}
 
@@ -243,12 +386,12 @@ export default function ResultsPage() {
       </div>
 
       {/* Barra móvil: filtros y lista/mapa */}
-      <div className="mb-3 flex items-center gap-2 xl:hidden">
-        <button type="button" className="btn-ghost lg:hidden" onClick={() => setFiltersOpen(true)}>
+      <div className="results-viewbar mb-3 flex items-center gap-2 xl:hidden">
+        <button ref={filtersTrigger} type="button" className="btn-ghost lg:hidden" aria-haspopup="dialog" onClick={() => setFiltersOpen(true)}>
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           Filtros{activeFilters > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-xs text-white">{activeFilters}</span>}
         </button>
-        <div className="ml-auto inline-flex rounded-xl border border-line bg-white p-1" role="tablist" aria-label="Vista">
+        <div className="view-switch ml-auto inline-flex rounded-xl border border-line p-1" role="group" aria-label="Vista de resultados">
           {[
             { key: "list", label: "Lista", icon: List },
             { key: "map", label: "Mapa", icon: MapIcon },
@@ -256,11 +399,10 @@ export default function ResultsPage() {
             <button
               key={key}
               type="button"
-              role="tab"
-              aria-selected={mobileView === key}
+              aria-pressed={mobileView === key}
               onClick={() => setMobileView(key)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ${
-                mobileView === key ? "bg-ink text-white" : "text-ink-soft"
+                mobileView === key ? "view-selected text-white" : "text-ink-soft hover:bg-brand-50"
               }`}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -270,24 +412,37 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_minmax(0,0.9fr)]">
+      <div className="results-dock grid gap-4 lg:grid-cols-[252px_minmax(0,1fr)] xl:grid-cols-[minmax(218px,0.58fr)_minmax(0,1.28fr)_minmax(0,1fr)] 2xl:gap-5">
         {/* Filtros (escritorio) */}
-        <aside className="card hidden h-fit overflow-hidden lg:sticky lg:top-24 lg:block">{filters}</aside>
+        <aside className="filter-surface hidden h-fit overflow-hidden rounded-2xl lg:sticky lg:top-22 lg:block lg:max-h-[calc(100svh-6.5rem)]">{filters}</aside>
 
         {/* Lista */}
-        <section className={`${mobileView === "map" ? "hidden xl:block" : ""}`} aria-live="polite" aria-busy={loading}>
-          {!loading && data && (
-            <p className="mb-3 text-sm text-ink-soft">
-              {results.length === 0 ? "Sin resultados" : `${results.length} resultado${results.length === 1 ? "" : "s"}`} para{" "}
-              <strong className="text-ink">“{q}”</strong>
-            </p>
+        <section className={`results-list min-w-0 ${mobileView === "map" ? "hidden xl:block" : ""}`} aria-labelledby="results-list-title">
+          <div className="results-list-title mb-3 flex flex-wrap items-center gap-2" role="status">
+            <span className="dashboard-icon"><List className="h-4 w-4" aria-hidden="true" /></span>
+            <h2 id="results-list-title" className="text-base font-bold sm:text-lg">
+              {data && hasQuery && !error ? (results.length === 0 ? "Sin resultados" : `${results.length} resultado${results.length === 1 ? "" : "s"}`) : "Lugares"}
+            </h2>
+            {loading ? (
+              <span className="results-status ml-auto">
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                {locating ? "Obteniendo ubicación…" : data ? "Actualizando…" : "Buscando…"}
+              </span>
+            ) : activeFilters > 0 && <span className="results-status ml-auto">{activeFilters} {activeFilters === 1 ? "filtro" : "filtros"}</span>}
+          </div>
+
+          {!loading && !error && q.trim().length < 2 && (
+            <div className="card flex items-center gap-3 p-5 text-sm text-ink-soft">
+              <SearchX className="h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
+              Escribe qué necesitas en el buscador para ver lugares.
+            </div>
           )}
 
-          {loading && (
+          {loading && !showResults && (
             <div className="space-y-3">
               {/* Explica la espera: la IA está convirtiendo la frase en filtros */}
-              <p className="mb-1 inline-flex items-center gap-2 text-sm font-medium text-brand-700">
-                <Sparkles className="h-4 w-4 animate-pulse" aria-hidden="true" />
+              <p className="ai-surface results-ai-note mb-1 flex items-center gap-2.5 rounded-xl p-3 text-sm font-semibold">
+                <AiBot size={30} thinking />
                 {locating ? "Obteniendo tu ubicación…" : "Interpretando tu búsqueda…"}
               </p>
               {Array.from({ length: 4 }, (_, i) => (
@@ -308,7 +463,7 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {!loading && !error && data && results.length === 0 && (
+          {!loading && !error && hasQuery && data && results.length === 0 && (
             <div className="card flex flex-col items-center gap-2 p-8 text-center">
               <SearchX className="h-8 w-8 text-ink-soft" aria-hidden="true" />
               <p className="font-semibold">No encontramos lugares para esta búsqueda.</p>
@@ -323,28 +478,25 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {!loading && !error && results.length > 0 && recs.summary && (
+          {showResults && recs.summary && (
             // Llega después de los resultados: aparece con un fundido para que se note que es nuevo
-            <p className="fade-up relative mb-3 flex gap-2 overflow-hidden rounded-2xl bg-night p-4 text-sm leading-relaxed text-white">
-              <span
-                className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand-500/30 blur-2xl"
-                aria-hidden="true"
-              />
-              <Sparkles className="relative mt-0.5 h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
-              <span className="relative">{recs.summary}</span>
+            <p className="ai-surface results-ai-note fade-up mb-3 flex items-center gap-3 rounded-2xl p-4 text-sm leading-relaxed">
+              <AiBot size={34} />
+              <span>{recs.summary}</span>
             </p>
           )}
 
-          {!loading && !error && results.length > 0 && (
+          {showResults && (
             // La "key" reinicia la cascada en cada búsqueda nueva
-            <ol key={paramsKey} className="space-y-3">
+            <ol key={displayedParams} className="results-stack space-y-3" aria-busy={loading} data-updating={loading || undefined}>
               {results.map((r, i) => (
                 <li key={r.id} className="result-in" style={{ "--i": i }}>
                   <ResultCard
                     result={r}
                     index={i}
-                    active={r.id === activeId}
-                    onHover={setActiveId}
+                    active={r.id === selectedId}
+                    onSelect={selectResult}
+                    onHover={setHoveredId}
                     recommendation={recs.byId[r.id]}
                     recommendationLoading={recs.loading && i < RECOMMENDED_COUNT}
                   />
@@ -356,12 +508,16 @@ export default function ResultsPage() {
 
         {/* Mapa: columna en pantallas grandes, pestaña en celular */}
         <section
-          className={`${mobileView === "map" ? "block" : "hidden"} h-[70vh] xl:sticky xl:top-24 xl:block xl:h-[calc(100vh-8rem)]`}
+          className={`${mobileView === "map" ? "flex" : "hidden"} map-frame h-[min(52svh,31rem)] min-h-72 flex-col xl:sticky xl:top-22 xl:flex xl:h-[calc(100svh-7rem)]`}
           aria-label="Mapa de resultados"
         >
-          <div className="card h-full overflow-hidden">
+          <div className="map-frame-label flex items-center justify-between gap-2 px-3 py-2.5">
+            <h2 ref={mapHeading} tabIndex={-1} className="map-heading flex items-center gap-2 text-sm font-bold"><span className="map-frame-icon"><MapIcon className="h-4 w-4" aria-hidden="true" /></span> Mapa de resultados</h2>
+            <span className="map-count">{showResults ? results.length : 0} {showResults && results.length === 1 ? "lugar" : "lugares"}</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
             <Suspense fallback={<MapFallback />}>
-              <ResultsMap results={results} userCoords={coords} activeId={activeId} onSelect={setActiveId} />
+              <ResultsMap results={showResults ? results : EMPTY_RESULTS} userCoords={coords} activeId={hoveredId ?? selectedId} onSelect={selectFromMap} />
             </Suspense>
           </div>
         </section>
@@ -369,13 +525,11 @@ export default function ResultsPage() {
 
       {/* Filtros (celular): panel inferior */}
       {filtersOpen && (
-        <div className="fixed inset-0 z-[1100] lg:hidden" role="dialog" aria-modal="true" aria-label="Filtros">
-          <button type="button" className="absolute inset-0 bg-ink/40" onClick={() => setFiltersOpen(false)} aria-label="Cerrar" />
-          <div className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-hidden rounded-t-3xl bg-white shadow-[var(--shadow-float)]">
-            <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} onClose={() => setFiltersOpen(false)} />
-          </div>
-        </div>
+        <FilterDrawer onClose={closeFilters} triggerRef={filtersTrigger}>
+          <FiltersPanel params={params} applied={data?.applied_filters} onApply={applyFilters} onClose={closeFilters} busy={loading} />
+        </FilterDrawer>
       )}
+      </div>
     </div>
   );
 }

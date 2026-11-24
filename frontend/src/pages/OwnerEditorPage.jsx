@@ -78,7 +78,7 @@ export default function OwnerEditorPage() {
         {adminEditing ? "Negocios (administración)" : "Mi panel"}
       </Link>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="workspace-heading flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-brand-700">Editando</p>
           <h1 className="truncate text-3xl font-extrabold">{est.name}</h1>

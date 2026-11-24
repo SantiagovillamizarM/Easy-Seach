@@ -4,8 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Easy Search: encuentra lo que necesitas escribiéndolo con tus palabras." />
+    <meta name="theme-color" content="#0a0f1f" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Easy Search</title>
+
+    <!-- Fuentes de titulares y texto (latín): se piden de inmediato, en paralelo con el JS, para que
+         el texto no aparezca primero con la fuente del sistema y luego "salte" -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="./node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="./node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2" />
+
+    <!-- Antes de que llegue el JS: en las páginas con cielo nocturno la ventana ya es azul noche
+         (no un destello blanco que luego cambia de golpe). Layout mantiene este atributo al navegar. -->
+    <script>
+      (function () {
+        var dark = ["/", "/ingresar", "/registro", "/recuperar", "/verificar", "/correos/baja"];
+        if (dark.indexOf(location.pathname) !== -1) document.documentElement.setAttribute("data-dark-top", "");
+      })();
+    </script>
+    <style>
+      html { background: #f2f5fd; }
+      html[data-dark-top], html[data-dark-top] body:not(:has(#root > *)) { background: #0a0f1f; }
+      body { margin: 0; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

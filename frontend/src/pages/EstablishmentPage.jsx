@@ -126,7 +126,7 @@ export default function EstablishmentPage() {
       </button>
 
       {/* Encabezado */}
-      <header className="card fade-up relative isolate overflow-hidden p-5 sm:p-7">
+      <header className="workspace-heading fade-up relative isolate overflow-hidden">
         {/* Luz de marca muy tenue en la esquina: da profundidad sin competir con el contenido */}
         <div
           className="pointer-events-none absolute -right-24 -top-24 -z-10 h-64 w-64 rounded-full bg-brand-200/40 blur-3xl"

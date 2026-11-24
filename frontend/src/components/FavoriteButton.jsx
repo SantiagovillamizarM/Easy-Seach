@@ -29,13 +29,13 @@ export default function FavoriteButton({ establishmentId, name, withLabel = fals
       aria-pressed={active}
       aria-label={label}
       title={user ? label : "Inicia sesión para guardar favoritos"}
-      className={`relative z-10 inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-sm font-semibold transition ${
+      className={`relative z-10 inline-flex items-center justify-center gap-1.5 border text-sm font-semibold transition ${withLabel ? "rounded-xl px-2.5 py-2" : "favorite-orbit h-10 w-10 rounded-full"} ${
         active
           ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
           : "border-line bg-white text-ink-soft hover:border-rose-200 hover:text-rose-600"
       } ${className}`}
     >
-      <Heart className={`h-4 w-4 ${active ? "fill-current" : ""}`} aria-hidden="true" />
+      <Heart className={`favorite-heart h-4 w-4 ${active ? "fill-current" : ""}`} aria-hidden="true" />
       {withLabel && (active ? "Guardado" : "Guardar")}
     </button>
   );

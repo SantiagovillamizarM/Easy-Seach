@@ -1,0 +1,176 @@
+/* ============================================================
+   Modo oscuro genérico de páginas (ThemedPage.jsx)
+   Misma paleta que el modo oscuro del dashboard de resultados: base casi negra como el pie,
+   superficies grafito con tinte violeta y acentos morados, índigo y azul frío.
+   Funciona redefiniendo los tokens de Tailwind (text-ink, border-line, bg-brand-50…) y las
+   superficies compartidas (card, btn-ghost, chip, input…) solo dentro de .theme-scope[data-theme="dark"].
+   ============================================================ */
+
+.themed-page {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  min-height: 100svh; /* incluye la franja bajo el encabezado (under-header) */
+}
+/* Modo claro: blanco perla (debajo va el líquido animado), igual que el dashboard de resultados */
+.theme-scope[data-theme="light"] {
+  background:
+    radial-gradient(circle, #1b246612 1px, transparent 1.3px) 0 0 / 26px 26px,
+    linear-gradient(180deg, #fdfdfe, #f4f5f8 60%, #eff0f4);
+}
+
+.theme-scope[data-theme="dark"] {
+  --color-ink: #eeedf7;
+  --color-ink-soft: #a6a4bd;
+  --color-line: #ffffff17;
+  --color-muted: #ffffff0f;
+  --color-canvas: #0b0a12;
+  --color-brand-50: #8b5cf61f;
+  --color-brand-100: #8b5cf633;
+  --color-brand-200: #a78bfa59;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #9b87ff;
+  --color-brand-600: #a594ff;
+  --color-brand-700: #c9bdff;
+  --color-open: #6ee7b7;
+  --color-open-bg: #10b98121;
+  --color-closed: #fdba74;
+  --color-closed-bg: #f9731621;
+  --color-warn: #fcd34d;
+  --color-warn-bg: #f59e0b1c;
+  --color-warn-line: #f59e0b40;
+  --color-warn-soft: #f59e0b29;
+
+  --surface-light: linear-gradient(165deg, #16141f 0%, #111019 60%, #0e0d16 100%);
+  --surface-ai: linear-gradient(160deg, #1d1832, #141224 60%, #121a2c);
+  --shadow-card: inset 0 1px 0 #ffffff12, 0 24px 44px -30px #000;
+  --shadow-lift: inset 0 1px 0 #ffffff1a, 0 24px 44px -24px #000, 0 0 34px -18px #9b6cffaa;
+  --shadow-float: 0 18px 50px #000000b3;
+
+  color: var(--color-ink);
+  color-scheme: dark;
+  background:
+    radial-gradient(ellipse 55% 40% at 0% 0%, #312e811a, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 100% 20%, #4c1d9514, transparent 70%),
+    linear-gradient(180deg, #07070c, #09080f 60%, #08080d);
+}
+
+/* Cielo estrellado detrás del contenido: fijo mientras se baja */
+.themed-page-sky {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+.themed-page-sky-canvas {
+  position: sticky;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100svh;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-out-soft);
+}
+.themed-page-sky-canvas[data-ready] { opacity: 1; }
+
+/* ---------- Superficies compartidas ---------- */
+.theme-scope[data-theme="dark"] :is(.card, .workspace-heading) {
+  border-color: #ffffff12;
+  background: var(--surface-light);
+  box-shadow: var(--shadow-card);
+}
+/* Encabezado del lugar: neblina violeta en la esquina, como las tarjetas de cifras */
+.theme-scope[data-theme="dark"] .workspace-heading {
+  background:
+    radial-gradient(ellipse 45% 80% at 100% 0%, #8b5cf633, transparent 70%),
+    radial-gradient(ellipse 35% 70% at 0% 100%, #3b82f61a, transparent 70%),
+    var(--surface-light);
+}
+.theme-scope[data-theme="dark"] .card-hover:hover { border-color: #a78bfa4d; }
+.theme-scope[data-theme="dark"] .bg-white { background-color: #ffffff0a; }
+.theme-scope[data-theme="dark"] .btn-ghost {
+  border-color: #ffffff1f;
+  background: #ffffff0a;
+  color: #e2e0f2;
+}
+.theme-scope[data-theme="dark"] .btn-ghost:hover:not(:disabled) { border-color: #a78bfa4d; background: #ffffff14; }
+.theme-scope[data-theme="dark"] .btn-primary { background-image: linear-gradient(125deg, #4f46e5, #7c3aed 60%, #a855f7); box-shadow: 0 8px 20px -10px #9b6cffaa; }
+.theme-scope[data-theme="dark"] .chip { border-color: #ffffff1f; background: #ffffff0a; }
+.theme-scope[data-theme="dark"] .input {
+  border-color: #ffffff1a;
+  background-color: #0a0910;
+  color: #ffffff;
+}
+.theme-scope[data-theme="dark"] .input::placeholder { color: #807e98; }
+.theme-scope[data-theme="dark"] .input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px #8b5cf62e; }
+.theme-scope[data-theme="dark"] .input:disabled { background-color: #ffffff06; color: #75738d; }
+.theme-scope[data-theme="dark"] option { color: #0b1224; background: #fff; }
+.theme-scope[data-theme="dark"] .skeleton {
+  background-color: #ffffff0d;
+  background-image: linear-gradient(90deg, transparent 0%, #ffffff14 50%, transparent 100%);
+}
+.theme-scope[data-theme="dark"] .ai-surface { border-color: #a78bfa2e; background: var(--surface-ai); }
+
+/* Fondos blancos translúcidos (barra de guardar del panel, etiquetas sobre fotos) */
+.theme-scope[data-theme="dark"] :is(.bg-white\/90, .bg-white\/95) { background-color: #110f1ae6; }
+.theme-scope[data-theme="dark"] .hover\:bg-white:hover { background-color: #1b1828; }
+
+/* Favorito con etiqueta ("Guardar" / "Guardado") */
+.theme-scope[data-theme="dark"] .bg-rose-50 { background-color: #fb71851f; }
+.theme-scope[data-theme="dark"] .border-rose-200 { border-color: #fb718566; }
+.theme-scope[data-theme="dark"] .text-rose-600 { color: #fda4af; }
+.theme-scope[data-theme="dark"] .hover\:bg-rose-100:hover { background-color: #fb71852e; }
+
+/* ---------- Mapas (Leaflet) ---------- */
+/* Teselas a gris frío casi negro; marcadores y ventanas emergentes conservan sus colores */
+.theme-scope[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) grayscale(1) brightness(0.7) contrast(1.15) sepia(0.3) hue-rotate(215deg) saturate(1.6);
+}
+.theme-scope[data-theme="dark"] .leaflet-container { background: #121019; }
+.theme-scope[data-theme="dark"] .leaflet-container {
+  /* marcadores, controles y ventanas del mapa conservan sus colores: se devuelven los tokens originales */
+  --color-ink: #0b1224;
+  --color-ink-soft: #475069;
+  --color-line: #e3e7f0;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #3b31b8;
+  --color-open: #047857;
+  --color-open-bg: #e6f7f0;
+  --color-closed: #c2410c;
+  --color-closed-bg: #fdeee6;
+  color: var(--color-ink);
+  color-scheme: light;
+}
+.theme-scope[data-theme="dark"] .leaflet-control-attribution { background: #0b0a12cc; color: #a6a4bd; }
+.theme-scope[data-theme="dark"] .leaflet-control-attribution a { color: #c4b5fd; }
+
+/* ---------- Asistente ---------- */
+/* El hero nocturno pasa a la noche violeta del modo oscuro (sin el azul del modo claro) */
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading {
+  border-color: #ffffff14;
+  background:
+    radial-gradient(ellipse 60% 90% at 85% 0%, #4c1d9566, transparent 70%),
+    radial-gradient(ellipse 45% 70% at 0% 100%, #312e8159, transparent 70%),
+    linear-gradient(160deg, #14121f, #0d0c15);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 24px 44px -28px #000;
+}
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading::before { background: radial-gradient(closest-side, rgb(139 92 246 / 0.4), transparent); }
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading::after { background: radial-gradient(closest-side, rgb(96 165 250 / 0.16), transparent); }
+
+/* ---------- Interruptores (switch) ---------- */
+/* El riel apagado se ve sobre el grafito, encendido va en el degradado violeta y la bolita sigue blanca */
+.theme-scope[data-theme="dark"] .switch-track {
+  background-color: #ffffff24;
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+  --tw-ring-offset-color: #0e0d16;
+}
+.theme-scope[data-theme="dark"] .peer:checked ~ .switch-track {
+  background-color: transparent;
+  background-image: linear-gradient(125deg, #4f46e5, #7c3aed 60%, #a855f7);
+  box-shadow: 0 0 14px -2px #9b6cffaa;
+}
+.theme-scope[data-theme="dark"] .switch-knob {
+  background-color: #ffffff;
+  box-shadow: 0 2px 6px #00000080;
+}

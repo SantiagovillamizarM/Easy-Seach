@@ -25,11 +25,13 @@ export default function FavoritesPage() {
 
   return (
     <div className="fade-up mx-auto max-w-3xl px-4 py-8">
-      <h1 className="flex items-center gap-2 text-3xl font-extrabold">
-        <Heart className="h-6 w-6 fill-rose-500 text-rose-500" aria-hidden="true" />
-        Mis favoritos
-      </h1>
-      <p className="mt-1 text-sm text-ink-soft">Los lugares que guardaste para volver a encontrarlos rápido.</p>
+      <header className="workspace-heading">
+        <h1 className="flex items-center gap-2 text-3xl font-extrabold">
+          <Heart className="h-6 w-6 fill-rose-500 text-rose-500" aria-hidden="true" />
+          Mis favoritos
+        </h1>
+        <p className="mt-1 text-sm text-ink-soft">Los lugares que guardaste para volver a encontrarlos rápido.</p>
+      </header>
 
       <div className="mt-6 space-y-3">
         {error && <p className="text-closed">{error}</p>}

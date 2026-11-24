@@ -1,8 +1,10 @@
-import { Bot, History, Info, Loader2, Send, Sparkles } from "lucide-react";
+import { History, Info, Loader2, Send, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import AiBot from "../components/AiBot.jsx";
 import AssistantAnswer from "../components/AssistantAnswer.jsx";
 import Reveal from "../components/Reveal.jsx";
 import { api } from "../lib/api.js";
+import "./assistant.css";
 
 const MAX = 500;
 const PAGE_SIZE = 10;
@@ -12,6 +14,79 @@ const EJEMPLOS = [
   "Necesito una ferretería en Piedecuesta",
   "Busco un veterinario para mi gato",
 ];
+
+// Presentación que el robot "dice" al entrar (en primera persona). Los tramos con strong van en negrita.
+const INTRO = [
+  { text: "¡Hola! Cuéntame qué necesitas con tus palabras. Respondo " },
+  { text: "solo", strong: true },
+  {
+    text:
+      " con negocios registrados en Easy Search, te muestro de dónde saqué cada dato y, si no encuentro información suficiente, te lo digo en lugar de inventar.",
+  },
+];
+const INTRO_TEXT = INTRO.map((part) => part.text).join("");
+const INTRO_SEEN_KEY = "easysearch-assistant-intro";
+
+// Pausa tras cada carácter: un ritmo de escritura natural, con respiros en comas y puntos
+function delayFor(char) {
+  if (char === "." || char === "!" || char === "?") return 340;
+  if (char === ",") return 170;
+  if (char === " ") return 26;
+  return 20 + Math.random() * 18;
+}
+
+// El mensaje se escribe poco a poco. Devuelve cuántos caracteres van y si ya terminó.
+// Con movimiento reducido, o si ya se vio en esta sesión, aparece completo de una vez.
+function useTypewriter(text) {
+  const instant = (() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    try {
+      return sessionStorage.getItem(INTRO_SEEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  })();
+  const [count, setCount] = useState(instant ? text.length : 0);
+  const done = count >= text.length;
+
+  useEffect(() => {
+    if (done) {
+      try {
+        sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+      } catch {
+        /* sin almacenamiento: se volverá a escribir la próxima vez */
+      }
+      return undefined;
+    }
+    const timer = setTimeout(() => setCount((n) => n + 1), count === 0 ? 650 : delayFor(text[count - 1]));
+    return () => clearTimeout(timer);
+  }, [count, done, text]);
+
+  return { count, done, skip: () => setCount(text.length) };
+}
+
+// Pinta los primeros `count` caracteres respetando las negritas. La última letra se monta con su
+// propia clave, así cada letra nueva entra con un fundido suave (efecto de tinta, no de golpe).
+function TypedIntro({ count }) {
+  let start = 0;
+  return INTRO.map((part, i) => {
+    const end = start + part.text.length;
+    const shown = Math.max(0, Math.min(count, end) - start);
+    const segStart = start;
+    start = end;
+    if (shown === 0) return null;
+    const isLast = count > segStart && count <= end;
+    const body = isLast ? (
+      <>
+        {part.text.slice(0, shown - 1)}
+        <span key={count} className="assistant-ink">{part.text[shown - 1]}</span>
+      </>
+    ) : (
+      part.text.slice(0, shown)
+    );
+    return part.strong ? <strong key={i}>{body}</strong> : <span key={i}>{body}</span>;
+  });
+}
 
 export default function AssistantPage() {
   const [pregunta, setPregunta] = useState("");
@@ -23,6 +98,7 @@ export default function AssistantPage() {
   const [pagina, setPagina] = useState(1);
   const [cargando, setCargando] = useState(true);
   const textareaRef = useRef(null);
+  const intro = useTypewriter(INTRO_TEXT);
 
   const cargar = useCallback(async (p = 1) => {
     setCargando(true);
@@ -75,50 +151,65 @@ export default function AssistantPage() {
   const anteriores = historial.filter((c) => c.id !== ultima?.id);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      {/* Zona de IA: fondo nocturno con el acento menta, igual que en el inicio */}
-      <header className="hero-night fade-up rounded-3xl px-6 pb-16 pt-7 sm:px-8">
-        <div className="hero-dots" aria-hidden="true" />
-        <h1 className="flex items-center gap-3 text-3xl font-extrabold sm:text-4xl">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10">
-            <Bot className="h-6 w-6 text-ai" aria-hidden="true" />
-          </span>
-          Asistente
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm text-white/75 sm:text-base">
-          Cuéntale qué necesitas con tus palabras. Responde <strong className="text-white">solo</strong> con negocios
-          registrados en Easy Search, te muestra de dónde sacó cada dato y, si no encuentra información suficiente, te lo
-          dice en lugar de inventar.
-        </p>
+    <div className="assistant-page mx-auto max-w-3xl px-4 py-8 sm:py-12">
+      {/* Presentación: el robot en el centro "dice" para qué sirve el asistente */}
+      <header className="assistant-intro">
+        <AiBot
+          size={92}
+          talking={!intro.done}
+          thinking={enviando}
+          className="assistant-avatar"
+          label="Robot asistente de Easy Search"
+        />
+        <h1 className="assistant-title">Asistente</h1>
+        {/* Clic en la burbuja: termina de escribir de una vez */}
+        <div className="assistant-bubble" onClick={intro.skip} data-done={intro.done || undefined} title={intro.done ? undefined : "Clic para ver todo"}>
+          <p className="sr-only">{INTRO_TEXT}</p>
+          {/* El texto completo invisible reserva el tamaño: la burbuja no crece mientras se escribe */}
+          <div className="assistant-bubble-text" aria-hidden="true">
+            <p className="assistant-ghost"><TypedIntro count={INTRO_TEXT.length} /></p>
+            <p>
+              <TypedIntro count={intro.count} />
+              {!intro.done && <span className="assistant-caret" />}
+            </p>
+          </div>
+        </div>
       </header>
 
-      {/* El formulario "flota" sobre el borde inferior de la zona oscura */}
-      <form onSubmit={enviar} className="card fade-up relative z-10 mx-3 -mt-10 p-4 shadow-[var(--shadow-float)] sm:mx-6" style={{ "--i": 2 }}>
+      {/* El chat aparece con un fundido desde abajo cuando el robot termina de hablar */}
+      {intro.done && (
+      <div className="assistant-chat">
+      {/* Barra de chat compacta: campo de dos renglones (alto fijo, sin redimensionar) y botón al lado */}
+      <form onSubmit={enviar} className="card assistant-composer p-3">
         <label htmlFor="pregunta" className="sr-only">Tu pregunta</label>
-        <textarea
-          id="pregunta"
-          ref={textareaRef}
-          className="input min-h-24 resize-y"
-          maxLength={MAX}
-          placeholder="Ej.: Se me dañó la pantalla del celular, ¿dónde la pueden cambiar en Floridablanca?"
-          value={pregunta}
-          onChange={(e) => setPregunta(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter envía; Shift+Enter hace salto de línea
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (!enviando) enviar();
-            }
-          }}
-          disabled={enviando}
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs text-ink-soft">{pregunta.length}/{MAX}</span>
-          <button type="submit" className="btn-primary" disabled={enviando}>
+        <div className="flex items-stretch gap-2">
+          <textarea
+            id="pregunta"
+            ref={textareaRef}
+            rows={2}
+            className="input assistant-input"
+            maxLength={MAX}
+            placeholder="Ej.: Se me dañó la pantalla del celular, ¿dónde la pueden cambiar en Floridablanca?"
+            value={pregunta}
+            onChange={(e) => setPregunta(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter envía; Shift+Enter hace salto de línea
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!enviando) enviar();
+              }
+            }}
+            disabled={enviando}
+          />
+          <button type="submit" className="btn-primary shrink-0 px-4" disabled={enviando} aria-label={enviando ? "Buscando" : "Preguntar"}>
             {enviando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-            {enviando ? "Buscando en los negocios registrados…" : "Preguntar"}
+            <span className="hidden sm:inline">{enviando ? "Buscando…" : "Preguntar"}</span>
           </button>
         </div>
+        <p className="mt-1.5 flex justify-between gap-3 px-1 text-[0.7rem] text-ink-soft">
+          <span>Enter para enviar · Shift + Enter para un salto de línea</span>
+          <span>{pregunta.length}/{MAX}</span>
+        </p>
         {!ultima && historial.length === 0 && !cargando && (
           <div className="mt-4 flex flex-wrap gap-2">
             {EJEMPLOS.map((ej) => (
@@ -141,8 +232,8 @@ export default function AssistantPage() {
       {/* Mientras el asistente responde se reserva el lugar de la respuesta */}
       {enviando && (
         <div className="card mt-6 p-5" aria-hidden="true">
-          <p className="flex items-center gap-2 text-sm font-medium text-brand-700">
-            <Sparkles className="h-4 w-4 animate-pulse" />
+          <p className="flex items-center gap-2.5 text-sm font-medium text-brand-700">
+            <AiBot size={30} thinking interactive={false} />
             Buscando en los negocios registrados…
           </p>
           <div className="skeleton mt-4 h-3 w-11/12 rounded" />
@@ -183,6 +274,8 @@ export default function AssistantPage() {
           </button>
         )}
       </section>
+      </div>
+      )}
     </div>
   );
 }

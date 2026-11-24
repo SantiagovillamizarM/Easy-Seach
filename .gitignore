@@ -35,3 +35,6 @@ backend/data/osm_cache/
 
 # Configuración local de Claude Code (skills del proyecto y ajustes personales): no se sube al repositorio
 /.claude/
+
+# Skills locales de otros agentes (Codex, etc.): no se suben al repositorio
+/.agents/
