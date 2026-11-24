@@ -64,7 +64,7 @@ export default function App() {
         <Route path="buscar" element={<RequireAuth verified guestAllowed><ResultsPage /></RequireAuth>} />
         <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
         {/* Asistente con IA (Spring Boot + n8n): exige correo confirmado, igual que en el servidor */}
-        <Route path="asistente" element={<RequireAuth verified><AssistantPage /></RequireAuth>} />
+        <Route path="asistente" element={<RequireAuth verified><ThemedPage><AssistantPage /></ThemedPage></RequireAuth>} />
         {/* Páginas con modo claro/oscuro: van envueltas en ThemedPage */}
         <Route path="lugar/:slug" element={<ThemedPage><EstablishmentPage /></ThemedPage>} />
         <Route path="ingresar" element={<LoginPage />} />

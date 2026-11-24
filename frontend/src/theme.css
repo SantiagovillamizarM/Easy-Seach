@@ -134,3 +134,16 @@
 }
 .theme-scope[data-theme="dark"] .leaflet-control-attribution { background: #0b0a12cc; color: #a6a4bd; }
 .theme-scope[data-theme="dark"] .leaflet-control-attribution a { color: #c4b5fd; }
+
+/* ---------- Asistente ---------- */
+/* El hero nocturno pasa a la noche violeta del modo oscuro (sin el azul del modo claro) */
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading {
+  border-color: #ffffff14;
+  background:
+    radial-gradient(ellipse 60% 90% at 85% 0%, #4c1d9566, transparent 70%),
+    radial-gradient(ellipse 45% 70% at 0% 100%, #312e8159, transparent 70%),
+    linear-gradient(160deg, #14121f, #0d0c15);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 24px 44px -28px #000;
+}
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading::before { background: radial-gradient(closest-side, rgb(139 92 246 / 0.4), transparent); }
+.theme-scope[data-theme="dark"] .hero-night.assistant-heading::after { background: radial-gradient(closest-side, rgb(96 165 250 / 0.16), transparent); }

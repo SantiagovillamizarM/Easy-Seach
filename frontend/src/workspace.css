@@ -367,9 +367,10 @@ button[aria-pressed="true"]:hover > .favorite-heart { transform: scale(1.14); }
   --color-ink: #eef1ff;
   --color-ink-soft: #a3add3;
   --color-line: #ffffff1c;
-  --color-brand-50: #7c83ff1f;
-  --color-brand-200: #8f97ff66;
-  --color-brand-700: #c4c9ff;
+  --color-brand-50: #8b5cf61f;
+  --color-brand-100: #8b5cf633;
+  --color-brand-200: #a78bfa59;
+  --color-brand-700: #c9bdff;
   --color-open: #6ee7b7;
   --color-open-bg: #10b98124;
 }
