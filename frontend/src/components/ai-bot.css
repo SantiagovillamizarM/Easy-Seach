@@ -129,6 +129,32 @@
   30% { opacity: 1; transform: translateY(-2.2px); }
 }
 
+/* ---------- Hablando: boca con ritmo de sílabas y la cabeza asiente ---------- */
+.rb-talk { fill: var(--bot-eye); opacity: 0; transform: scaleY(0.2); transform-origin: 50% 30%; }
+.ai-bot[data-state="talking"] .rb-talk { opacity: 1; animation: rb-speak 0.9s ease-in-out infinite; }
+.ai-bot[data-state="talking"] .rb-head { animation: rb-nod 1.8s var(--bot-ease) infinite; }
+.ai-bot[data-state="talking"] .rb-eyes { animation: rb-look-soft 3.6s var(--bot-ease) infinite; }
+.ai-bot[data-state="talking"] .rb-light { animation: rb-light 0.45s ease-in-out infinite alternate; }
+@keyframes rb-speak {
+  0%, 100% { transform: scaleY(0.25); }
+  15% { transform: scaleY(1); }
+  30% { transform: scaleY(0.45); }
+  45% { transform: scaleY(0.9); }
+  60% { transform: scaleY(0.3); }
+  78% { transform: scaleY(0.75); }
+}
+@keyframes rb-nod {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-2.5deg) translateY(0.4px); }
+  50% { transform: rotate(0deg) translateY(-0.4px); }
+  75% { transform: rotate(2.5deg) translateY(0.4px); }
+}
+@keyframes rb-look-soft {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-1.4px); }
+  65% { transform: translateX(1.4px); }
+}
+
 /* ---------- Feliz (al hacer clic) ---------- */
 .ai-bot[data-state="happy"] .rb-eyes { animation: none; }
 .ai-bot[data-state="happy"] .rb-eye { animation: none; opacity: 0; transform: scaleY(0.2); transition: opacity 140ms, transform 140ms; }
@@ -165,7 +191,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rb-bot, .rb-head, .rb-eyes, .rb-eye, .rb-light, .rb-hat, .rb-dots circle { animation: none !important; }
+  .rb-bot, .rb-head, .rb-eyes, .rb-eye, .rb-light, .rb-hat, .rb-dots circle, .rb-talk { animation: none !important; }
+  .ai-bot[data-state="talking"] .rb-talk { transform: scaleY(0.6); }
   .ai-bot[data-state="thinking"] .rb-dots circle { opacity: 0.8; }
   .ai-bot[data-state="happy"] .rb-happy-eye { stroke-dashoffset: 0; }
   .ai-bot[data-state="happy"] .rb-mouth { opacity: 1; transform: none; }

@@ -7,10 +7,18 @@ import "./ai-bot.css";
 // - Se muestra como foto de perfil: un círculo con luz suave y el cuerpo recortado por el borde.
 // - Con `thinking` piensa: mira arriba de lado a lado, ladea la cabeza, la antena brilla y aparecen
 //   tres puntitos que suben y bajan (mientras la IA prepara la respuesta).
+// - Con `talking` habla: la boca se abre y cierra con un ritmo irregular y la cabeza asiente.
 // Todo es SVG + CSS (solo transform y opacity) para que la animación sea suave.
 const HAPPY_MS = 1900;
 
-export default function AiBot({ size = 30, thinking = false, className = "" }) {
+export default function AiBot({
+  size = 30,
+  thinking = false,
+  talking = false,
+  interactive = true, // false: solo decorativo (sin botón ni easter egg), p. ej. dentro de zonas aria-hidden
+  className = "",
+  label = "Saludar al robot de Easy Search",
+}) {
   const [burst, setBurst] = useState(0); // cada clic reinicia la animación de alegría
   const [happy, setHappy] = useState(false);
   const timer = useRef(0);
@@ -24,17 +32,17 @@ export default function AiBot({ size = 30, thinking = false, className = "" }) {
     timer.current = setTimeout(() => setHappy(false), HAPPY_MS);
   }
 
-  const state = happy ? "happy" : thinking ? "thinking" : "idle";
+  const Tag = interactive ? "button" : "span";
+  const state = happy ? "happy" : thinking ? "thinking" : talking ? "talking" : "idle";
 
   return (
-    <button
-      type="button"
+    <Tag
+      {...(interactive
+        ? { type: "button", onClick: cheer, "aria-label": label, title: "¡Hola!" }
+        : { "aria-hidden": true })}
       className={`ai-bot ${className}`}
       data-state={state}
       style={{ "--bot-size": `${size}px` }}
-      onClick={cheer}
-      aria-label="Saludar al robot de Easy Search"
-      title="¡Hola!"
     >
       <svg key={burst} viewBox="0 0 64 56" aria-hidden="true" className="ai-bot-svg">
         <g className="rb-bot">
@@ -50,6 +58,8 @@ export default function AiBot({ size = 30, thinking = false, className = "" }) {
             <path className="rb-happy-eye" d="M19.5 22.5q3.5-5.5 7 0" pathLength="1" />
             <path className="rb-happy-eye" d="M37.5 22.5q3.5-5.5 7 0" pathLength="1" />
             <path className="rb-mouth" d="M27 25.2h10q0 5.2-5 5.2t-5-5.2z" />
+            {/* Hablando: boca que se abre y cierra */}
+            <ellipse className="rb-talk" cx="32" cy="27.6" rx="3.4" ry="2" />
             {/* Pensando: tres puntitos que suben y bajan en secuencia */}
             <g className="rb-dots">
               <circle cx="27" cy="28.4" r="1.5" />
@@ -65,6 +75,6 @@ export default function AiBot({ size = 30, thinking = false, className = "" }) {
         <path className="rb-spark" d="M7 9l1.1 2.6L10.7 12.7 8.1 13.8 7 16.4 5.9 13.8 3.3 12.7 5.9 11.6z" />
         <path className="rb-spark rb-spark-2" d="M57 5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
       </svg>
-    </button>
+    </Tag>
   );
 }
