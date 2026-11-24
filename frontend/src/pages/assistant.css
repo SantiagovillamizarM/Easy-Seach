@@ -12,7 +12,6 @@
 
 /* Avatar grande con un halo de luz detrás que respira */
 .assistant-intro .assistant-avatar {
-  --bot-ring: var(--color-brand-200);
   box-shadow:
     0 0 0 6px color-mix(in srgb, var(--color-brand-500) 10%, transparent),
     0 0 0 14px color-mix(in srgb, var(--color-brand-500) 5%, transparent),
@@ -89,6 +88,15 @@
 .assistant-composer {
   margin-top: 2rem;
   box-shadow: var(--shadow-float);
+}
+/* Campo de alto fijo (dos renglones) y sin tirador para cambiar su tamaño; si se escribe más, hace scroll */
+.assistant-input {
+  height: 3.6rem;
+  min-height: 0;
+  resize: none;
+  line-height: 1.45;
+  padding-block: 0.55rem;
+  overflow-y: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

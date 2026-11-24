@@ -32,6 +32,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 .ai-bot:hover { border-color: var(--bot-line); box-shadow: inset 0 1px 0 #fff, 0 0 0 3px #8b5cf61f, 0 6px 14px -6px #4f46e5; }
+/* Modo oscuro (resultados, lugar, asistente…): avatar violeta oscuro con trazos lavanda */
+[data-theme="dark"] .ai-bot {
+  --bot-fill: #1c1830;
+  --bot-line: #b9a6ff;
+  --bot-eye: #ede9fe;
+  --bot-glow: #a78bfa;
+  --bot-spark: #c4b5fd;
+  --bot-ring: #a78bfa59;
+  --bot-avatar: radial-gradient(circle at 50% 30%, #3a2f66, #1f1a38 65%, #15122a);
+}
 .ai-bot:focus-visible { outline: 2px solid var(--bot-line); outline-offset: 3px; border-radius: 0.6rem; }
 
 /* Retrato: la cabeza llena el círculo y el cuerpo (los "hombros") queda recortado por el borde */

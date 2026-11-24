@@ -221,7 +221,6 @@
   --rw-focus: #c4b5fd;
   color-scheme: dark;
 }
-.results-workspace[data-theme="dark"] .ai-bot { --bot-fill: #1c1830; --bot-line: #b9a6ff; --bot-eye: #ede9fe; --bot-spark: #c4b5fd; --bot-ring: #a78bfa59; --bot-avatar: radial-gradient(circle at 50% 30%, #3a2f66, #1f1a38 65%, #15122a); }
 
 /* En oscuro, el mapa y sus ventanas emergentes siguen claros: se devuelven los tokens originales */
 .results-workspace[data-theme="dark"] .leaflet-container {

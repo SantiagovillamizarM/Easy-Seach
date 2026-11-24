@@ -12,6 +12,12 @@
   overflow: clip;
   min-height: 100svh; /* incluye la franja bajo el encabezado (under-header) */
 }
+/* Modo claro: blanco perla (debajo va el líquido animado), igual que el dashboard de resultados */
+.theme-scope[data-theme="light"] {
+  background:
+    radial-gradient(circle, #1b246612 1px, transparent 1.3px) 0 0 / 26px 26px,
+    linear-gradient(180deg, #fdfdfe, #f4f5f8 60%, #eff0f4);
+}
 
 .theme-scope[data-theme="dark"] {
   --color-ink: #eeedf7;

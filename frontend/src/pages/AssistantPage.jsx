@@ -179,32 +179,37 @@ export default function AssistantPage() {
       {/* El chat aparece con un fundido desde abajo cuando el robot termina de hablar */}
       {intro.done && (
       <div className="assistant-chat">
-      <form onSubmit={enviar} className="card assistant-composer p-4">
+      {/* Barra de chat compacta: campo de dos renglones (alto fijo, sin redimensionar) y botón al lado */}
+      <form onSubmit={enviar} className="card assistant-composer p-3">
         <label htmlFor="pregunta" className="sr-only">Tu pregunta</label>
-        <textarea
-          id="pregunta"
-          ref={textareaRef}
-          className="input min-h-24 resize-y"
-          maxLength={MAX}
-          placeholder="Ej.: Se me dañó la pantalla del celular, ¿dónde la pueden cambiar en Floridablanca?"
-          value={pregunta}
-          onChange={(e) => setPregunta(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter envía; Shift+Enter hace salto de línea
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (!enviando) enviar();
-            }
-          }}
-          disabled={enviando}
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs text-ink-soft">{pregunta.length}/{MAX}</span>
-          <button type="submit" className="btn-primary" disabled={enviando}>
+        <div className="flex items-stretch gap-2">
+          <textarea
+            id="pregunta"
+            ref={textareaRef}
+            rows={2}
+            className="input assistant-input"
+            maxLength={MAX}
+            placeholder="Ej.: Se me dañó la pantalla del celular, ¿dónde la pueden cambiar en Floridablanca?"
+            value={pregunta}
+            onChange={(e) => setPregunta(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter envía; Shift+Enter hace salto de línea
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!enviando) enviar();
+              }
+            }}
+            disabled={enviando}
+          />
+          <button type="submit" className="btn-primary shrink-0 px-4" disabled={enviando} aria-label={enviando ? "Buscando" : "Preguntar"}>
             {enviando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-            {enviando ? "Buscando en los negocios registrados…" : "Preguntar"}
+            <span className="hidden sm:inline">{enviando ? "Buscando…" : "Preguntar"}</span>
           </button>
         </div>
+        <p className="mt-1.5 flex justify-between gap-3 px-1 text-[0.7rem] text-ink-soft">
+          <span>Enter para enviar · Shift + Enter para un salto de línea</span>
+          <span>{pregunta.length}/{MAX}</span>
+        </p>
         {!ultima && historial.length === 0 && !cargando && (
           <div className="mt-4 flex flex-wrap gap-2">
             {EJEMPLOS.map((ej) => (
