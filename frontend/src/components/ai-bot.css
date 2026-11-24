@@ -102,17 +102,31 @@
   to { opacity: 0.85; }
 }
 
-/* ---------- Pensando: mira hacia arriba y la antena brilla ---------- */
-.ai-bot[data-state="thinking"] .rb-eyes { animation: rb-think 2.6s var(--bot-ease) infinite alternate; }
-.ai-bot[data-state="thinking"] .rb-head { animation: none; }
-.ai-bot[data-state="thinking"] .rb-hat { animation: rb-hat-glow 1.3s ease-in-out infinite alternate; }
+/* ---------- Pensando: busca con la mirada, ladea la cabeza, antena encendida y "…" ---------- */
+.rb-dots circle { fill: var(--bot-eye); opacity: 0; }
+.ai-bot[data-state="thinking"] .rb-eyes { animation: rb-think 2.4s var(--bot-ease) infinite; }
+.ai-bot[data-state="thinking"] .rb-eye { transform: scaleY(0.82); animation: none; transition: transform 300ms var(--bot-ease); }
+.ai-bot[data-state="thinking"] .rb-head { animation: rb-ponder 2.4s var(--bot-ease) infinite; }
+.ai-bot[data-state="thinking"] .rb-hat { animation: rb-hat-glow 0.9s ease-in-out infinite alternate; }
+.ai-bot[data-state="thinking"] .rb-light { animation: rb-light 0.6s ease-in-out infinite alternate; }
+.ai-bot[data-state="thinking"] .rb-dots circle { animation: rb-dot 1.2s var(--bot-ease) infinite; }
+.ai-bot[data-state="thinking"] .rb-dots circle:nth-child(2) { animation-delay: 0.16s; }
+.ai-bot[data-state="thinking"] .rb-dots circle:nth-child(3) { animation-delay: 0.32s; }
 @keyframes rb-think {
-  from { transform: translate(1.5px, -2.4px); }
-  to { transform: translate(-1.5px, -2.4px); }
+  0%, 100% { transform: translate(-2px, -2.6px); }
+  50% { transform: translate(2px, -2.6px); }
+}
+@keyframes rb-ponder {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
 }
 @keyframes rb-hat-glow {
   from { fill: var(--bot-fill); }
   to { fill: var(--bot-glow); }
+}
+@keyframes rb-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2.2px); }
 }
 
 /* ---------- Feliz (al hacer clic) ---------- */
@@ -151,7 +165,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rb-bot, .rb-head, .rb-eyes, .rb-eye, .rb-light, .rb-hat { animation: none !important; }
+  .rb-bot, .rb-head, .rb-eyes, .rb-eye, .rb-light, .rb-hat, .rb-dots circle { animation: none !important; }
+  .ai-bot[data-state="thinking"] .rb-dots circle { opacity: 0.8; }
   .ai-bot[data-state="happy"] .rb-happy-eye { stroke-dashoffset: 0; }
   .ai-bot[data-state="happy"] .rb-mouth { opacity: 1; transform: none; }
 }

@@ -112,11 +112,11 @@
 .results-workspace[data-theme="dark"] {
   /* Noche fría: base casi negra (como el pie de página), paneles grafito con tinte violeta
      y luces que mezclan morado, índigo y azul frío, en vez de un azul plano. */
+  /* Casi negro con dos resplandores fríos apenas perceptibles (las estrellas van en el canvas) */
   --rw-page-bg:
-    radial-gradient(circle, #c4b5fd0f 1px, transparent 1.3px) 0 0 / 26px 26px,
-    radial-gradient(ellipse 55% 40% at 0% 0%, #312e8133, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 100% 20%, #4c1d9526, transparent 70%),
-    linear-gradient(180deg, #07070c, #0a0911 60%, #08080e);
+    radial-gradient(ellipse 55% 40% at 0% 0%, #312e811a, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 100% 20%, #4c1d9514, transparent 70%),
+    linear-gradient(180deg, #07070c, #09080f 60%, #08080d);
   --rw-title-grad: linear-gradient(100deg, #a5b4fc, #c4b5fd 50%, #e9a8ff);
   --rw-eyebrow-icon: #6ee7b7;
   --rw-fav-hover-bg: #fb71851f;
@@ -258,8 +258,8 @@
 }
 .results-workspace .rw-window { position: relative; }
 
-/* Fondo líquido (LiquidBackdrop): un lienzo del alto de la ventana que se queda fijo mientras se baja
-   (sticky) dentro del área de resultados. Aparece con un fundido cuando ya pintó el primer cuadro. */
+/* Fondo animado (LiquidBackdrop en claro, NightSkyBackdrop en oscuro): un lienzo del alto de la ventana
+   que se queda fijo mientras se baja (sticky). Aparece con un fundido cuando ya pintó el primer cuadro. */
 .rw-backdrop {
   position: absolute;
   z-index: -1;
@@ -267,7 +267,7 @@
   overflow: clip;
   pointer-events: none;
 }
-.rw-liquid {
+.rw-backdrop-canvas {
   position: sticky;
   top: 0;
   display: block;
@@ -276,7 +276,7 @@
   opacity: 0;
   transition: opacity 900ms var(--ease-out-soft);
 }
-.rw-liquid[data-ready] { opacity: 1; }
+.rw-backdrop-canvas[data-ready] { opacity: 1; }
 
 /* ---------- Neblina interna (fade) ----------
    Luz desenfocada que se funde dentro del recuadro, como humo iluminado desde dentro, más un
@@ -318,7 +318,7 @@
 }
 
 /* Arco de horizonte reutilizable: un círculo enorme cuyo borde superior asoma al pie del panel */
-.results-workspace :is(.results-list > .ai-surface, .result-recommendation)::after {
+.results-workspace :is(.results-ai-note, .result-recommendation)::after {
   content: "";
   position: absolute;
   z-index: -1;
@@ -412,6 +412,8 @@
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
+.rw-stat-value[data-loading] { animation: rw-wait 0.9s ease-in-out infinite alternate; }
+@keyframes rw-wait { to { opacity: 0.45; } }
 .rw-stat-unit { color: var(--rw-stat-unit); font-size: 0.75rem; font-weight: 600; }
 
 /* "Entendimos": cápsulas */
@@ -529,8 +531,8 @@
   background-image: linear-gradient(90deg, transparent 0%, var(--rw-skeleton-shine) 50%, transparent 100%);
 }
 
-/* Resumen de la IA y "Interpretando…": panel con arco de luz */
-.results-workspace .results-list > .ai-surface {
+/* Resumen de la IA y "Interpretando… / Obteniendo ubicación…": panel con arco de luz (.results-ai-note) */
+.results-workspace .results-ai-note {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -541,7 +543,7 @@
   font-size: 0.8rem;
   box-shadow: inset 0 1px 0 #ffffff40;
 }
-.results-workspace .results-list > .ai-surface svg { color: var(--rw-ai-icon); }
+.results-workspace .results-ai-note > svg { color: var(--rw-ai-icon); }
 
 /* ---------- Panel de filtros ---------- */
 .results-workspace .filter-surface {

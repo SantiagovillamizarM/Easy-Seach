@@ -16,6 +16,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
 import InterpretationBar from "../components/InterpretationBar.jsx";
 import LiquidBackdrop from "../components/LiquidBackdrop.jsx";
+import NightSkyBackdrop from "../components/NightSkyBackdrop.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
 import AiBot from "../components/AiBot.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
@@ -46,6 +47,34 @@ function buildPayload(params, coords) {
     payload.longitude = coords.longitude;
   }
   return payload;
+}
+
+// Cifra que sube rápido hasta su valor (0 → 15) cuando llegan los resultados.
+// Con movimiento reducido muestra el valor directamente.
+function CountUp({ value, duration = 700 }) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = from.current;
+    if (start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = value;
+      setShown(value);
+      return undefined;
+    }
+    let frame = 0;
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      const eased = 1 - (1 - k) ** 3; // rápido al inicio y suave al final
+      const current = Math.round(start + (value - start) * eased);
+      setShown(current);
+      from.current = current;
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+  return shown;
 }
 
 // Invitado sin cuenta: cuántas búsquedas de prueba le quedan
@@ -259,8 +288,11 @@ export default function ResultsPage() {
     // El fondo blanco ocupa todo el ancho (sin marco) y, con "under-header", sube por detrás del
     // encabezado transparente, igual que el hero del inicio
     <div className="results-workspace under-header" data-theme={theme}>
-      {/* Fondo líquido que fluye (WebGL): perla en claro, azul noche en oscuro; sin WebGL queda el degradado */}
-      <div className="rw-backdrop" aria-hidden="true"><LiquidBackdrop className="rw-liquid" theme={theme} /></div>
+      {/* Fondo animado: líquido perla en claro (WebGL) y mini cielo estrellado en oscuro (canvas).
+          Si no se pueden dibujar, queda el degradado del CSS */}
+      <div className="rw-backdrop" aria-hidden="true">
+        {theme === "dark" ? <NightSkyBackdrop className="rw-backdrop-canvas" /> : <LiquidBackdrop className="rw-backdrop-canvas" />}
+      </div>
       <div className="rw-window mx-auto max-w-[96rem] px-3 py-4 sm:px-6 lg:py-6">
       {/* Encabezado de resultados */}
       <div className="results-intro mb-4 space-y-3">
@@ -280,13 +312,15 @@ export default function ResultsPage() {
             <div className="rw-stats rw-stat rw-haze">
               <div className="rw-stat-cell">
                 <span className="rw-stat-label">Encontrados</span>
-                <span className="rw-stat-value">{loading && !data ? "…" : error ? "–" : results.length}</span>
+                <span className="rw-stat-value" data-loading={(loading && !data) || undefined}>
+                  {error ? "–" : <CountUp value={loading && !data ? 0 : results.length} />}
+                </span>
                 <span className="rw-stat-unit">{results.length === 1 ? "lugar" : "lugares"}</span>
               </div>
               <span className="rw-stat-divider" aria-hidden="true" />
               <div className="rw-stat-cell">
                 <span className="rw-stat-label">Filtros</span>
-                <span className="rw-stat-value">{activeFilters}</span>
+                <span className="rw-stat-value"><CountUp value={activeFilters} duration={450} /></span>
                 <span className="rw-stat-unit">{activeFilters === 1 ? "activo" : "activos"}</span>
               </div>
             </div>
@@ -407,7 +441,7 @@ export default function ResultsPage() {
           {loading && !showResults && (
             <div className="space-y-3">
               {/* Explica la espera: la IA está convirtiendo la frase en filtros */}
-              <p className="ai-surface mb-1 flex items-center gap-2.5 rounded-xl p-3 text-sm font-semibold text-brand-700">
+              <p className="ai-surface results-ai-note mb-1 flex items-center gap-2.5 rounded-xl p-3 text-sm font-semibold">
                 <AiBot size={30} thinking />
                 {locating ? "Obteniendo tu ubicación…" : "Interpretando tu búsqueda…"}
               </p>
@@ -446,7 +480,7 @@ export default function ResultsPage() {
 
           {showResults && recs.summary && (
             // Llega después de los resultados: aparece con un fundido para que se note que es nuevo
-            <p className="ai-surface fade-up mb-3 flex items-center gap-3 rounded-2xl p-4 text-sm leading-relaxed">
+            <p className="ai-surface results-ai-note fade-up mb-3 flex items-center gap-3 rounded-2xl p-4 text-sm leading-relaxed">
               <AiBot size={34} />
               <span>{recs.summary}</span>
             </p>

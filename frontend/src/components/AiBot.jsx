@@ -5,7 +5,8 @@ import "./ai-bot.css";
 // - En reposo mira de izquierda a derecha, parpadea y "respira".
 // - Al hacer clic se pone feliz: ojos "^ ^", sonrisa abierta, saltito y dos destellos; luego vuelve a mirar.
 // - Se muestra como foto de perfil: un círculo con luz suave y el cuerpo recortado por el borde.
-// - Con `thinking` mira hacia arriba y la antena brilla (mientras la IA prepara la respuesta).
+// - Con `thinking` piensa: mira arriba de lado a lado, ladea la cabeza, la antena brilla y aparecen
+//   tres puntitos que suben y bajan (mientras la IA prepara la respuesta).
 // Todo es SVG + CSS (solo transform y opacity) para que la animación sea suave.
 const HAPPY_MS = 1900;
 
@@ -49,6 +50,12 @@ export default function AiBot({ size = 30, thinking = false, className = "" }) {
             <path className="rb-happy-eye" d="M19.5 22.5q3.5-5.5 7 0" pathLength="1" />
             <path className="rb-happy-eye" d="M37.5 22.5q3.5-5.5 7 0" pathLength="1" />
             <path className="rb-mouth" d="M27 25.2h10q0 5.2-5 5.2t-5-5.2z" />
+            {/* Pensando: tres puntitos que suben y bajan en secuencia */}
+            <g className="rb-dots">
+              <circle cx="27" cy="28.4" r="1.5" />
+              <circle cx="32" cy="28.4" r="1.5" />
+              <circle cx="37" cy="28.4" r="1.5" />
+            </g>
           </g>
           <rect className="rb-neck" x="26" y="33" width="12" height="3" rx="1" />
           <rect className="rb-body" x="5" y="36" width="54" height="16" rx="4.5" />
