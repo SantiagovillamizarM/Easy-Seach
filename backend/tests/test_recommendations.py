@@ -116,3 +116,24 @@ def test_varied_sample_rotates_between_sections():
         ["Hamburguesas"] * 10 + ["Bebidas"] * 5 + ["Postres"] * 2, start=1)]
     sample = _varied_sample(items, 6)
     assert [o.section for o in sample] == ["Hamburguesas", "Bebidas", "Postres"] * 2
+
+
+# ------------------------------- Términos internos ------------------------------------------------
+# La IA a veces escribe "las fichas no traen…": el usuario no sabe qué es una ficha.
+
+import pytest  # noqa: E402
+
+from app.services.user_text import sin_terminos_internos  # noqa: E402
+
+
+@pytest.mark.parametrize("texto,esperado", [
+    ("Las fichas no traen productos, precios ni horarios.", "Los datos registrados no traen productos, precios ni horarios."),
+    ("Su ficha no dice que trabaje motos.", "Su información registrada no dice que trabaje motos."),
+    ("Según la ficha, está en Girón.", "Según la información registrada, está en Girón."),
+    ("Ninguna ficha menciona wifi.", "Ninguna información registrada menciona wifi."),
+    ("Eso no está en estas fichas.", "Eso no está en estos datos registrados."),
+    ("Ficha incompleta: confirma antes de ir.", "Información registrada incompleta: confirma antes de ir."),
+    ("Ferretería Fátima está en Piedecuesta.", "Ferretería Fátima está en Piedecuesta."),   # sin cambios
+])
+def test_quita_la_palabra_ficha(texto, esperado):
+    assert sin_terminos_internos(texto) == esperado

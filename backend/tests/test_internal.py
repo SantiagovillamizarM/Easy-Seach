@@ -154,3 +154,17 @@ def test_rutas_del_asistente_exigen_clave(client, negocio):
     assert client.post("/api/internal/asistente/fichas", json={"ids": [negocio.id]}).status_code == 401
     assert client.post("/api/internal/asistente/validar",
                        json={"respuesta": "x", "ids": [negocio.id]}).status_code == 401
+
+
+def test_validar_quita_la_palabra_ficha_sin_marcar_frases_eliminadas(client, negocio):
+    """La IA a veces escribe "las fichas no traen…": se reescribe para el usuario sin contarlo como eliminación."""
+    r = client.post("/api/internal/asistente/validar", headers=KEY, json={
+        "respuesta": "Arepas Prueba vende arepas rellenas. Las fichas no traen horarios, así que confirma antes de ir.",
+        "pasos": ["Revisa su ficha antes de ir."],
+        "ids": [negocio.id],
+    })
+    body = r.json()
+    assert "ficha" not in body["respuesta"].lower()
+    assert "Los datos registrados no traen horarios" in body["respuesta"]
+    assert body["pasos"] == ["Revisa su información registrada antes de ir."]
+    assert body["frases_eliminadas"] is False

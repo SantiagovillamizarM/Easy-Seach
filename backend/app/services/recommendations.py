@@ -18,6 +18,7 @@ from decimal import Decimal
 from app.core.text import normalize
 from app.models import Establishment
 from app.services.llm import LLMError, LLMProvider, answered_by
+from app.services.user_text import sin_terminos_internos
 from app.services.query_parser import QueryIntent, _LRU
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,8 @@ def validate_text(text: str, facts: dict, intent: QueryIntent) -> str:
         if _RATING.search(sentence) and "calificacion" not in facts:
             continue  # calificación inventada
         kept.append(sentence)
-    return " ".join(kept).strip()
+    # Sin términos internos ("las fichas no traen…" → "los datos registrados no traen…")
+    return sin_terminos_internos(" ".join(kept).strip())
 
 
 # --------------------------------------------------------------------------------------
