@@ -201,6 +201,8 @@
   --rw-focus: #a5b4fc;
   color-scheme: dark;
 }
+.rw-window[data-theme="dark"] .ai-bot { --bot-fill: #1d2456; --bot-line: #a5b4fc; --bot-eye: #e0e7ff; --bot-spark: #c4b5fd; --bot-ring: #8b93ff66; --bot-avatar: radial-gradient(circle at 50% 30%, #2c357a, #1a2150 65%, #141a42); }
+
 /* En oscuro, el mapa y sus ventanas emergentes siguen claros: se devuelven los tokens originales */
 .rw-window[data-theme="dark"] .leaflet-container {
   --color-ink: #0b1224;

@@ -1,6 +1,7 @@
-import { BadgeCheck, MapPin, Navigation, Sparkles, Star, Tag } from "lucide-react";
+import { BadgeCheck, MapPin, Navigation, Star, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistance, formatPriceRange } from "../lib/format.js";
+import AiBot from "./AiBot.jsx";
 import FavoriteButton from "./FavoriteButton.jsx";
 import HoursBadge from "./HoursBadge.jsx";
 
@@ -9,9 +10,9 @@ const GAP_LABELS = { precios: "precios", horario: "horario", "reseñas": "reseñ
 function RecommendationBox({ recommendation, loading }) {
   if (loading) {
     return (
-      <div className="ai-surface result-recommendation is-loading mt-3 flex gap-2 rounded-xl p-3" aria-hidden="true">
-        <span className="dashboard-icon ai-orb"><Sparkles className="h-4 w-4 animate-pulse" /></span>
-        <div className="flex-1 pt-1">
+      <div className="ai-surface result-recommendation is-loading mt-3 flex gap-2 rounded-xl p-3">
+        <AiBot size={28} thinking />
+        <div className="flex-1 pt-1" aria-hidden="true">
           <div className="skeleton h-3 w-3/4 rounded" />
           <div className="skeleton mt-2 h-3 w-1/2 rounded" />
         </div>
@@ -22,7 +23,7 @@ function RecommendationBox({ recommendation, loading }) {
   return (
     <div className="ai-surface result-recommendation mt-3 rounded-xl p-3">
       <p className="flex items-start gap-2.5 text-sm leading-relaxed text-ink">
-        <span className="dashboard-icon ai-orb"><Sparkles className="h-4 w-4" aria-hidden="true" /></span>
+        <AiBot size={28} />
         <span className="min-w-0">
           <span className="result-recommendation-title mb-0.5 block text-xs font-bold text-brand-700">Por qué te lo recomendamos</span>
           {recommendation.text}

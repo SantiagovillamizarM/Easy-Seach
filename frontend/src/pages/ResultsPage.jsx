@@ -17,6 +17,7 @@ import FiltersPanel, { FILTER_KEYS } from "../components/FiltersPanel.jsx";
 import InterpretationBar from "../components/InterpretationBar.jsx";
 import LiquidBackdrop from "../components/LiquidBackdrop.jsx";
 import ResultCard, { ResultCardSkeleton } from "../components/ResultCard.jsx";
+import AiBot from "../components/AiBot.jsx";
 import { useUserLocation } from "../context/LocationContext.jsx";
 import { api } from "../lib/api.js";
 import "./results-dashboard.css";
@@ -404,8 +405,8 @@ export default function ResultsPage() {
           {loading && !showResults && (
             <div className="space-y-3">
               {/* Explica la espera: la IA está convirtiendo la frase en filtros */}
-              <p className="ai-surface mb-1 flex items-center gap-2 rounded-xl p-3 text-sm font-semibold text-brand-700">
-                <Sparkles className="h-4 w-4 animate-pulse" aria-hidden="true" />
+              <p className="ai-surface mb-1 flex items-center gap-2.5 rounded-xl p-3 text-sm font-semibold text-brand-700">
+                <AiBot size={30} thinking />
                 {locating ? "Obteniendo tu ubicación…" : "Interpretando tu búsqueda…"}
               </p>
               {Array.from({ length: 4 }, (_, i) => (
@@ -443,8 +444,8 @@ export default function ResultsPage() {
 
           {showResults && recs.summary && (
             // Llega después de los resultados: aparece con un fundido para que se note que es nuevo
-            <p className="ai-surface fade-up mb-3 flex gap-2 rounded-2xl p-4 text-sm leading-relaxed">
-              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
+            <p className="ai-surface fade-up mb-3 flex items-center gap-3 rounded-2xl p-4 text-sm leading-relaxed">
+              <AiBot size={34} />
               <span>{recs.summary}</span>
             </p>
           )}
