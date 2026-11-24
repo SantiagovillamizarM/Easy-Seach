@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import AiBot from "./AiBot.jsx";
 import { Calificar, EstadoBadge, Fuentes, formatSimilitud } from "./AssistantAnswer.jsx";
@@ -27,13 +28,23 @@ function keepAtBottom() {
   if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 260) el.scrollTop = el.scrollHeight;
 }
 
-export function UserMessage({ texto, creadaEn }) {
+// Foto de perfil del usuario: su inicial, igual que en el menú de la cuenta (aún no hay fotos subidas)
+function UserAvatar({ nombre }) {
+  return (
+    <span className="chat-user-avatar" aria-hidden="true">
+      {(nombre || "?").trim().charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+export function UserMessage({ texto, creadaEn, nombre }) {
   return (
     <div className="chat-row chat-row-user">
       <div className="chat-bubble chat-bubble-user">
         <p>{texto}</p>
         <span className="chat-time">{creadaEn ? hora(creadaEn) : "Enviando…"}</span>
       </div>
+      <UserAvatar nombre={nombre} />
     </div>
   );
 }
@@ -55,7 +66,7 @@ function AiRow({ talking = false, thinking = false, creadaEn, estado, children }
 }
 
 /** Respuesta del asistente a una consulta. `animate`: es la que acaba de llegar (se escribe sola). */
-export function AiMessage({ consulta, animate = false, onActualizada }) {
+export function AiMessage({ consulta, animate = false, onActualizada, onSugerencia }) {
   const r = consulta.respuesta;
   const texto =
     consulta.estado === "ERROR"
@@ -75,6 +86,18 @@ export function AiMessage({ consulta, animate = false, onActualizada }) {
         {typing.shown}
         {!typing.done && <span className="assistant-caret" />}
       </p>
+
+      {/* Respuestas de bienvenida: preguntas de ejemplo para tocar */}
+      {typing.done && consulta.sugerencias?.length > 0 && (
+        <div className="chat-extra mt-3 flex flex-wrap gap-2">
+          {consulta.sugerencias.map((s) => (
+            <button key={s} type="button" className="chip hover:border-brand-200 hover:text-ink" onClick={() => onSugerencia?.(s)}>
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {typing.done && r && (
         <div className="chat-extra">

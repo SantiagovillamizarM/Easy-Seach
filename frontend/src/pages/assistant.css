@@ -157,6 +157,22 @@
 }
 .chat-bubble-user .chat-time { display: block; margin-top: 0.2rem; color: #ffffffb8; text-align: right; }
 
+/* Tu foto de perfil (inicial), a la derecha de tus mensajes */
+.chat-user-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-top: 0.1rem;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background-image: var(--action-gradient);
+  box-shadow: 0 0 0 2px var(--color-line), 0 6px 14px -8px #4338ca;
+}
+
 /* Mensajes del asistente: foto de perfil, nombre y burbuja a la izquierda */
 .chat-row-ai .chat-avatar { margin-top: 0.1rem; }
 .chat-ai-body { min-width: 0; flex: 1; max-width: 40rem; }

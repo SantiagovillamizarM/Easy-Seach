@@ -2,7 +2,9 @@ import { History, Info, Loader2, Send, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AiBot from "../components/AiBot.jsx";
 import { AiMessage, AiTyping, UserMessage } from "../components/AssistantChat.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
+import { respuestaDeCharla } from "../lib/smallTalk.js";
 import "./assistant.css";
 
 const MAX = 500;
@@ -100,6 +102,8 @@ export default function AssistantPage() {
   const textareaRef = useRef(null);
   const finRef = useRef(null);
   const intro = useTypewriter(INTRO_TEXT);
+  const { user } = useAuth();
+  const nombre = user?.full_name?.split(" ")[0];
 
   const cargar = useCallback(async (p = 1) => {
     setCargando(true);
@@ -144,6 +148,28 @@ export default function AssistantPage() {
     setEnviando(texto);
     setPregunta("");
     setError(null);
+
+    // Charla ("hola", "gracias", "¿qué puedes hacer?"): responde el propio chat, sin gastar una consulta
+    // a la IA ni guardarla en el historial. Una pausa corta con "escribiendo…" lo hace sentir natural.
+    const charla = respuestaDeCharla(texto, nombre);
+    if (charla) {
+      await new Promise((ok) => setTimeout(ok, 650));
+      const local = {
+        id: `local-${Date.now()}`,
+        local: true,
+        pregunta: texto,
+        creadaEn: new Date().toISOString(),
+        estado: "RESPONDIDA",
+        respuesta: { texto: charla.texto, pasos: [], fuentes: [] },
+        sugerencias: charla.sugerencias,
+      };
+      setHistorial((prev) => [local, ...prev]);
+      setAnimarId(local.id);
+      setEnviando(null);
+      textareaRef.current?.focus();
+      return;
+    }
+
     try {
       const consulta = await api.asistente.preguntar(texto);
       setHistorial((prev) => [consulta, ...prev.filter((c) => c.id !== consulta.id)]);
@@ -281,13 +307,21 @@ export default function AssistantPage() {
         )}
         {mensajes.map((c) => (
           <div key={c.id} className="chat-turn">
-            <UserMessage texto={c.pregunta} creadaEn={c.creadaEn} />
-            <AiMessage consulta={c} animate={c.id === animarId} onActualizada={actualizar} />
+            <UserMessage texto={c.pregunta} creadaEn={c.creadaEn} nombre={user?.full_name} />
+            <AiMessage
+              consulta={c}
+              animate={c.id === animarId}
+              onActualizada={actualizar}
+              onSugerencia={(texto) => {
+                setPregunta(texto);
+                textareaRef.current?.focus();
+              }}
+            />
           </div>
         ))}
         {enviando && (
           <div className="chat-turn">
-            <UserMessage texto={enviando} />
+            <UserMessage texto={enviando} nombre={user?.full_name} />
             <AiTyping />
           </div>
         )}
