@@ -38,4 +38,16 @@ def get_llm() -> LLMProvider | None:
     return providers[0] if len(providers) == 1 else FallbackLLM(providers)
 
 
-__all__ = ["LLMError", "LLMProvider", "answered_by", "get_llm"]
+def without_openai(llm: LLMProvider | None) -> LLMProvider | None:
+    """La misma IA pero sin OpenAI (para quien agotó su cupo diario): queda Gemini o, si no hay, reglas."""
+    if llm is None:
+        return None
+    if isinstance(llm, FallbackLLM):
+        rest = [p for p in llm.providers if p.name != "openai"]
+        if not rest:
+            return None
+        return rest[0] if len(rest) == 1 else FallbackLLM(rest)
+    return None if getattr(llm, "name", None) == "openai" else llm
+
+
+__all__ = ["LLMError", "LLMProvider", "answered_by", "get_llm", "without_openai"]

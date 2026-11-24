@@ -290,6 +290,35 @@ class AsistenteIntegracionTests {
 		assertThat(llamadasN8n.get()).isZero();
 	}
 
+	// ============================================================== 9. Cupo diario de OpenAI (de pago)
+
+	@Test
+	void cupoDiarioDeOpenAIPasaAGeminiAlAgotarse() throws Exception {
+		respuestaN8n.set(respuestaCon(activo1));
+		// Sin consultas hoy: n8n puede usar OpenAI
+		crearConsulta(ana, "primera");
+		assertThat(recibido.get("body")).contains("\"permitir_openai\":true");
+
+		// Dos respuestas de hoy hechas con OpenAI (el cupo de pruebas es 2) y una de Gemini, que no cuenta
+		respuestaHoy(ana, "gpt-4.1-mini-2025-04-14");
+		respuestaHoy(ana, "gpt-4.1-mini-2025-04-14");
+		respuestaHoy(beto, "gpt-4.1-mini-2025-04-14");   // las de otro usuario no cuentan
+		crearConsulta(beto, "de beto");
+		assertThat(recibido.get("body")).contains("\"permitir_openai\":true");
+		crearConsulta(ana, "segunda");
+		assertThat(recibido.get("body")).contains("\"permitir_openai\":false");
+	}
+
+	/** Una consulta de hoy ya respondida por el modelo dado (fuera de la última hora: no afecta el límite por hora). */
+	private void respuestaHoy(int usuario, String modelo) {
+		Integer consulta = jdbc.queryForObject("""
+				INSERT INTO consultas_ia (usuario_id, pregunta, estado, umbral, creada_en)
+				VALUES (?, 'anterior', 'RESPONDIDA', 0.82, greatest(now() - interval '61 minutes',
+				        date_trunc('day', now() AT TIME ZONE 'America/Bogota') AT TIME ZONE 'America/Bogota'))
+				RETURNING id""", Integer.class, usuario);
+		jdbc.update("INSERT INTO respuestas_ia (consulta_id, respuesta, modelo) VALUES (?, 'texto', ?)", consulta, modelo);
+	}
+
 	// ============================================================== utilidades
 
 	private int crearConsulta(int usuario, String pregunta) throws Exception {

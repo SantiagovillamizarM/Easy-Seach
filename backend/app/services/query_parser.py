@@ -330,6 +330,7 @@ class _LRU(OrderedDict):
 
 
 _cache = _LRU()
+MAX_TOKENS = 300  # tope de la respuesta de la IA (lo normal son ~90 tokens)
 
 
 def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = None) -> QueryIntent:
@@ -344,7 +345,8 @@ def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = No
         return cached.model_copy(deep=True)
 
     try:
-        raw = llm.generate_json(f"Consulta del usuario: {query}", _schema(), system=SYSTEM_PROMPT)
+        raw = llm.generate_json(f"Consulta del usuario: {query}", _schema(), system=SYSTEM_PROMPT,
+                                max_tokens=MAX_TOKENS)
         provider = answered_by(raw, llm)
         intent = QueryIntent(**raw, parser=provider)
     except (LLMError, ValidationError, TypeError) as exc:

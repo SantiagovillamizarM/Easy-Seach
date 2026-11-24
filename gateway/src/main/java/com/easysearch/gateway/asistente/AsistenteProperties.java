@@ -14,15 +14,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param umbral            similitud mínima para que un negocio cuente como fuente (calibrada, ver AVANCE.md)
  * @param maxFuentes        cuántos negocios recupera la búsqueda semántica como máximo
  * @param timeout           tiempo máximo esperando la respuesta de n8n
- * @param consultasPorHora  límite por usuario (protege la cuota de Gemini)
+ * @param consultasPorHora  límite por usuario (protege la cuota de la IA)
+ * @param openaiPorDia      preguntas al día por usuario que responde OpenAI (de pago); después responde Gemini
  */
 @ConfigurationProperties("easysearch.asistente")
 public record AsistenteProperties(URI n8nUrl, String n8nWebhookKey, BigDecimal umbral, int maxFuentes,
-		Duration timeout, int consultasPorHora) {
+		Duration timeout, int consultasPorHora, int openaiPorDia) {
 
 	@Override
 	public String toString() {
 		return "AsistenteProperties[n8nUrl=" + n8nUrl + ", umbral=" + umbral + ", maxFuentes=" + maxFuentes
-				+ ", timeout=" + timeout + ", consultasPorHora=" + consultasPorHora + ", n8nWebhookKey=***]";
+				+ ", timeout=" + timeout + ", consultasPorHora=" + consultasPorHora + ", openaiPorDia=" + openaiPorDia
+				+ ", n8nWebhookKey=***]";
 	}
 }

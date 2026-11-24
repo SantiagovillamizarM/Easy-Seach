@@ -15,11 +15,12 @@ class FallbackLLM:
         self.providers = providers
         self.name = providers[0].name  # proveedor principal
 
-    def generate_json(self, prompt: str, schema: dict, system: str | None = None) -> dict:
+    def generate_json(self, prompt: str, schema: dict, system: str | None = None,
+                      max_tokens: int | None = None) -> dict:
         errors = []
         for provider in self.providers:
             try:
-                return provider.generate_json(prompt, schema, system=system)
+                return provider.generate_json(prompt, schema, system=system, max_tokens=max_tokens)
             except LLMError as exc:
                 logger.warning("IA %s no disponible, se intenta la siguiente: %s", provider.name, exc)
                 errors.append(f"{provider.name}: {exc}")

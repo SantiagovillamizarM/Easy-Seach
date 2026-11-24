@@ -129,6 +129,8 @@ Abre `.env` y cambia estos valores:
 | `OPENAI_API_KEY` | Tu clave de OpenAI (de pago, https://platform.openai.com/api-keys). Si está, OpenAI responde primero (búsqueda, recomendaciones, moderación y asistente) y Gemini queda de respaldo | Opcional |
 | `OPENAI_MODEL` | Modelo de OpenAI (por defecto `gpt-4.1-mini`) | Opcional |
 | `LLM_PROVIDER` | `auto` (OpenAI y Gemini en cadena), `openai` o `gemini` (solo ese) | Opcional |
+| `OPENAI_SEARCHES_PER_DAY` | Búsquedas al día por usuario con OpenAI (por defecto 40); después responde Gemini | Opcional |
+| `ASISTENTE_OPENAI_POR_DIA` | Preguntas al día por usuario al asistente con OpenAI (por defecto 25); después responde Gemini | Opcional |
 | `SMTP_*` | Correo para los códigos de confirmación (instrucciones en el mismo archivo) | No: sin SMTP el código aparece en la terminal del backend |
 
 Para generar cada clave aleatoria, ejecuta esto en PowerShell (una vez por clave) y copia el resultado:

@@ -80,7 +80,7 @@ class FakeLLM:
     def __init__(self, response=None, fail=False):
         self.response, self.fail, self.calls = response, fail, 0
 
-    def generate_json(self, prompt, schema, system=None):
+    def generate_json(self, prompt, schema, system=None, **kwargs):
         self.calls += 1
         if self.fail:
             raise LLMError("caída simulada")

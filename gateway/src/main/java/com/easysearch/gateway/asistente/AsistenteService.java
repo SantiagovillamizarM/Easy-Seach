@@ -3,6 +3,8 @@ package com.easysearch.gateway.asistente;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +39,8 @@ import com.easysearch.gateway.usuario.UsuarioRepository;
  * <ol>
  * <li>Una pregunta vacía no llega a n8n (422).</li>
  * <li>La consulta se guarda como PENDIENTE <b>antes</b> de llamar a n8n: si algo falla, queda registro.</li>
- * <li>n8n busca en pgvector y responde con Gemini usando solo las fuentes recuperadas.</li>
+ * <li>n8n busca en pgvector y responde con la IA (OpenAI mientras el usuario tenga cupo diario, si no Gemini)
+ * usando solo las fuentes recuperadas.</li>
  * <li>Spring vuelve a comprobar cada fuente: debe existir en la base y estar activa. Si ninguna sirve, la
  * consulta queda SIN_RESULTADOS (nunca se guarda una respuesta sin respaldo).</li>
  * <li>Si n8n, los embeddings o Gemini fallan, la consulta queda en ERROR con un mensaje claro.</li>
@@ -52,6 +55,8 @@ public class AsistenteService {
 			+ "tu pregunta. Intenta con otras palabras o usa el buscador.";
 	static final String MENSAJE_ERROR = "El asistente no está disponible en este momento. Intenta de nuevo en unos minutos.";
 	private static final int MAX_TAMANO_PAGINA = 50;
+	/** El cupo diario de OpenAI se reinicia a medianoche de Colombia. */
+	private static final ZoneId ZONA = ZoneId.of("America/Bogota");
 
 	private final ConsultaIARepository consultas;
 	private final EstablecimientoRepository establecimientos;
@@ -89,11 +94,16 @@ public class AsistenteService {
 		Integer consultaId = transaccion.execute(tx -> consultas.save(
 				new ConsultaIA(usuarios.getReferenceById(usuario.id()), pregunta, properties.umbral())).getId());
 
-		// 2) n8n (fuera de transacción: no se mantiene una conexión a la base abierta mientras responde la IA)
+		// 2) Cupo diario de OpenAI (de pago): mientras quede, responde OpenAI; después, Gemini (gratis)
+		Instant inicioDelDia = LocalDate.now(ZONA).atStartOfDay(ZONA).toInstant();
+		boolean permitirOpenai = consultas.contarRespondidasConOpenAI(usuario.id(), inicioDelDia) < properties.openaiPorDia();
+
+		// 3) n8n (fuera de transacción: no se mantiene una conexión a la base abierta mientras responde la IA)
 		long inicio = System.nanoTime();
 		ResultadoRag resultado;
 		try {
-			resultado = n8n.consultar(new PeticionRag(consultaId, pregunta, properties.umbral(), properties.maxFuentes()));
+			resultado = n8n.consultar(new PeticionRag(consultaId, pregunta, properties.umbral(), properties.maxFuentes(),
+					permitirOpenai));
 		}
 		catch (N8nNoDisponible ex) {
 			log.error("Consulta {}: {}", consultaId, ex.getMessage());
@@ -101,7 +111,7 @@ public class AsistenteService {
 		}
 		int duracionMs = (int) ((System.nanoTime() - inicio) / 1_000_000);
 
-		// 3) Se guarda el resultado
+		// 4) Se guarda el resultado
 		ResultadoRag finalResultado = resultado;
 		return transaccion.execute(tx -> aDto(guardarResultado(consultaId, finalResultado, duracionMs)));
 	}

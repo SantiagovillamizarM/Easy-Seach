@@ -52,10 +52,15 @@ def to_strict_schema(schema: dict) -> dict:
     return walk(node)
 
 
-def _supports_temperature(model: str) -> bool:
-    """Los modelos de razonamiento (serie "o" y GPT-5) solo aceptan la temperatura por defecto."""
+def _is_reasoning(model: str) -> bool:
+    """Modelos de razonamiento (serie "o" y GPT-5): solo aceptan la temperatura por defecto y gastan tokens
+    de "razonamiento" que cuentan dentro del tope de la respuesta."""
     name = model.lower()
-    return not (name.startswith("o") or name.startswith("gpt-5"))
+    return name.startswith("o") or name.startswith("gpt-5")
+
+
+# Los modelos de razonamiento necesitan margen para pensar antes de escribir la respuesta
+REASONING_TOKEN_FACTOR = 4
 
 
 class OpenAIProvider:
@@ -67,7 +72,8 @@ class OpenAIProvider:
         self._timeout = timeout
         self._cooldown_until = 0.0
 
-    def generate_json(self, prompt: str, schema: dict, system: str | None = None) -> dict:
+    def generate_json(self, prompt: str, schema: dict, system: str | None = None,
+                      max_tokens: int | None = None) -> dict:
         if self._cooldown_until > time.monotonic():
             raise LLMError("OpenAI en pausa por cuota agotada o saturación")
 
@@ -80,8 +86,14 @@ class OpenAIProvider:
                 "json_schema": {"name": "respuesta", "strict": True, "schema": to_strict_schema(schema)},
             },
         }
-        if _supports_temperature(self.model):
+        reasoning = _is_reasoning(self.model)
+        if reasoning:
+            body["reasoning_effort"] = "minimal" if self.model.lower().startswith("gpt-5") else "low"
+        else:
             body["temperature"] = 0
+        if max_tokens:
+            # Tope de tokens de la respuesta: lo que más cuesta (ver docs de costos en AI_USAGE.md)
+            body["max_completion_tokens"] = max_tokens * (REASONING_TOKEN_FACTOR if reasoning else 1)
 
         try:
             r = httpx.post(
@@ -104,9 +116,13 @@ class OpenAIProvider:
             raise LLMError(f"OpenAI respondió HTTP {r.status_code} {kind}".strip())
 
         try:
-            message = r.json()["choices"][0]["message"]
+            choice = r.json()["choices"][0]
+            message = choice["message"]
             if message.get("refusal"):
                 raise LLMError("OpenAI se negó a responder la solicitud")
+            if choice.get("finish_reason") == "length":
+                # No cupo en el tope de tokens: el JSON quedó cortado; responde el respaldo
+                raise LLMError("La respuesta de OpenAI superó el tope de tokens")
             data = json.loads(message["content"])
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             logger.warning("OpenAI (%s) devolvió una respuesta inválida", self.model)

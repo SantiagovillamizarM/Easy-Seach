@@ -47,7 +47,10 @@ class GeminiProvider:
             raise LLMError(f"Gemini respondió HTTP {r.status_code} {status}".strip())
         return r.json()
 
-    def generate_json(self, prompt: str, schema: dict, system: str | None = None) -> dict:
+    def generate_json(self, prompt: str, schema: dict, system: str | None = None,
+                      max_tokens: int | None = None) -> dict:
+        # max_tokens no se aplica: Gemini es gratuito y su modelo de respaldo usa tokens de "razonamiento"
+        # que cuentan dentro del tope, así que cortaría respuestas válidas sin ahorrar dinero.
         body: dict = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {

@@ -22,9 +22,12 @@ public class N8nCliente {
 
 	static final String WEBHOOK = "/webhook/easysearch/asistente";
 
-	/** Lo que se envía al flujo. */
+	/**
+	 * Lo que se envía al flujo. {@code permitirOpenai}: el usuario todavía tiene cupo diario de OpenAI (de pago);
+	 * si es false, el flujo responde directamente con Gemini.
+	 */
 	public record PeticionRag(@JsonProperty("consulta_id") Integer consultaId, String pregunta, BigDecimal umbral,
-			@JsonProperty("max_fuentes") int maxFuentes) {
+			@JsonProperty("max_fuentes") int maxFuentes, @JsonProperty("permitir_openai") boolean permitirOpenai) {
 	}
 
 	/** Lo que responde el flujo (los campos que no apliquen al estado llegan en null). */

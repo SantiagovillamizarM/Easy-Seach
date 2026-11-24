@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     llm_provider: str = "auto"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
+    # Cupo diario por usuario de búsquedas con OpenAI (de pago); al agotarlo responde Gemini (gratis)
+    openai_searches_per_day: int = 40
     # Sin clave, la búsqueda sigue funcionando con el intérprete por reglas.
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash-lite"

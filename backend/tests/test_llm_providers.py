@@ -16,13 +16,13 @@ from app.services.query_parser import _schema as query_schema
 from app.services.query_parser import parse_query
 
 
-def _response(status=200, content=None, refusal=None, error_code=None):
+def _response(status=200, content=None, refusal=None, error_code=None, finish_reason="stop"):
     if status != 200:
         return httpx.Response(status, json={"error": {"code": error_code}})
     message = {"role": "assistant", "content": json.dumps(content) if content is not None else None}
     if refusal:
         message["refusal"] = refusal
-    return httpx.Response(200, json={"choices": [{"message": message}]})
+    return httpx.Response(200, json={"choices": [{"message": message, "finish_reason": finish_reason}]})
 
 
 @pytest.fixture()
@@ -89,7 +89,7 @@ class _Fake:
     def __init__(self, name, answer=None, fail=False):
         self.name, self.answer, self.fail, self.calls = name, answer, fail, 0
 
-    def generate_json(self, prompt, schema, system=None):
+    def generate_json(self, prompt, schema, system=None, **kwargs):
         self.calls += 1
         if self.fail:
             raise LLMError(f"{self.name} caído")
@@ -140,3 +140,90 @@ def test_get_llm_follows_the_configuration(monkeypatch, choice, openai_key, gemi
     else:
         providers = result.providers if isinstance(result, FallbackLLM) else [result]
         assert [p.name for p in providers] == expected
+
+
+
+# ------------------------------- Control de costos ----------------------------------------------------
+
+def test_openai_caps_the_answer_tokens(fake_post):
+    fake_post.queue.append(_response(content={"ok": True}))
+    OpenAIProvider(api_key="k", model="gpt-4.1-mini").generate_json("x", {"type": "object", "properties": {}}, max_tokens=300)
+    assert fake_post.calls[0]["json"]["max_completion_tokens"] == 300
+
+
+def test_reasoning_models_get_room_to_think_and_minimal_effort(fake_post):
+    fake_post.queue.append(_response(content={"ok": True}))
+    OpenAIProvider(api_key="k", model="gpt-5-mini").generate_json("x", {"type": "object", "properties": {}}, max_tokens=300)
+    body = fake_post.calls[0]["json"]
+    assert body["max_completion_tokens"] == 1200 and body["reasoning_effort"] == "minimal"
+
+
+def test_answer_cut_by_the_token_cap_is_an_error(fake_post):
+    fake_post.queue.append(_response(content={"ok": True}, finish_reason="length"))
+    with pytest.raises(LLMError, match="tope de tokens"):
+        OpenAIProvider(api_key="k", model="gpt-4.1-mini").generate_json("x", {"type": "object", "properties": {}}, max_tokens=10)
+
+
+def test_without_openai_keeps_only_the_free_providers():
+    from app.services.llm import without_openai
+    openai_, gemini = _Fake("openai"), _Fake("gemini")
+    assert without_openai(FallbackLLM([openai_, gemini])) is gemini
+    assert without_openai(openai_) is None
+    assert without_openai(gemini) is gemini
+    assert without_openai(None) is None
+
+
+def _history(db, user_id, parser, days_ago=0, n=1):
+    from datetime import timedelta
+
+    from app.models import SearchHistory
+    from app.services.ai_quota import start_of_today
+    when = start_of_today() + timedelta(hours=1) - timedelta(days=days_ago)
+    for _ in range(n):
+        db.add(SearchHistory(user_id=user_id, query_text="x", parsed_query={"parser": parser}, created_at=when))
+    db.flush()
+
+
+def test_daily_openai_quota_switches_to_gemini(db, monkeypatch):
+    from app.services import ai_quota
+    from tests.conftest import _make_user
+    monkeypatch.setattr(ai_quota, "get_settings", lambda: SimpleNamespace(openai_searches_per_day=3))
+    user = _make_user(db, "cupo@test.com", "user")
+    chain = FallbackLLM([_Fake("openai"), _Fake("gemini")])
+
+    _history(db, user.id, "openai", n=2)
+    _history(db, user.id, "gemini", n=5)             # las de Gemini no gastan cupo
+    _history(db, user.id, "openai", days_ago=1, n=9)  # las de ayer tampoco
+    assert ai_quota.llm_for_user(db, user, chain) is chain        # 2 de 3: todavía con OpenAI
+
+    _history(db, user.id, "openai")
+    assert ai_quota.llm_for_user(db, user, chain).name == "gemini"  # 3 de 3: cupo agotado
+    # Las recomendaciones de la búsqueda que agotó el cupo todavía van con OpenAI
+    assert ai_quota.llm_for_user(db, user, chain, already_recorded=True) is chain
+    # Los invitados tienen su propio límite de búsquedas de prueba: no se les cambia la IA
+    assert ai_quota.llm_for_user(db, None, chain) is chain
+
+
+def test_search_uses_gemini_after_the_daily_openai_quota(client, db, monkeypatch):
+    from sqlalchemy import select
+
+    from app.main import app
+    from app.models import User
+    from app.services import ai_quota
+    from app.services.llm import get_llm
+    from tests.conftest import _make_user, _token
+    monkeypatch.setattr(ai_quota, "get_settings", lambda: SimpleNamespace(openai_searches_per_day=1))
+    _make_user(db, "cupo-api@test.com", "user")
+    client.headers["Authorization"] = f"Bearer {_token(client, 'cupo-api@test.com')}"
+    answer = {"need": "pizza", "keywords": ["pizza"], "category_slugs": [], "location_text": None, "near_me": False,
+              "budget_min": None, "budget_max": None, "price_preference": None, "open_now": False, "min_rating": None,
+              "preferences": [], "is_search": True}
+    openai_, gemini = _Fake("openai", answer), _Fake("gemini", answer)
+    app.dependency_overrides[get_llm] = lambda: FallbackLLM([openai_, gemini])
+
+    assert client.post("/api/search", json={"q": "pizza cupo uno"}).json()["interpretation"]["parser"] == "openai"
+    body = client.post("/api/search", json={"q": "pizza cupo dos"}).json()
+    assert body["interpretation"]["parser"] == "gemini"      # cupo de 1 agotado: responde Gemini
+    assert openai_.calls == 1 and gemini.calls == 1
+    user = db.scalar(select(User).where(User.email == "cupo-api@test.com"))
+    assert ai_quota.openai_searches_today(db, user.id) == 1

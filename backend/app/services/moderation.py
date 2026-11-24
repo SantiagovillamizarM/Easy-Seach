@@ -19,6 +19,8 @@ from app.services.llm import LLMError, LLMProvider
 
 logger = logging.getLogger(__name__)
 
+MAX_TOKENS = 150  # tope de la respuesta de la IA (decisión y motivo breve)
+
 MAX_REVIEWS_PER_HOUR = 5
 
 # Lista básica de groserías e insultos (sin tildes, minúsculas). Se compara por palabra completa.
@@ -113,7 +115,7 @@ def moderate(db: Session, *, user_id: int, rating: int, comment: str | None, est
         return ModerationResult("pending", "Tu reseña será revisada por un moderador antes de publicarse.")
     try:
         prompt = f"Establecimiento: {establishment_name}\nCalificación: {rating}/5\nReseña: {comment}"
-        raw = llm.generate_json(prompt, _SCHEMA, system=_SYSTEM)
+        raw = llm.generate_json(prompt, _SCHEMA, system=_SYSTEM, max_tokens=MAX_TOKENS)
         decision = raw.get("decision")
     except (LLMError, AttributeError) as exc:
         logger.warning("Moderación con IA no disponible: %s", exc)

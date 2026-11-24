@@ -14,8 +14,12 @@ class LLMError(Exception):
 class LLMProvider(Protocol):
     name: str
 
-    def generate_json(self, prompt: str, schema: dict, system: str | None = None) -> dict:
-        """Devuelve un objeto JSON que cumple el esquema dado. Lanza LLMError si falla."""
+    def generate_json(self, prompt: str, schema: dict, system: str | None = None,
+                      max_tokens: int | None = None) -> dict:
+        """Devuelve un objeto JSON que cumple el esquema dado. Lanza LLMError si falla.
+
+        `max_tokens`: tope de tokens de la RESPUESTA (los proveedores de pago lo aplican para controlar el
+        costo; si la respuesta no cabe, es un error y responde el respaldo)."""
         ...
 
 

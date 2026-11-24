@@ -14,7 +14,7 @@ class FakeLLM:
     def __init__(self, decision="approve", reason="", fail=False):
         self.decision, self.reason, self.fail = decision, reason, fail
 
-    def generate_json(self, prompt, schema, system=None):
+    def generate_json(self, prompt, schema, system=None, **kwargs):
         if self.fail:
             raise LLMError("caída")
         return {"decision": self.decision, "reason": self.reason}

@@ -22,6 +22,8 @@ from app.services.query_parser import QueryIntent, _LRU
 
 logger = logging.getLogger(__name__)
 
+MAX_TOKENS = 900  # tope de la respuesta de la IA (lo normal son ~430 tokens para 6 lugares)
+
 MAX_ITEMS = 6
 _cache = _LRU(256)
 
@@ -242,7 +244,8 @@ def recommend(query: str, intent: QueryIntent, establishments: list[Establishmen
         return cached
 
     try:
-        raw = llm.generate_json(json.dumps(payload, ensure_ascii=False, default=str), _schema(), system=SYSTEM_PROMPT)
+        raw = llm.generate_json(json.dumps(payload, ensure_ascii=False, default=str), _schema(), system=SYSTEM_PROMPT,
+                                max_tokens=MAX_TOKENS)
         provider = answered_by(raw, llm)
     except LLMError as exc:
         logger.warning("Recomendaciones con IA no disponibles: %s", exc)
