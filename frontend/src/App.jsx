@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
+import ThemedPage from "./components/ThemedPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 
 // Solo el inicio viaja en el paquete principal: el resto de páginas se descarga al visitarlas
@@ -64,7 +65,8 @@ export default function App() {
         <Route path="verificar" element={<RequireAuth><VerifyEmailPage /></RequireAuth>} />
         {/* Asistente con IA (Spring Boot + n8n): exige correo confirmado, igual que en el servidor */}
         <Route path="asistente" element={<RequireAuth verified><AssistantPage /></RequireAuth>} />
-        <Route path="lugar/:slug" element={<EstablishmentPage />} />
+        {/* Páginas con modo claro/oscuro: van envueltas en ThemedPage */}
+        <Route path="lugar/:slug" element={<ThemedPage><EstablishmentPage /></ThemedPage>} />
         <Route path="ingresar" element={<LoginPage />} />
         <Route path="registro" element={<RegisterPage />} />
         <Route path="recuperar" element={<ForgotPasswordPage />} />
