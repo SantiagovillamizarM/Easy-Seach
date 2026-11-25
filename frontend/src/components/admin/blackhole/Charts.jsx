@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 // Gráficas del dashboard "Horizonte de eventos", dibujadas a mano en SVG (sin librerías).
 // Los colores salen de las variables --bh-* de black-hole.css.
@@ -247,5 +247,104 @@ export function WordCloud({ words }) {
         );
       })}
     </ul>
+  );
+}
+
+// Cifra que sube contando hasta su valor (con movimiento reducido aparece directo)
+export function CountUp({ value, duration = 900, format = fmt }) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = from.current;
+    if (start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = value;
+      setShown(value);
+      return undefined;
+    }
+    let frame = 0;
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      const current = start + (value - start) * (1 - (1 - k) ** 3);
+      setShown(current);
+      from.current = current;
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+  return format(Number.isInteger(value) ? Math.round(shown) : shown);
+}
+
+// Curva suave que no se pasa por debajo de cero ni inventa picos (interpolación cúbica monótona)
+function monotonePath(pts) {
+  const n = pts.length;
+  if (n < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
+  const dx = [], slope = [], tan = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1][0] - pts[i][0]);
+    slope.push((pts[i + 1][1] - pts[i][1]) / dx[i]);
+  }
+  tan.push(slope[0]);
+  for (let i = 1; i < n - 1; i++) tan.push(slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2);
+  tan.push(slope[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) { tan[i] = 0; tan[i + 1] = 0; continue; }
+    const a = tan[i] / slope[i], b = tan[i + 1] / slope[i], h = a * a + b * b;
+    if (h > 9) { const t = 3 / Math.sqrt(h); tan[i] = t * a * slope[i]; tan[i + 1] = t * b * slope[i]; }
+  }
+  let d = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(2)},${(pts[i][1] + tan[i] * h).toFixed(2)} ${(pts[i + 1][0] - h).toFixed(2)},${(pts[i + 1][1] - tan[i + 1] * h).toFixed(2)} ${pts[i + 1][0].toFixed(2)},${pts[i + 1][1].toFixed(2)}`;
+  }
+  return d;
+}
+
+// Gráfica de los indicadores: una columna por día (la de hoy, más brillante) y encima la tendencia suavizada
+// (promedio de 5 días) con brillo y un punto que late. Se dibuja de izquierda a derecha al aparecer.
+export function SparkArea({ values, color }) {
+  const id = useId();
+  const W = 200, H = 64, TOP = 8, BOTTOM = 58, PAD_L = 4, PAD_R = 12;
+  const n = values.length;
+  const max = Math.max(1, ...values);
+  const x = (i) => PAD_L + (n > 1 ? (i / (n - 1)) * (W - PAD_L - PAD_R) : (W - PAD_L - PAD_R) / 2);
+  const y = (v) => BOTTOM - (v / max) * (BOTTOM - TOP);
+  const trend = values.map((_, i) => {
+    const win = values.slice(Math.max(0, i - 2), i + 3);
+    return win.reduce((a, b) => a + b, 0) / win.length;
+  });
+  const line = monotonePath(trend.map((v, i) => [x(i), y(v)]));
+  const colW = Math.max(1.2, ((W - PAD_L - PAD_R) / Math.max(n, 1)) * 0.5);
+  const empty = values.every((v) => !v);
+  const endX = x(n - 1), endY = y(trend[n - 1] ?? 0);
+  return (
+    <div className="bh-sparkarea" style={{ "--kc": color }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}-c`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.95" />
+            <stop offset="1" stopColor={color} stopOpacity="0.12" />
+          </linearGradient>
+          <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1="0" x2={W} y1={BOTTOM + 0.5} y2={BOTTOM + 0.5} className="bh-sparkarea-grid" vectorEffect="non-scaling-stroke" />
+        {values.map((v, i) => (v > 0 ? (
+          <rect key={i} x={x(i) - colW / 2} width={colW} y={y(v)} height={BOTTOM - y(v)} rx="0.8"
+                fill={i === n - 1 ? "#ffffff" : `url(#${id}-c)`} opacity={i === n - 1 ? 0.95 : 0.85} />
+        ) : (
+          <rect key={i} x={x(i) - colW / 2} width={colW} y={BOTTOM - 1.2} height="1.2" fill={color} opacity="0.25" />
+        )))}
+        {!empty && <path d={`${line} L${endX},${H} L${PAD_L},${H} Z`} fill={`url(#${id}-a)`} />}
+        {!empty && (
+          <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" className="bh-sparkarea-line" />
+        )}
+      </svg>
+      {!empty && <span className="bh-sparkarea-dot" style={{ left: `${(endX / W) * 100}%`, top: `${(endY / H) * 100}%` }} />}
+    </div>
   );
 }

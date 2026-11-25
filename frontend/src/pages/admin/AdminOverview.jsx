@@ -1,8 +1,8 @@
-import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { ArrowUpRight, Bot, ChevronRight, Coins, Eye, Search, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AreaChart, BarList, Delta, DotHeatmap, Donut, Funnel, RadialRing, Sparkline, WordCloud, fmt, fmtUsd,
+  AreaChart, BarList, CountUp, Delta, DotHeatmap, Donut, Funnel, RadialRing, SparkArea, WordCloud, fmt, fmtUsd,
 } from "../../components/admin/blackhole/Charts.jsx";
 import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -47,16 +47,48 @@ function Panel({ title, eyebrow, action, className = "", children }) {
   );
 }
 
-function Kpi({ label, kpi, series, hint, color, value }) {
+// Tarjeta de un indicador: ícono, cifra que sube contando, cambio frente al periodo anterior y su curva
+function Kpi({ label, icon: Icon, kpi, series, hint, color }) {
+  const peak = Math.max(0, ...series);
+  const today = series.at(-1) ?? 0;
   return (
-    <div className="bh-kpi">
-      <p className="bh-kpi-label">{label}</p>
-      <div className="bh-kpi-value">
-        <strong>{value ?? fmt(kpi.value)}</strong>
-        {kpi.previous !== undefined && <Delta value={kpi.value} previous={kpi.previous} />}
+    <div className="bh-kpi" style={{ "--kc": color }}>
+      <div className="bh-kpi-top">
+        <span className="bh-kpi-icon"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+        <span className="bh-kpi-label">{label}</span>
       </div>
-      {hint && <small>{hint}</small>}
-      {series && <Sparkline values={series} color={color} />}
+      <div className="bh-kpi-value">
+        <strong><CountUp value={kpi.value} /></strong>
+        <Delta value={kpi.value} previous={kpi.previous} />
+      </div>
+      <small>{hint ?? (peak ? `Hoy ${fmt(today)} · récord ${fmt(peak)} al día` : "Sin datos todavía")}</small>
+      <SparkArea values={series} color={color} />
+    </div>
+  );
+}
+
+// Costo estimado de IA: cifra, proyección al mes y una barra que reparte el gasto (búsquedas vs. asistente)
+function CostKpi({ cost, search, assistant }) {
+  const total = search + assistant;
+  const pct = total ? (search / total) * 100 : 50;
+  return (
+    <div className="bh-kpi bh-kpi-cost" style={{ "--kc": "#cbd5e1" }}>
+      <div className="bh-kpi-top">
+        <span className="bh-kpi-icon"><Coins className="h-4 w-4" aria-hidden="true" /></span>
+        <span className="bh-kpi-label">Costo de IA</span>
+      </div>
+      <div className="bh-kpi-value">
+        <strong><CountUp value={cost.value} format={fmtUsd} /></strong>
+      </div>
+      <small>Estimado · ≈ {fmtUsd(cost.monthly)} al mes</small>
+      <div className="bh-split" role="img" aria-label={`Búsquedas ${fmtUsd(search)}, asistente ${fmtUsd(assistant)}`}>
+        <i style={{ width: `${pct}%` }} />
+        <i style={{ width: `${100 - pct}%` }} />
+      </div>
+      <div className="bh-split-legend">
+        <span><b style={{ background: "#60a5fa" }} />Búsquedas</span>
+        <span><b style={{ background: "#cbd5e1" }} />Asistente</span>
+      </div>
     </div>
   );
 }
@@ -162,13 +194,12 @@ export default function AdminOverview() {
 
         {/* ------------------------------ KPIs ------------------------------ */}
         <div className="bh-kpis bh-span-12">
-          <Kpi label="Visitantes" kpi={kpis.visitors} series={series.visitors} color="var(--bh-pink)" hint="Únicos por día" />
-          <Kpi label="Páginas vistas" kpi={kpis.pageviews} series={series.pageviews} color="var(--bh-violet)" />
-          <Kpi label="Búsquedas" kpi={kpis.searches} series={series.searches} color="var(--bh-accretion)" />
-          <Kpi label="Usuarios nuevos" kpi={kpis.new_users} series={series.new_users} color="var(--bh-good)" />
-          <Kpi label="Preguntas a la IA" kpi={kpis.questions} series={series.questions} color="#8ec5ff" />
-          <Kpi label="Costo de IA (estimado)" kpi={kpis.ai_cost} value={fmtUsd(kpis.ai_cost.value)}
-               hint={`≈ ${fmtUsd(kpis.ai_cost.monthly)} al mes a este ritmo`} />
+          <Kpi label="Visitantes" icon={Users} kpi={kpis.visitors} series={series.visitors} color="#7dd3fc" />
+          <Kpi label="Páginas vistas" icon={Eye} kpi={kpis.pageviews} series={series.pageviews} color="#60a5fa" />
+          <Kpi label="Búsquedas" icon={Search} kpi={kpis.searches} series={series.searches} color="#3b82f6" />
+          <Kpi label="Usuarios nuevos" icon={UserPlus} kpi={kpis.new_users} series={series.new_users} color="#22d3ee" />
+          <Kpi label="Preguntas a la IA" icon={Bot} kpi={kpis.questions} series={series.questions} color="#a5c8ff" />
+          <CostKpi cost={kpis.ai_cost} search={ai.search_cost} assistant={ai.assistant_cost} />
         </div>
 
         {/* ------------------------------ Pulso ------------------------------ */}
