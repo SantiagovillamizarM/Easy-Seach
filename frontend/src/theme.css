@@ -280,9 +280,10 @@
 }
 /* Sobre el agujero negro el encabezado lleva siempre vidrio oscuro (el disco brillante pasa por detrás) */
 .site-nav.site-nav-admin {
-  background-color: #03050ab8;
+  /* sin desenfoque: sobre un fondo animado, el desenfoque se recalcula en cada cuadro y es lo más caro */
+  background-color: #03050ae8;
   border-color: #ffffff12;
-  backdrop-filter: blur(16px);
+  backdrop-filter: none !important;
 }
 
 /* Protector de pantalla del panel: tras un rato sin actividad (data-admin-idle en <html>, ver AdminLayout)
@@ -299,3 +300,15 @@ html[data-admin-idle] body { cursor: none; }
 @media (prefers-reduced-motion: reduce) {
   html[data-admin-idle] :is(.site-nav, .admin-enter, footer, .admin-hole-shade) { transition: none; }
 }
+
+/* Vaivén lento de la "cámara": lo hace el compositor del navegador (transform), sin costo para el shader */
+.admin-hole {
+  transform-origin: 42% 30%;
+  will-change: transform;
+  animation: admin-hole-sway 46s ease-in-out infinite alternate;
+}
+@keyframes admin-hole-sway {
+  from { transform: scale(1.02) translate(0, 0); }
+  to { transform: scale(1.06) translate(-1.2%, 0.8%); }
+}
+@media (prefers-reduced-motion: reduce) { .admin-hole { animation: none; } }
