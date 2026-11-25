@@ -1,4 +1,4 @@
-"""Interacción de los usuarios: favoritos, historial, reseñas, reportes y solicitudes de propiedad."""
+"""Interacción de los usuarios: favoritos, historial, reseñas, reportes y solicitudes de negocios."""
 from datetime import datetime
 
 from sqlalchemy import (
@@ -21,6 +21,9 @@ REVIEW_STATUSES = ("pending", "approved", "rejected")
 REPORT_TYPES = ("incorrect_info", "duplicate", "closed", "inappropriate_review", "other")
 REPORT_STATUSES = ("open", "resolved", "dismissed")
 CLAIM_STATUSES = ("pending", "approved", "rejected")
+# claim = pide administrar un negocio que ya está en la app; register = pide registrar un negocio nuevo
+CLAIM_KINDS = ("claim", "register")
+APPLICANT_ROLES = ("dueno", "encargado")
 
 
 class Favorite(Base):
@@ -94,18 +97,33 @@ class Report(TimestampMixin, Base):
 
 
 class OwnershipClaim(TimestampMixin, Base):
-    """Solicitud de un usuario para administrar/verificar un establecimiento."""
+    """Solicitud de un usuario para administrar un negocio que ya está en la app (claim) o para registrar uno
+    nuevo (register). Un administrador verifica a la persona y la aprueba o la rechaza."""
 
     __tablename__ = "ownership_claims"
     __table_args__ = (
         CheckConstraint(f"status IN {CLAIM_STATUSES}", name="status_valid"),
+        CheckConstraint(f"kind IN {CLAIM_KINDS}", name="kind_valid"),
+        CheckConstraint(f"applicant_role IS NULL OR applicant_role IN {APPLICANT_ROLES}", name="applicant_role_valid"),
+        # Pedir un negocio existente exige saber cuál; un registro nuevo lo obtiene al aprobarse
+        CheckConstraint("kind = 'register' OR establishment_id IS NOT NULL", name="claim_has_establishment"),
+        CheckConstraint("kind = 'claim' OR proposed_data IS NOT NULL", name="register_has_data"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    establishment_id: Mapped[int] = mapped_column(ForeignKey("establishments.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="claim", server_default="claim")
+    establishment_id: Mapped[int | None] = mapped_column(ForeignKey("establishments.id", ondelete="CASCADE"),
+                                                         index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     message: Mapped[str | None] = mapped_column(Text)
     contact_phone: Mapped[str | None] = mapped_column(String(50))
+    # Quién pide: dueño o encargado autorizado, y su cargo (para verificarlo por teléfono)
+    applicant_role: Mapped[str | None] = mapped_column(String(20))
+    applicant_position: Mapped[str | None] = mapped_column(String(100))
+    # Datos del negocio nuevo que propone el solicitante (solo en kind = register)
+    proposed_data: Mapped[dict | None] = mapped_column(JSONB)
+    # Cuándo autorizó el tratamiento y la publicación de los datos (Ley 1581 de 2012)
+    consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
     reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

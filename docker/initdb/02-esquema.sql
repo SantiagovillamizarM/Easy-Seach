@@ -1,5 +1,5 @@
 -- Easy Search: esquema completo de la base de datos (PostgreSQL 16 + pgvector).
--- Generado con scripts/exportar_sql_inicial.py el 2026-11-20 11:11.
+-- Generado con scripts/exportar_sql_inicial.py el 2026-11-24 20:51.
 -- Lo ejecuta PostgreSQL solo la primera vez que se crea la base (docker/initdb).
 -- Incluye la versión de Alembic: al arrancar, `alembic upgrade head` no tiene nada que aplicar.
 
@@ -7,7 +7,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kVFWHZ7EkdLzrbYl1J7KkAgj8FqRBgCiHAQ96Fc1lWQYoSe7LhOsXFQCWMqCH8o
+\restrict Ih6C4V03gWpDEmT2k0vsNV8LelNNn7ChII3Awu1oskJZap1Q0vJa2caTQABoGO2
 
 -- Dumped from database version 16.15 (Debian 16.15-1.pgdg12+2)
 -- Dumped by pg_dump version 16.15 (Debian 16.15-1.pgdg12+2)
@@ -478,7 +478,7 @@ ALTER SEQUENCE public.opening_hours_id_seq OWNED BY public.opening_hours.id;
 
 CREATE TABLE public.ownership_claims (
     id integer NOT NULL,
-    establishment_id integer NOT NULL,
+    establishment_id integer,
     user_id integer NOT NULL,
     message text,
     contact_phone character varying(50),
@@ -488,6 +488,15 @@ CREATE TABLE public.ownership_claims (
     review_note character varying(300),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    kind character varying(20) DEFAULT 'claim'::character varying NOT NULL,
+    applicant_role character varying(20),
+    applicant_position character varying(100),
+    proposed_data jsonb,
+    consent_at timestamp with time zone,
+    CONSTRAINT ck_ownership_claims_applicant_role_valid CHECK (((applicant_role IS NULL) OR ((applicant_role)::text = ANY ((ARRAY['dueno'::character varying, 'encargado'::character varying])::text[])))),
+    CONSTRAINT ck_ownership_claims_claim_has_establishment CHECK ((((kind)::text = 'register'::text) OR (establishment_id IS NOT NULL))),
+    CONSTRAINT ck_ownership_claims_kind_valid CHECK (((kind)::text = ANY ((ARRAY['claim'::character varying, 'register'::character varying])::text[]))),
+    CONSTRAINT ck_ownership_claims_register_has_data CHECK ((((kind)::text = 'claim'::text) OR (proposed_data IS NOT NULL))),
     CONSTRAINT ck_ownership_claims_status_valid CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[])))
 );
 
@@ -1583,8 +1592,8 @@ ALTER TABLE ONLY public.special_hours
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kVFWHZ7EkdLzrbYl1J7KkAgj8FqRBgCiHAQ96Fc1lWQYoSe7LhOsXFQCWMqCH8o
+\unrestrict Ih6C4V03gWpDEmT2k0vsNV8LelNNn7ChII3Awu1oskJZap1Q0vJa2caTQABoGO2
 
 
 -- Versión de las migraciones con la que se generó este esquema
-INSERT INTO public.alembic_version (version_num) VALUES ('d1e2f3a4b5c6');
+INSERT INTO public.alembic_version (version_num) VALUES ('e2f3a4b5c6d7');

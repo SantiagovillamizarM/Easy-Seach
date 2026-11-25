@@ -142,14 +142,28 @@ export default function OwnerPanelPage() {
               <div className="card p-6 text-center">
                 <p className="font-bold">Todavía no administras ningún negocio</p>
                 <p className="mx-auto mt-1 max-w-md text-sm text-ink-soft">
-                  Busca tu negocio, abre su perfil y pulsa <strong>“Solicitar administración”</strong>. Cuando lo verifiquemos,
-                  aparecerá aquí para que lo edites.
+                  Si tu negocio ya aparece, abre su perfil y pulsa <strong>“Solicitar administración”</strong>. Si no
+                  aparece, regístralo. Cuando lo verifiquemos, aparecerá aquí para que lo edites.
                 </p>
-                <Link to="/" className="btn-primary mt-4">
-                  <Search className="h-4 w-4" aria-hidden="true" />
-                  Buscar mi negocio
-                </Link>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Link to="/" className="btn-primary">
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                    Buscar mi negocio
+                  </Link>
+                  <Link to="/registrar-negocio" className="btn-ghost">
+                    <Store className="h-4 w-4" aria-hidden="true" />
+                    Registrar un negocio nuevo
+                  </Link>
+                </div>
               </div>
+            )}
+            {data.establishments.length > 0 && (
+              <p className="text-right text-sm">
+                <Link to="/registrar-negocio" className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">
+                  <Store className="h-4 w-4" aria-hidden="true" />
+                  Registrar otro negocio
+                </Link>
+              </p>
             )}
           </section>
 
@@ -162,9 +176,14 @@ export default function OwnerPanelPage() {
                   return (
                     <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                       <div className="min-w-0">
-                        <Link to={`/lugar/${c.establishment_slug}`} className="font-semibold hover:underline">
-                          {c.establishment_name}
-                        </Link>
+                        {c.establishment_slug ? (
+                          <Link to={`/lugar/${c.establishment_slug}`} className="font-semibold hover:underline">
+                            {c.establishment_name}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold">{c.establishment_name}</span>
+                        )}
+                        {c.kind === "register" && <span className="ml-2 text-xs text-ink-soft">Negocio nuevo</span>}
                         <p className="text-xs text-ink-soft">
                           Enviada el {new Date(c.created_at).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })}
                           {c.status === "rejected" && c.review_note && ` · ${c.review_note}`}

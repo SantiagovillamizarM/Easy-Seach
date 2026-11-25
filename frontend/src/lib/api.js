@@ -140,6 +140,7 @@ export const api = {
   createClaim: (establishmentId, data) =>
     request(`/establishments/${establishmentId}/claims`, { method: "POST", body: data }),
   myClaims: (opts) => request("/me/claims", opts),
+  registerBusiness: (data) => request("/business-registrations", { method: "POST", body: data }),
   // Panel comercial (propietario o admin)
   ownerEstablishments: (opts) => request("/owner/establishments", opts),
   ownerEstablishment: (id, opts) => request(`/owner/establishments/${id}`, opts),

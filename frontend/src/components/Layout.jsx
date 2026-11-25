@@ -10,7 +10,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 // Páginas con modo claro/oscuro (selector sol/luna en el encabezado). El resto, por ahora, solo en claro.
-const THEMED_PREFIXES = ["/buscar", "/asistente", "/lugar/", "/perfil", "/favoritos", "/historial", "/panel", "/admin"];
+const THEMED_PREFIXES = ["/buscar", "/asistente", "/lugar/", "/perfil", "/favoritos", "/historial", "/panel", "/admin", "/registrar-negocio"];
 const isThemedRoute = (pathname) => THEMED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));
 
 // Páginas que empiezan con un fondo nocturno (data-dark-hero)
@@ -119,6 +119,11 @@ function Footer() {
     <footer className="bg-night text-white/65">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-xs sm:flex-row sm:justify-between">
         <p>© {new Date().getFullYear()} Easy Search · Búsqueda inteligente en el área metropolitana de Bucaramanga</p>
+        <p>
+          <Link to="/registrar-negocio" className="font-semibold text-white/85 underline decoration-white/30 underline-offset-2 hover:text-white">
+            ¿Tienes un negocio? Regístralo gratis
+          </Link>
+        </p>
         <p>
           Datos de lugares ©{" "}
           <a className="underline decoration-white/30 underline-offset-2 hover:text-white" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">

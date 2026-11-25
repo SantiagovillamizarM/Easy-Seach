@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
+from app.api.routes.catalog import _categories, _check_municipality, unique_slug
 from app.api.routes.owner import claim_out
 from app.core.text import normalize
 from app.db.session import get_db
@@ -29,10 +30,11 @@ from app.models import (
     establishment_categories,
 )
 from app.schemas.admin import DuplicateDismissIn, EstablishmentAdminUpdate, ReviewDecision, UserAdminUpdate
-from app.schemas.owner import AdminClaimOut, ClaimDecision
+from app.schemas.owner import AdminClaimOut, BusinessProposal, ClaimDecision
 from app.services.catalog import LOAD_OPTIONS, to_summary
+from app.services.embeddings import Embedder, get_embedder, sync_establishments
 from app.services.moderation import recalculate_rating
-from app.services.notifications import notify_owner_new_review
+from app.services.notifications import notify_claim_decision, notify_owner_new_review
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_roles("admin"))])
 
@@ -214,13 +216,29 @@ def reject_review(review_id: int, data: ReviewDecision, admin: User = Depends(re
     return _decide_review(db, review_id, admin, "rejected", reason, "resolved")
 
 
-# ------------------------------- Solicitudes de propiedad --------------------------------
+# ------------------------------- Solicitudes de negocios ---------------------------------
+
+def _proposed_view(db: Session, claim: OwnershipClaim) -> dict | None:
+    """Datos del negocio propuesto con el municipio y las categorías por su nombre (para mostrarlos)."""
+    if claim.kind != "register" or not claim.proposed_data:
+        return None
+    data = dict(claim.proposed_data)
+    place = db.get(Place, data.get("municipality_id") or 0)
+    ids = data.get("category_ids") or []
+    names = list(db.scalars(select(Category.name).where(Category.id.in_(ids)))) if ids else []
+    return {**data, "municipality_name": place.name if place else None, "category_names": names}
+
+
+def _admin_claim_out(db: Session, claim: OwnershipClaim, est: Establishment | None, user: User) -> dict:
+    return {**claim_out(claim, est), "user_id": user.id, "user_name": user.full_name, "user_email": user.email,
+            "consent_at": claim.consent_at, "proposed": _proposed_view(db, claim)}
+
 
 @router.get("/claims", response_model=list[AdminClaimOut])
 def list_claims(status_filter: str = Query("pending", alias="status", pattern="^(pending|approved|rejected|all)$"),
                 db: Session = Depends(get_db)):
     stmt = (select(OwnershipClaim, Establishment, User)
-            .join(Establishment, Establishment.id == OwnershipClaim.establishment_id)
+            .outerjoin(Establishment, Establishment.id == OwnershipClaim.establishment_id)
             .join(User, User.id == OwnershipClaim.user_id))
     if status_filter == "pending":
         stmt = stmt.where(OwnershipClaim.status == "pending").order_by(OwnershipClaim.created_at)
@@ -228,8 +246,7 @@ def list_claims(status_filter: str = Query("pending", alias="status", pattern="^
         if status_filter != "all":
             stmt = stmt.where(OwnershipClaim.status == status_filter)
         stmt = stmt.order_by(OwnershipClaim.created_at.desc()).limit(200)
-    return [{**claim_out(c, e), "user_id": u.id, "user_name": u.full_name, "user_email": u.email}
-            for c, e, u in db.execute(stmt).all()]
+    return [_admin_claim_out(db, c, e, u) for c, e, u in db.execute(stmt).all()]
 
 
 def _pending_claim(db: Session, claim_id: int) -> OwnershipClaim:
@@ -241,17 +258,36 @@ def _pending_claim(db: Session, claim_id: int) -> OwnershipClaim:
     return claim
 
 
+def _create_from_registration(db: Session, claim: OwnershipClaim, owner: User) -> Establishment:
+    """Crea el negocio que propuso el solicitante, ya verificado y a su nombre."""
+    data = BusinessProposal.model_validate(claim.proposed_data)
+    _check_municipality(db, data.municipality_id)
+    est = Establishment(**data.model_dump(exclude={"category_ids"}), source="owner")
+    est.categories = _categories(db, data.category_ids)
+    est.slug = unique_slug(db, data.name, db.get(Place, data.municipality_id).name)
+    est.owner_id = owner.id
+    db.add(est)
+    db.flush()
+    claim.establishment_id = est.id
+    return est
+
+
 @router.post("/claims/{claim_id}/approve", response_model=AdminClaimOut)
-def approve_claim(claim_id: int, data: ClaimDecision, admin: User = Depends(require_roles("admin")),
-                  db: Session = Depends(get_db)):
-    """Asigna el establecimiento al solicitante, lo marca como verificado y le da el rol de propietario."""
+def approve_claim(claim_id: int, data: ClaimDecision, background: BackgroundTasks,
+                  admin: User = Depends(require_roles("admin")), db: Session = Depends(get_db),
+                  embedder: Embedder = Depends(get_embedder)):
+    """Asigna el negocio al solicitante (o lo crea, si es un registro nuevo), lo marca como verificado y le da el
+    rol de propietario. Al solicitante le llega un correo con el enlace a su panel."""
     claim = _pending_claim(db, claim_id)
-    est = db.get(Establishment, claim.establishment_id)
     applicant = db.get(User, claim.user_id)
-    if est.owner_id is not None and est.owner_id != applicant.id:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail="El establecimiento ya tiene otro propietario")
+    if claim.kind == "register":
+        est = _create_from_registration(db, claim, applicant)
+    else:
+        est = db.get(Establishment, claim.establishment_id)
+        if est.owner_id is not None and est.owner_id != applicant.id:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="El establecimiento ya tiene otro propietario")
+        est.owner_id = applicant.id
     now = datetime.now(timezone.utc)
-    est.owner_id = applicant.id
     est.is_verified = True
     if applicant.role == "user":
         applicant.role = "owner"
@@ -262,23 +298,28 @@ def approve_claim(claim_id: int, data: ClaimDecision, admin: User = Depends(requ
                                                          OwnershipClaim.id != claim.id)):
         other.status, other.reviewed_by_id, other.reviewed_at = "rejected", admin.id, now
         other.review_note = "Se aprobó la solicitud de otra persona para este establecimiento."
+    if claim.kind == "register":
+        db.flush()
+        db.refresh(est)
+        sync_establishments(db, [est], embedder)   # que aparezca en la búsqueda desde ya
     db.commit()
-    return {**claim_out(claim, est), "user_id": applicant.id, "user_name": applicant.full_name,
-            "user_email": applicant.email}
+    notify_claim_decision(db, claim, background)
+    return _admin_claim_out(db, claim, est, applicant)
 
 
 @router.post("/claims/{claim_id}/reject", response_model=AdminClaimOut)
-def reject_claim(claim_id: int, data: ClaimDecision, admin: User = Depends(require_roles("admin")),
-                 db: Session = Depends(get_db)):
+def reject_claim(claim_id: int, data: ClaimDecision, background: BackgroundTasks,
+                 admin: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
     claim = _pending_claim(db, claim_id)
-    est = db.get(Establishment, claim.establishment_id)
+    est = db.get(Establishment, claim.establishment_id) if claim.establishment_id else None
     applicant = db.get(User, claim.user_id)
     claim.status, claim.reviewed_by_id = "rejected", admin.id
     claim.reviewed_at = datetime.now(timezone.utc)
-    claim.review_note = data.note or "No pudimos verificar que administres este establecimiento."
+    claim.review_note = data.note or ("No pudimos verificar que administras este negocio." if est is not None
+                                      else "No pudimos verificar los datos del negocio.")
     db.commit()
-    return {**claim_out(claim, est), "user_id": applicant.id, "user_name": applicant.full_name,
-            "user_email": applicant.email}
+    notify_claim_decision(db, claim, background)
+    return _admin_claim_out(db, claim, est, applicant)
 
 
 # ------------------------------- Establecimientos ----------------------------------------

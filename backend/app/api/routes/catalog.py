@@ -88,6 +88,15 @@ def _save(db: Session, est: Establishment, embedder: Embedder) -> Establishment:
     return _load(db, est.id)
 
 
+def unique_slug(db: Session, name: str, municipality: str) -> str:
+    """'Panadería La Espiga' en Girón -> 'panaderia-la-espiga-giron' (con -2, -3… si ya existe)."""
+    base_slug = slugify(f"{name} {municipality}")
+    slug, n = base_slug, 2
+    while db.scalar(select(Establishment.id).where(Establishment.slug == slug)):
+        slug, n = f"{base_slug}-{n}", n + 1
+    return slug
+
+
 def _categories(db: Session, ids: list[int]) -> list[Category]:
     cats = list(db.scalars(select(Category).where(Category.id.in_(ids)))) if ids else []
     if len(cats) != len(set(ids)):
@@ -166,11 +175,7 @@ def create_establishment(
     fields = data.model_dump(exclude={"category_ids"})
     est = Establishment(**fields, source="manual")
     est.categories = _categories(db, data.category_ids)
-    base_slug = slugify(f"{data.name} {db.get(Place, data.municipality_id).name}")
-    slug, n = base_slug, 2
-    while db.scalar(select(Establishment.id).where(Establishment.slug == slug)):
-        slug, n = f"{base_slug}-{n}", n + 1
-    est.slug = slug
+    est.slug = unique_slug(db, data.name, db.get(Place, data.municipality_id).name)
     db.add(est)
     return to_detail(_save(db, est, embedder))
 

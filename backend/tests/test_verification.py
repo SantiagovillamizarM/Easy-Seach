@@ -102,7 +102,8 @@ def test_unverified_cannot_review_or_claim(client, db):
     _make_user(db, "sinconfirmar@test.com", "user", verified=False)
     h = {"Authorization": f"Bearer {_token(client, 'sinconfirmar@test.com')}"}
     assert client.post("/api/establishments/1/reviews", json={"rating": 5}, headers=h).status_code == 403
-    claim = {"message": "Soy el dueño desde hace años y tengo los papeles.", "contact_phone": "3001234567"}
+    claim = {"message": "Soy el dueño desde hace años y tengo los papeles.", "contact_phone": "3001234567",
+             "applicant_role": "dueno", "accept_terms": True}
     assert client.post("/api/establishments/1/claims", json=claim, headers=h).status_code == 403
     # Pero sí puede ver su perfil y sus favoritos
     assert client.get("/api/auth/me", headers=h).status_code == 200

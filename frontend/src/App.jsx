@@ -20,6 +20,7 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const OwnerEditorPage = lazy(() => import("./pages/OwnerEditorPage.jsx"));
 const OwnerPanelPage = lazy(() => import("./pages/OwnerPanelPage.jsx"));
+const RegisterBusinessPage = lazy(() => import("./pages/RegisterBusinessPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.jsx"));
 const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage.jsx"));
@@ -75,6 +76,8 @@ export default function App() {
         <Route path="favoritos" element={<RequireAuth><ThemedPage><FavoritesPage /></ThemedPage></RequireAuth>} />
         <Route path="historial" element={<RequireAuth><ThemedPage><HistoryPage /></ThemedPage></RequireAuth>} />
         <Route path="panel" element={<RequireAuth><ThemedPage><OwnerPanelPage /></ThemedPage></RequireAuth>} />
+        {/* Registrar un negocio nuevo: la solicitud llega al panel de administración para verificarla */}
+        <Route path="registrar-negocio" element={<RequireAuth verified><ThemedPage><RegisterBusinessPage /></ThemedPage></RequireAuth>} />
         <Route path="panel/lugar/:id" element={<RequireAuth><ThemedPage><OwnerEditorPage /></ThemedPage></RequireAuth>} />
         <Route path="admin" element={<RequireAuth><ThemedPage>{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
           <Route index element={adminPage(AdminOverview)} />

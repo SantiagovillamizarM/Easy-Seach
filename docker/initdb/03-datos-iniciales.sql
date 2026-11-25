@@ -1,5 +1,5 @@
 -- Easy Search: datos iniciales reales.
--- Generado con scripts/exportar_sql_inicial.py el 2026-11-20 11:11.
+-- Generado con scripts/exportar_sql_inicial.py el 2026-11-24 20:51.
 -- Negocios cargados a mano por el equipo (backend/data/locales_easysearch.csv) con sus productos, horarios
 -- y categorías, más las categorías y los lugares (municipios y barrios) que la aplicación necesita.
 -- Sin datos personales y sin vectores: el flujo 1 de n8n los genera al arrancar.

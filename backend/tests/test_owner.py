@@ -33,7 +33,8 @@ def _h(client, email):
     return {"Authorization": f"Bearer {_token(client, email)}"}
 
 
-CLAIM = {"message": "Soy el dueño desde 2019, puedo enviar el RUT y la cámara de comercio.", "contact_phone": "300 123 4567"}
+CLAIM = {"message": "Soy el dueño desde 2019, puedo enviar el RUT y la cámara de comercio.", "contact_phone": "300 123 4567",
+         "applicant_role": "dueno", "accept_terms": True}
 
 
 def _approve(client, admin_headers, establishment_id, user_headers):

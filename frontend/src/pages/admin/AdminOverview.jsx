@@ -66,7 +66,7 @@ export default function AdminOverview() {
       <section aria-label="Tareas pendientes" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <TaskTile to="/admin/resenas" label="Reseñas por revisar" count={pending.reviews} hint="Moderar" />
         <TaskTile to="/admin/resenas?estado=reported" label="Reportes abiertos" count={pending.reports} hint="Revisar reportes" />
-        <TaskTile to="/admin/solicitudes" label="Solicitudes de propiedad" count={pending.claims} hint="Verificar" />
+        <TaskTile to="/admin/solicitudes" label="Solicitudes de negocios" count={pending.claims} hint="Verificar" />
         <TaskTile to="/admin/duplicados" label="Posibles duplicados" count={pending.duplicates} hint="Revisar pares" />
       </section>
 

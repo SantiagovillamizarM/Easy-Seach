@@ -1,17 +1,33 @@
-"""Perfiles comerciales: solicitudes de propiedad, negocios del propietario y fotos."""
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+"""Perfiles comerciales: solicitudes (administrar un negocio o registrar uno nuevo), negocios del propietario
+y fotos."""
+from datetime import datetime, timezone
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_verified_user, require_roles
-from app.api.routes.catalog import get_editable_establishment, to_detail
+from app.api.routes.catalog import _categories, _check_municipality, get_editable_establishment, to_detail
 from app.api.routes.reviews import review_out
 from app.core.rate_limit import limit_by_user
 from app.db.session import get_db
 from app.models import Establishment, EstablishmentPhoto, OwnershipClaim, Review, User
 from app.schemas.catalog import EstablishmentDetail
-from app.schemas.owner import ClaimIn, ClaimOut, PhotoOut
+from app.core.text import normalize
+from app.schemas.owner import ClaimIn, ClaimOut, PhotoOut, RegistrationIn
 from app.services.catalog import LOAD_OPTIONS, to_summary
+from app.services.notifications import claim_place_name, notify_admins_new_claim
 from app.services.photos import PhotoError, delete_photo_file, save_establishment_photo
 
 router = APIRouter(tags=["owner"])
@@ -19,21 +35,27 @@ router = APIRouter(tags=["owner"])
 MAX_PHOTOS = 10
 
 
-def claim_out(claim: OwnershipClaim, est: Establishment) -> dict:
+def claim_out(claim: OwnershipClaim, est: Establishment | None) -> dict:
     return {
-        "id": claim.id, "establishment_id": est.id, "establishment_name": est.name,
-        "establishment_slug": est.slug, "status": claim.status, "message": claim.message,
-        "contact_phone": claim.contact_phone, "review_note": claim.review_note,
-        "created_at": claim.created_at, "reviewed_at": claim.reviewed_at,
+        "id": claim.id, "kind": claim.kind, "establishment_id": est.id if est else None,
+        "establishment_name": claim_place_name(claim, est), "establishment_slug": est.slug if est else None,
+        "status": claim.status, "message": claim.message, "contact_phone": claim.contact_phone,
+        "applicant_role": claim.applicant_role, "applicant_position": claim.applicant_position,
+        "review_note": claim.review_note, "created_at": claim.created_at, "reviewed_at": claim.reviewed_at,
     }
+
+
+def _applicant_fields(data: ClaimIn | RegistrationIn) -> dict:
+    return {"contact_phone": data.contact_phone, "applicant_role": data.applicant_role,
+            "applicant_position": data.applicant_position, "consent_at": datetime.now(timezone.utc)}
 
 
 # ------------------------------- Solicitudes de propiedad --------------------------------
 
 @router.post("/establishments/{establishment_id}/claims", response_model=ClaimOut,
              status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_by_user("claims", 5, 24 * 3600))])
-def create_claim(establishment_id: int, data: ClaimIn, user: User = Depends(get_verified_user),
-                 db: Session = Depends(get_db)):
+def create_claim(establishment_id: int, data: ClaimIn, background: BackgroundTasks,
+                 user: User = Depends(get_verified_user), db: Session = Depends(get_db)):
     """Un usuario solicita administrar un establecimiento. Un administrador la aprueba o rechaza."""
     est = db.get(Establishment, establishment_id)
     if est is None or est.status != "active":
@@ -47,18 +69,48 @@ def create_claim(establishment_id: int, data: ClaimIn, user: User = Depends(get_
         OwnershipClaim.status == "pending"))
     if pending:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Ya tienes una solicitud pendiente para este lugar")
-    claim = OwnershipClaim(establishment_id=est.id, user_id=user.id, message=data.message,
-                           contact_phone=data.contact_phone)
+    claim = OwnershipClaim(kind="claim", establishment_id=est.id, user_id=user.id, message=data.message,
+                           **_applicant_fields(data))
     db.add(claim)
     db.commit()
     db.refresh(claim)
+    notify_admins_new_claim(db, claim, background)
     return claim_out(claim, est)
+
+
+@router.post("/business-registrations", response_model=ClaimOut, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(limit_by_user("registrations", 5, 24 * 3600))])
+def register_business(data: RegistrationIn, background: BackgroundTasks, user: User = Depends(get_verified_user),
+                      db: Session = Depends(get_db)):
+    """Un usuario pide registrar un negocio que no está en la app. Al aprobarse, se crea a su nombre."""
+    business = data.business
+    _check_municipality(db, business.municipality_id)
+    _categories(db, business.category_ids)
+    # ¿Ya está en la app? Entonces debe pedir administrarlo desde su página, no registrarlo otra vez
+    existing = db.scalar(select(Establishment).where(
+        Establishment.status == "active", Establishment.municipality_id == business.municipality_id,
+        func.lower(func.unaccent(Establishment.name)) == normalize(business.name)))
+    if existing is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            detail=f"«{existing.name}» ya está en Easy Search. Búscalo y pide administrarlo desde "
+                                   f"su página (/lugar/{existing.slug}).")
+    pending = db.scalars(select(OwnershipClaim).where(
+        OwnershipClaim.user_id == user.id, OwnershipClaim.kind == "register", OwnershipClaim.status == "pending"))
+    if any(normalize((c.proposed_data or {}).get("name", "")) == normalize(business.name) for c in pending):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Ya tienes una solicitud pendiente para este negocio")
+    claim = OwnershipClaim(kind="register", user_id=user.id, message=data.message,
+                           proposed_data=business.model_dump(mode="json"), **_applicant_fields(data))
+    db.add(claim)
+    db.commit()
+    db.refresh(claim)
+    notify_admins_new_claim(db, claim, background)
+    return claim_out(claim, None)
 
 
 @router.get("/me/claims", response_model=list[ClaimOut])
 def my_claims(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.execute(select(OwnershipClaim, Establishment)
-                      .join(Establishment, Establishment.id == OwnershipClaim.establishment_id)
+                      .outerjoin(Establishment, Establishment.id == OwnershipClaim.establishment_id)
                       .where(OwnershipClaim.user_id == user.id)
                       .order_by(OwnershipClaim.created_at.desc())).all()
     return [claim_out(c, e) for c, e in rows]

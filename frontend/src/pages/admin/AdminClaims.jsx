@@ -1,9 +1,53 @@
-import { Check, ExternalLink, Phone, X } from "lucide-react";
+import { Check, ExternalLink, MapPin, Phone, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Empty, ErrorBox, Flash, FilterTabs, Loading, PageHeader, Pill, formatDate, useApiData, useFlash } from "../../components/admin/ui.jsx";
 import { api } from "../../lib/api.js";
 import { notifyAdminChange } from "./AdminLayout.jsx";
+
+const ROLE = { dueno: "Dueño", encargado: "Encargado autorizado" };
+
+function telHref(phone) {
+  return `tel:${(phone ?? "").replace(/[^\d+]/g, "")}`;
+}
+
+// Datos del negocio nuevo que propone el solicitante (se crea así al aprobar)
+function ProposedBusiness({ data }) {
+  const rows = [
+    ["Tipo", data.category_names?.join(", ")],
+    ["Municipio", data.municipality_name],
+    ["Barrio", data.neighborhood],
+    ["Dirección", data.address],
+    ["Teléfono", data.phone],
+    ["WhatsApp", data.whatsapp],
+    ["Correo", data.email],
+    ["Instagram", data.instagram],
+    ["Web", data.website],
+    ["Facebook", data.facebook],
+  ].filter(([, v]) => v);
+  const mapUrl = `https://www.openstreetmap.org/?mlat=${data.latitude}&mlon=${data.longitude}#map=18/${data.latitude}/${data.longitude}`;
+  return (
+    <div className="mt-3 rounded-xl border border-line p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">Negocio que se creará</p>
+      <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-ink-soft">{k}</dt>
+            <dd className="min-w-0 break-words">{v}</dd>
+          </div>
+        ))}
+        <dt className="text-ink-soft">Ubicación</dt>
+        <dd>
+          <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">
+            <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+            Ver el punto en el mapa
+          </a>
+        </dd>
+      </dl>
+      {data.description && <p className="mt-2 whitespace-pre-line text-sm text-ink-soft">{data.description}</p>}
+    </div>
+  );
+}
 
 const STATUS = {
   pending: { label: "Pendiente", tone: "amber" },
@@ -18,16 +62,21 @@ function ClaimCard({ claim, onDone }) {
   const pending = claim.status === "pending";
 
   async function decide(kind) {
+    const isNew = claim.kind === "register";
     const question = kind === "approve"
-      ? `¿Aprobar? ${claim.user_name} podrá editar "${claim.establishment_name}" y el negocio quedará verificado.`
-      : "¿Rechazar esta solicitud?";
+      ? (isNew
+        ? `¿Aprobar? Se creará "${claim.establishment_name}" verificado y a nombre de ${claim.user_name}.`
+        : `¿Aprobar? ${claim.user_name} podrá editar "${claim.establishment_name}" y el negocio quedará verificado.`)
+      : "¿Rechazar esta solicitud? Al solicitante le llegará un correo con la nota.";
     if (!window.confirm(question)) return;
     setBusy(true);
     setError(null);
     try {
       const fn = kind === "approve" ? api.admin.approveClaim : api.admin.rejectClaim;
       await fn(claim.id, note.trim() || null);
-      onDone(kind === "approve" ? "Solicitud aprobada: el usuario ya es propietario." : "Solicitud rechazada.");
+      onDone(kind === "approve"
+        ? (isNew ? "Negocio creado y asignado: le enviamos un correo al propietario." : "Solicitud aprobada: el usuario ya es propietario.")
+        : "Solicitud rechazada: le enviamos un correo al solicitante.");
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -38,27 +87,42 @@ function ClaimCard({ claim, onDone }) {
     <li className="card p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <Link to={`/lugar/${claim.establishment_slug}`} className="inline-flex items-center gap-1 font-bold hover:underline">
-            {claim.establishment_name}
-            <ExternalLink className="h-3.5 w-3.5 text-ink-soft" aria-hidden="true" />
-          </Link>
+          {claim.establishment_slug ? (
+            <Link to={`/lugar/${claim.establishment_slug}`} className="inline-flex items-center gap-1 font-bold hover:underline">
+              {claim.establishment_name}
+              <ExternalLink className="h-3.5 w-3.5 text-ink-soft" aria-hidden="true" />
+            </Link>
+          ) : (
+            <span className="font-bold">{claim.establishment_name}</span>
+          )}
           <p className="text-xs text-ink-soft">Enviada el {formatDate(claim.created_at, true)}</p>
         </div>
-        <Pill tone={STATUS[claim.status].tone}>{STATUS[claim.status].label}</Pill>
+        <div className="flex flex-wrap gap-2">
+          <Pill tone={claim.kind === "register" ? "brand" : "gray"}>{claim.kind === "register" ? "Negocio nuevo" : "Negocio existente"}</Pill>
+          <Pill tone={STATUS[claim.status].tone}>{STATUS[claim.status].label}</Pill>
+        </div>
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
         <dt className="text-ink-soft">Solicitante</dt>
-        <dd>{claim.user_name} · {claim.user_email}</dd>
+        <dd className="min-w-0 break-words">{claim.user_name} · {claim.user_email}</dd>
+        <dt className="text-ink-soft">Es</dt>
+        <dd>
+          {ROLE[claim.applicant_role] ?? "Sin indicar"}
+          {claim.applicant_position && ` · ${claim.applicant_position}`}
+        </dd>
         <dt className="text-ink-soft">Teléfono</dt>
         <dd>
-          <a href={`tel:${(claim.contact_phone ?? "").replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">
+          <a href={telHref(claim.contact_phone)} className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">
             <Phone className="h-3.5 w-3.5" aria-hidden="true" />
             {claim.contact_phone}
           </a>
         </dd>
+        <dt className="text-ink-soft">Autorizó sus datos</dt>
+        <dd>{claim.consent_at ? formatDate(claim.consent_at, true) : "No consta (solicitud antigua)"}</dd>
       </dl>
-      <p className="mt-3 whitespace-pre-line rounded-xl bg-canvas p-3 text-sm">{claim.message}</p>
+      {claim.proposed && <ProposedBusiness data={claim.proposed} />}
+      {claim.message && <p className="mt-3 whitespace-pre-line rounded-xl bg-canvas p-3 text-sm">{claim.message}</p>}
 
       {!pending && claim.review_note && (
         <p className="mt-2 text-xs text-ink-soft"><strong className="font-semibold">Nota:</strong> {claim.review_note}</p>
@@ -105,7 +169,7 @@ export default function AdminClaims() {
 
   return (
     <>
-      <PageHeader title="Solicitudes de propiedad" description="Personas que piden administrar el perfil de un negocio. Al aprobar, el negocio recibe el sello de verificado." />
+      <PageHeader title="Solicitudes de negocios" description="Personas que piden registrar un negocio nuevo o administrar uno que ya está en la app. Llama, verifica y aprueba: el negocio queda verificado y a su nombre, y le llega un correo." />
       <FilterTabs label="Estado de las solicitudes" tabs={tabs} value={tab} onChange={(key) => setParams(key === "pending" ? {} : { estado: key })} />
       <ErrorBox message={error} />
       {loading && !data && <Loading />}
