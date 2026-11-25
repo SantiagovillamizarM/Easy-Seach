@@ -15,6 +15,8 @@ const SECTIONS = [
   { to: "/admin/categorias", label: "Categorías", icon: Tags },
 ];
 
+const IDLE_MS = 2 * 60 * 1000; // minutos sin actividad antes de que se active el protector de pantalla
+
 export default function AdminLayout() {
   const { user, updateUser } = useAuth();
   const [pending, setPending] = useState(null);
@@ -48,6 +50,27 @@ export default function AdminLayout() {
   useEffect(() => {
     document.title = "Panel administrativo · Easy Search";
   }, []);
+
+  // Protector de pantalla: tras un rato sin actividad todo se desvanece y queda solo el agujero negro de fondo.
+  // Cualquier movimiento, toque, scroll o tecla lo devuelve. (Los estilos están en theme.css: data-admin-idle)
+  useEffect(() => {
+    if (user?.role !== "admin") return undefined;
+    const root = document.documentElement;
+    let timer;
+    const wake = () => {
+      if (root.hasAttribute("data-admin-idle")) root.removeAttribute("data-admin-idle");
+      clearTimeout(timer);
+      timer = setTimeout(() => root.setAttribute("data-admin-idle", ""), IDLE_MS);
+    };
+    const events = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart", "scroll"];
+    events.forEach((name) => window.addEventListener(name, wake, { passive: true }));
+    wake();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((name) => window.removeEventListener(name, wake));
+      root.removeAttribute("data-admin-idle");
+    };
+  }, [user?.role]);
 
   if (user.role !== "admin") {
     if (!roleChecked) return null;

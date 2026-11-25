@@ -258,7 +258,7 @@
 .site-nav.site-nav-admin .search-console:focus-within { border-color: #60a5fa; }
 
 /* Panel de administración: entrada suave del panel completo y de cada sección */
-.admin-enter { animation: admin-fade 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.admin-enter { animation: admin-fade 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 .admin-page-enter { animation: admin-fade 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes admin-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
@@ -283,4 +283,19 @@
   background-color: #03050ab8;
   border-color: #ffffff12;
   backdrop-filter: blur(16px);
+}
+
+/* Protector de pantalla del panel: tras un rato sin actividad (data-admin-idle en <html>, ver AdminLayout)
+   se desvanece todo y queda solo el agujero negro. Se va despacio y vuelve rápido al mover el mouse. */
+html:has(.admin-scope) :is(.site-nav, .admin-enter, body > #root footer, .admin-hole-shade) {
+  transition: opacity 0.45s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+html[data-admin-idle] :is(.site-nav, .admin-enter, footer, .admin-hole-shade) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s ease;
+}
+html[data-admin-idle] body { cursor: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-admin-idle] :is(.site-nav, .admin-enter, footer, .admin-hole-shade) { transition: none; }
 }
