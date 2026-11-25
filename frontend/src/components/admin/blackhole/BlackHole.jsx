@@ -1,181 +1,302 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import BlackHole2D from "./BlackHole2D.jsx";
 
-// Agujero negro animado (canvas 2D): disco de acreción inclinado que gira, anillo de fotones y la parte del
-// disco que la gravedad "dobla" por encima de la sombra. `intensity` (0 a 1) sube el brillo y la velocidad:
-// el dashboard lo conecta con la actividad de hoy. Se pausa fuera de pantalla y con "reducir movimiento".
+// Agujero negro realista con WebGL: cada píxel sigue un rayo de luz que la gravedad curva (aproximación de
+// Schwarzschild, como en el render de "Interstellar"). De esa física salen solos:
+// - la sombra (la luz que cae al horizonte),
+// - el anillo de fotones,
+// - la parte de atrás del disco "doblada" por encima y por debajo de la sombra,
+// - el lado del disco que viene hacia la cámara más brillante (efecto Doppler) y el corrimiento al rojo cerca
+//   del horizonte,
+// - las estrellas del fondo deformadas por la lente gravitacional.
+// `intensity` (0 a 1) sube el brillo y la velocidad del disco. Sin WebGL se usa el dibujo 2D de respaldo.
 
-const TILT = 0.22; // qué tan de canto se ve el disco
+const VERTEX = `
+attribute vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
 
-function makeParticles(count) {
-  const list = [];
-  for (let i = 0; i < count; i++) {
-    const t = Math.random();
-    list.push({
-      r: 1.25 + Math.pow(t, 1.6) * 2.35,          // radio en unidades de la sombra (más densos cerca)
-      a: Math.random() * Math.PI * 2,
-      len: 0.04 + Math.random() * 0.22,           // largo de la estela
-      w: 0.4 + Math.random() * 1.3,
-      tw: Math.random() * Math.PI * 2,
-    });
-  }
-  return list;
+const fragment = (steps) => `
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uEnergy;
+uniform vec2 uCenter;   // dónde va el agujero en la pantalla (en unidades de la altura)
+uniform float uZoom;
+
+#define STEPS ${steps}
+#define RIN 3.0      /* órbita estable más interna (3 radios de Schwarzschild) */
+#define ROUT 13.0
+
+float hash3(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x),
+             mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 7.1; a *= 0.5; }
+  return v;
 }
 
-function colorFor(r, alpha) {
-  // cerca del horizonte: blanco azulado muy caliente; lejos: azul y luego azul profundo
-  const f = Math.min(1, (r - 1.25) / 2.35);
-  const red = Math.round(236 - f * 160);
-  const green = Math.round(244 - f * 110);
-  const blue = 255;
-  return `rgba(${red},${green},${blue},${alpha})`;
+// Cielo: estrellas en dos capas y una banda tenue de la Vía Láctea, en azules
+vec3 sky(vec3 d) {
+  vec3 col = vec3(0.0);
+  for (int k = 0; k < 2; k++) {
+    float sc = k == 0 ? 90.0 : 210.0;
+    vec3 q = d * sc;
+    vec3 id = floor(q);
+    vec3 f = fract(q) - 0.5;
+    float h = hash3(id);
+    if (h > 0.982) {
+      float s = smoothstep(0.32, 0.0, length(f));
+      float tw = 0.75 + 0.25 * sin(uTime * (1.0 + h * 3.0) + h * 50.0);
+      col += mix(vec3(0.62, 0.74, 1.0), vec3(1.0), h) * s * (h - 0.982) * 75.0 * tw;
+    }
+  }
+  float band = exp(-pow(d.y * 7.0 + 0.6 * d.x, 2.0));
+  col += vec3(0.010, 0.020, 0.045) * band * (0.4 + 1.2 * fbm(d.xz * 5.0 + d.y * 3.0));
+  return col;
+}
+
+// Color del disco por temperatura: de azul profundo (frío, afuera) a blanco azulado (caliente, adentro)
+vec3 heat(float t) {
+  vec3 deep = vec3(0.05, 0.12, 0.42);
+  vec3 mid = vec3(0.30, 0.55, 1.00);
+  vec3 hot = vec3(0.90, 0.96, 1.00);
+  return t < 0.5 ? mix(deep, mid, t * 2.0) : mix(mid, hot, (t - 0.5) * 2.0);
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y - uCenter;
+
+  // Cámara un poco por encima del plano del disco (casi de canto)
+  // Cámara que se mece despacio alrededor del agujero (gira y sube/baja un poco): se siente vivo
+  float sway = 0.22 * sin(uTime * 0.06);
+  vec3 cam = vec3(sin(sway) * 21.0, 2.1 + 0.55 * sin(uTime * 0.045), -cos(sway) * 21.0);
+  vec3 fwd = normalize(-cam);
+  vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
+  vec3 up = cross(fwd, right);
+  vec3 vel = normalize(fwd * uZoom + uv.x * right + uv.y * up);
+  vec3 pos = cam;
+
+  // Momento angular del fotón: con él, la aceleración de la geodésica es -1.5·h²·x / r^5
+  vec3 hv = cross(pos, vel);
+  float h2 = dot(hv, hv);
+
+  vec3 col = vec3(0.0);
+  float alpha = 0.0;
+  bool captured = false;
+  float glow = 0.0;
+  float speed = 1.1 + uEnergy * 1.2;
+
+  for (int i = 0; i < STEPS; i++) {
+    float r = length(pos);
+    float dt = clamp(0.07 * r, 0.03, 1.2);
+    vel += -1.5 * h2 * pos / pow(r, 5.0) * dt;
+    vec3 npos = pos + vel * dt;
+
+    // ¿Cruzó el plano del disco en este paso?
+    if (pos.y * npos.y < 0.0) {
+      vec3 p = mix(pos, npos, pos.y / (pos.y - npos.y));
+      float rc = length(p.xz);
+      if (rc > RIN && rc < ROUT) {
+        float x = (rc - RIN) / (ROUT - RIN);
+        // Rotación diferencial: lo de adentro gira más rápido (Kepler) -> espirales y estrías
+        float omega = 2.2 / pow(rc, 1.5);
+        float ang = atan(p.z, p.x) - uTime * omega * speed;
+        vec2 q = vec2(cos(ang), sin(ang)) * rc;
+        // Gas turbulento: nubes que la rotación estira en arcos, más estrías finas a lo largo del radio
+        // las nubes de gas también cambian de forma con el tiempo (no solo giran)
+        float clouds = fbm(q * 0.7 + vec2(uTime * 0.04, rc * 0.4 - uTime * 0.03));
+        float fine = fbm(vec2(rc * 9.0 - uTime * 0.15, 0.0) + q * 0.35);
+        float rings = 0.8 + 0.2 * sin(rc * 11.0 + clouds * 9.0);
+        // grumos de gas bien marcados: al girar se ve claramente que el disco se mueve
+        float clumps = smoothstep(0.42, 0.78, fbm(q * 1.15 + 3.7));
+        // puntos calientes que orbitan (como manchas brillantes en el gas)
+        float spots = 0.0;
+        for (int k = 0; k < 4; k++) {
+          float fk = float(k);
+          float sr = 3.8 + fk * 2.1;
+          float sa = fk * 2.4 + uTime * (2.2 / pow(sr, 1.5)) * speed;
+          vec2 sp = vec2(cos(sa), sin(sa)) * sr;
+          spots += exp(-dot(p.xz - sp, p.xz - sp) * 0.9) * (1.2 - fk * 0.2);
+        }
+        float dens = smoothstep(0.0, 0.05, x) * pow(smoothstep(1.0, 0.25, x), 1.4)
+                   * (0.14 + pow(clouds, 1.6) * 1.1 + clumps * 0.9 + fine * 0.3 + spots * 1.4) * rings;
+
+        // Doppler relativista: el gas que viene hacia nosotros se ve más brillante y más caliente
+        vec3 vdisk = normalize(vec3(-p.z, 0.0, p.x)) * sqrt(0.5 / rc);
+        vec3 toCam = -normalize(vel);
+        float beta2 = dot(vdisk, vdisk);
+        float D = sqrt(1.0 - beta2) / (1.0 - dot(vdisk, toCam));
+        float grav = sqrt(max(1.0 - 1.0 / rc, 0.0));   // corrimiento al rojo gravitacional
+        float temp = pow(RIN / rc, 0.85) * D * grav;
+
+        vec3 c = heat(clamp(temp * 0.95, 0.0, 1.0)) * pow(D, 3.0) * grav * temp * 2.6 * dens;
+        float a = clamp(dens * 1.1, 0.0, 1.0);
+        col += (1.0 - alpha) * c * (0.6 + 0.6 * uEnergy);
+        alpha += (1.0 - alpha) * a;
+        if (alpha > 0.97) break;
+      }
+    }
+    // Resplandor: el gas caliente ilumina el espacio alrededor del disco (una bruma muy tenue)
+    float rr = length(npos.xz);
+    if (rr > RIN * 0.9 && rr < ROUT * 1.2) {
+      glow += exp(-abs(npos.y) * 2.2) * exp(-(rr - RIN) * 0.22) * dt * 0.012;
+    }
+    pos = npos;
+    float nr = length(pos);
+    if (nr < 1.0) { captured = true; break; }
+    if (nr > 45.0 && dot(pos, vel) > 0.0) break;
+  }
+
+  if (!captured) col += (1.0 - alpha) * sky(normalize(vel));
+  col += vec3(0.35, 0.55, 1.0) * glow * (0.6 + 0.6 * uEnergy);
+
+  // Exposición suave y un poco de grano para que no se vea plano
+  col = 1.0 - exp(-col * 1.7);
+  col += (hash2(gl_FragCoord.xy + fract(uTime) * 100.0) - 0.5) * 0.018;
+  gl_FragColor = vec4(pow(max(col, 0.0), vec3(0.92)), 1.0);
+}
+`;
+
+function compile(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    throw new Error(log || "shader");
+  }
+  return shader;
 }
 
 export default function BlackHole({ intensity = 0.5, className = "" }) {
   const canvasRef = useRef(null);
   const intensityRef = useRef(intensity);
+  const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
     intensityRef.current = Math.max(0.15, Math.min(1, intensity));
   }, [intensity]);
 
   useEffect(() => {
+    if (fallback) return undefined;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const gl = canvas.getContext("webgl", { antialias: false, powerPreference: "high-performance", premultipliedAlpha: false });
+    if (!gl) {
+      setFallback(true);
+      return undefined;
+    }
+    const small = window.innerWidth < 760;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const particles = makeParticles(window.innerWidth < 640 ? 520 : 1100);
-    const stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), p: Math.random() * 6 }));
-    let w = 0, h = 0, dpr = 1, raf = 0, visible = true, last = performance.now(), time = 0;
+    let program;
+    try {
+      program = gl.createProgram();
+      gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
+      gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, fragment(small ? 110 : 170)));
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "link");
+    } catch {
+      setFallback(true);
+      return undefined;
+    }
+    gl.useProgram(program);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, "aPos");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    const u = Object.fromEntries(["uRes", "uTime", "uEnergy", "uCenter", "uZoom"].map((n) => [n, gl.getUniformLocation(program, n)]));
+
+    // Resolución completa y 60 cuadros por segundo. Si el equipo no da abasto (cuadros lentos), la escala baja
+    // sola de a poco; si sobra potencia, vuelve a subir. Así se ve nítido sin trabar equipos modestos.
+    let scale = 1;
+    const MIN_SCALE = small ? 0.45 : 0.55;
+    let raf = 0, visible = true, time = 0, prev = performance.now(), frames = 0, slow = 0, fast = 0;
 
     function resize() {
       const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      w = rect.width;
-      h = rect.height;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const dpr = Math.min(window.devicePixelRatio || 1, small ? 1.5 : 1.75);
+      canvas.width = Math.max(1, Math.round(rect.width * dpr * scale));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr * scale));
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      const aspect = rect.width / Math.max(rect.height, 1);
+      // En pantallas anchas va a la derecha (el título queda a la izquierda); en celular, centrado y abajo
+      gl.uniform2f(u.uCenter, aspect > 1.6 ? aspect * 0.2 : 0, aspect > 1.6 ? -0.02 : -0.16);
+      gl.uniform1f(u.uZoom, aspect > 1.6 ? 1.55 : 1.15);
     }
 
-    function drawParticle(p, cx, cy, R, energy, front) {
-      const sin = Math.sin(p.a);
-      if (front !== sin > 0) return;
-      const rr = p.r * R;
-      const x = cx + Math.cos(p.a) * rr;
-      const y = cy + sin * rr * TILT;
-      const x2 = cx + Math.cos(p.a - p.len) * rr;
-      const y2 = cy + Math.sin(p.a - p.len) * rr * TILT;
-      // el lado que viene hacia nosotros se ve más brillante (efecto Doppler)
-      const doppler = 0.55 + 0.45 * Math.cos(p.a + 0.6);
-      const alpha = Math.min(1, (0.3 + 0.6 * doppler) * energy * (0.75 + 0.25 * Math.sin(time * 2 + p.tw)));
-      ctx.strokeStyle = colorFor(p.r, alpha);
-      ctx.lineWidth = p.w;
-      ctx.beginPath();
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+    function adapt(frameMs) {
+      if (frames++ < 20) return;            // los primeros cuadros siempre son más lentos
+      if (frameMs > 26) { slow++; fast = 0; } else if (frameMs < 14) { fast++; slow = 0; } else { slow = 0; fast = 0; }
+      if (slow > 12 && scale > MIN_SCALE) { scale = Math.max(MIN_SCALE, scale * 0.85); slow = 0; resize(); }
+      if (fast > 120 && scale < 1) { scale = Math.min(1, scale * 1.1); fast = 0; resize(); }
     }
 
-    function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      time += dt;
-      // Nunca del todo apagado: con poca actividad el disco brilla menos, pero se sigue viendo
-      const energy = 0.55 + intensityRef.current * 0.45;
-      // En pantallas anchas va a la derecha (el título queda a la izquierda); en celular, abajo al centro
-      const wide = w > 760;
-      const cx = wide ? w * 0.7 : w / 2;
-      const cy = wide ? h * 0.52 : h * 0.6;
-      const R = wide ? Math.min(w * 0.075, h * 0.17) : Math.min(w * 0.13, h * 0.14);
-
-      ctx.clearRect(0, 0, w, h);
-      // estrellas lejanas
-      for (const s of stars) {
-        const a = 0.15 + 0.35 * Math.abs(Math.sin(time * 0.6 + s.p));
-        ctx.fillStyle = `rgba(214,228,255,${a * s.s})`;
-        ctx.fillRect(s.x * w, s.y * h, 1.2, 1.2);
-      }
-      // resplandor general
-      const glow = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 4.2);
-      glow.addColorStop(0, `rgba(96,150,255,${0.16 * energy})`);
-      glow.addColorStop(0.45, `rgba(30,64,175,${0.08 * energy})`);
-      glow.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.globalCompositeOperation = "lighter";
-      for (const p of particles) {
-        if (!reduce) p.a += dt * (0.55 + energy * 0.9) / Math.pow(p.r, 1.5);
-        drawParticle(p, cx, cy, R, energy, false);
-      }
-      // disco "doblado" por la gravedad: arcos por encima y por debajo de la sombra
-      for (let i = 0; i < 26; i++) {
-        const f = i / 26;
-        const rx = R * (1.08 + f * 0.95);
-        const alpha = (0.42 - f * 0.36) * energy;
-        ctx.strokeStyle = colorFor(1.25 + f * 2, alpha);
-        ctx.lineWidth = 1.1;
-        ctx.setLineDash([2 + (i % 5) * 3, 3 + (i % 3) * 2]);
-        ctx.lineDashOffset = -time * (14 + i) * (0.6 + energy);
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, rx, rx * (0.92 - f * 0.18), 0, Math.PI, Math.PI * 2);
-        ctx.stroke();
-        if (i % 2 === 0) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rx * 0.86, rx * 0.5, 0, 0.12, Math.PI - 0.12);
-          ctx.globalAlpha = 0.45;
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-      }
-      ctx.setLineDash([]);
-      ctx.globalCompositeOperation = "source-over";
-
-      // sombra (horizonte de eventos) y anillo de fotones
-      ctx.fillStyle = "#000";
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = `rgba(226,238,255,${0.55 + 0.35 * energy})`;
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(cx, cy, R * 1.015, 0, Math.PI * 2);
-      ctx.stroke();
-      for (const p of particles) drawParticle(p, cx, cy, R, energy, true);
-      ctx.globalCompositeOperation = "source-over";
-
-      // Primer cuadro dibujado: el canvas se enciende con un fundido (bh-canvas en black-hole.css)
+    function draw(now) {
+      const frameMs = now - prev;
+      const dt = Math.min(0.05, frameMs / 1000);
+      prev = now;
+      if (!reduce) time += dt;
+      gl.uniform2f(u.uRes, canvas.width, canvas.height);
+      gl.uniform1f(u.uTime, time + 40);
+      gl.uniform1f(u.uEnergy, intensityRef.current);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
       if (!canvas.dataset.ready) canvas.dataset.ready = "1";
-      if (!reduce && visible) raf = requestAnimationFrame(frame);
+      return frameMs;
+    }
+
+    function loop(now) {
+      if (!visible) return;
+      adapt(draw(now));
+      raf = requestAnimationFrame(loop);
     }
 
     function start() {
       cancelAnimationFrame(raf);
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
+      prev = performance.now();
+      if (reduce) draw(prev);
+      else raf = requestAnimationFrame(loop);
     }
 
     resize();
     start();
-    const ro = new ResizeObserver(() => { resize(); if (reduce || !visible) frame(performance.now()); });
+    const ro = new ResizeObserver(() => { resize(); draw(performance.now()); });
     ro.observe(canvas);
     const io = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && document.visibilityState === "visible";
-      if (visible && !reduce) start();
+      if (visible) start();
     });
     io.observe(canvas);
     const onVisibility = () => {
       visible = document.visibilityState === "visible";
-      if (visible && !reduce) start();
+      if (visible) start();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    const onLost = (e) => { e.preventDefault(); setFallback(true); };
+    canvas.addEventListener("webglcontextlost", onLost);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       io.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
     };
-  }, []);
+  }, [fallback]);
 
+  if (fallback) return <BlackHole2D intensity={intensity} className={className} />;
   return <canvas ref={canvasRef} className={`bh-canvas ${className}`} aria-hidden="true" />;
 }
