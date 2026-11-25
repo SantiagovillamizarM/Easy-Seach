@@ -1,7 +1,6 @@
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import BlackHole from "../../components/admin/blackhole/BlackHole.jsx";
 import {
   AreaChart, BarList, Delta, DotHeatmap, Donut, Funnel, RadialRing, Sparkline, WordCloud, fmt, fmtUsd,
 } from "../../components/admin/blackhole/Charts.jsx";
@@ -129,8 +128,6 @@ export default function AdminOverview() {
 
   const { kpis, series, traffic, users, search, ai, business, content } = data;
   const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
-  const busiest = Math.max(1, ...series.searches.map((v, i) => v + series.pageviews[i] + series.questions[i]));
-  const intensity = 0.25 + 0.75 * Math.min(1, today / busiest);
   // Sin elegir, la gráfica abre en la primera métrica con datos (las visitas se cuentan desde esta versión)
   const metric = chosenMetric ?? (METRICS.find((m) => series[m.key].some(Boolean)) ?? METRICS[0]).key;
   const active = METRICS.find((m) => m.key === metric);
@@ -145,7 +142,6 @@ export default function AdminOverview() {
       <div className="bh-grid-layout bh-reveal">
         {/* ------------------------------ Hero ------------------------------ */}
         <section className="bh-hero bh-span-12" aria-labelledby="bh-title">
-          <BlackHole intensity={intensity} className="bh-hero-canvas" />
           <div className="bh-hero-top">
             <div>
               <p className="bh-eyebrow">Nº 001 · Panel de {user.full_name.split(" ")[0]}</p>
@@ -160,7 +156,6 @@ export default function AdminOverview() {
           </div>
           <div className="bh-hero-meta">
             <span>Actividad de hoy: <strong>{fmt(today)}</strong> eventos</span>
-            <span>Brillo del disco: <strong>{Math.round(intensity * 100)}%</strong></span>
             <span>Periodo: <strong>últimos {days} días</strong></span>
           </div>
         </section>

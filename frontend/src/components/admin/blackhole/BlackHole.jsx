@@ -22,7 +22,11 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uEnergy;
 uniform vec2 uCenter;   // dónde va el agujero en la pantalla (en unidades de la altura)
-uniform float uZoom;
+uniform float uZoom;    // distancia focal: más alto = agujero más grande
+uniform float uRoll;    // inclinación de la cámara (el disco cruza la pantalla en diagonal)
+uniform float uDist;    // distancia de la cámara al agujero
+uniform float uHeight;  // altura de la cámara sobre el plano del disco
+uniform vec3 uPlanet;   // planeta lejano: posición en pantalla (x, y) y radio
 
 #define STEPS ${steps}
 #define RIN 3.0      /* órbita estable más interna (3 radios de Schwarzschild) */
@@ -66,21 +70,24 @@ vec3 sky(vec3 d) {
   return col;
 }
 
-// Color del disco por temperatura: de azul profundo (frío, afuera) a blanco azulado (caliente, adentro)
+// Color del disco por temperatura, en blanco y grises fríos (como la imagen de referencia)
 vec3 heat(float t) {
-  vec3 deep = vec3(0.05, 0.12, 0.42);
-  vec3 mid = vec3(0.30, 0.55, 1.00);
-  vec3 hot = vec3(0.90, 0.96, 1.00);
+  vec3 deep = vec3(0.10, 0.11, 0.14);
+  vec3 mid = vec3(0.50, 0.54, 0.62);
+  vec3 hot = vec3(1.00, 1.00, 1.00);
   return t < 0.5 ? mix(deep, mid, t * 2.0) : mix(mid, hot, (t - 0.5) * 2.0);
 }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y - uCenter;
+  vec2 screen = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+  vec2 uv = screen - uCenter;
+  float cr = cos(uRoll), sr = sin(uRoll);
+  uv = vec2(cr * uv.x - sr * uv.y, sr * uv.x + cr * uv.y);
 
-  // Cámara un poco por encima del plano del disco (casi de canto)
-  // Cámara que se mece despacio alrededor del agujero (gira y sube/baja un poco): se siente vivo
-  float sway = 0.22 * sin(uTime * 0.06);
-  vec3 cam = vec3(sin(sway) * 21.0, 2.1 + 0.55 * sin(uTime * 0.045), -cos(sway) * 21.0);
+  // Cámara cerca y casi en el plano del disco; se mece muy despacio para que se sienta vivo
+  float sway = 0.07 * sin(uTime * 0.05);
+  float camH = uHeight + 0.25 * sin(uTime * 0.04);
+  vec3 cam = vec3(sin(sway) * uDist, camH, -cos(sway) * uDist);
   vec3 fwd = normalize(-cam);
   vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
   vec3 up = cross(fwd, right);
@@ -159,10 +166,21 @@ void main() {
   }
 
   if (!captured) col += (1.0 - alpha) * sky(normalize(vel));
-  col += vec3(0.35, 0.55, 1.0) * glow * (0.6 + 0.6 * uEnergy);
+  col += vec3(0.75, 0.8, 0.9) * glow * (0.6 + 0.6 * uEnergy);
 
-  // Exposición suave y un poco de grano para que no se vea plano
-  col = 1.0 - exp(-col * 1.7);
+  // Planeta lejano: silueta oscura con un borde iluminado por el disco
+  if (uPlanet.z > 0.0) {
+    vec2 dp = screen - uPlanet.xy;
+    float dpl = length(dp);
+    float body = smoothstep(uPlanet.z, uPlanet.z * 0.9, dpl);
+    vec2 lightDir = normalize(uCenter - uPlanet.xy);
+    float rim = body * smoothstep(0.35, 1.0, dot(normalize(dp + 1e-5), lightDir))
+              * smoothstep(uPlanet.z * 0.55, uPlanet.z, dpl);
+    col = mix(col, vec3(0.025, 0.027, 0.032), body) + vec3(0.55, 0.58, 0.65) * rim;
+  }
+
+  // Exposición: el centro del disco se "quema" a blanco como en una foto real; grano de película
+  col = 1.0 - exp(-col * 2.1);
   col += (hash2(gl_FragCoord.xy + fract(uTime) * 100.0) - 0.5) * 0.018;
   gl_FragColor = vec4(pow(max(col, 0.0), vec3(0.92)), 1.0);
 }
@@ -180,7 +198,7 @@ function compile(gl, type, source) {
   return shader;
 }
 
-export default function BlackHole({ intensity = 0.5, className = "" }) {
+export default function BlackHole({ intensity = 0.5, quality = 1, className = "" }) {
   const canvasRef = useRef(null);
   const intensityRef = useRef(intensity);
   const [fallback, setFallback] = useState(false);
@@ -217,11 +235,11 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
     const aPos = gl.getAttribLocation(program, "aPos");
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-    const u = Object.fromEntries(["uRes", "uTime", "uEnergy", "uCenter", "uZoom"].map((n) => [n, gl.getUniformLocation(program, n)]));
+    const u = Object.fromEntries(["uRes", "uTime", "uEnergy", "uCenter", "uZoom", "uRoll", "uDist", "uHeight", "uPlanet"].map((n) => [n, gl.getUniformLocation(program, n)]));
 
     // Resolución completa y 60 cuadros por segundo. Si el equipo no da abasto (cuadros lentos), la escala baja
     // sola de a poco; si sobra potencia, vuelve a subir. Así se ve nítido sin trabar equipos modestos.
-    let scale = 1;
+    let scale = quality;   // calidad inicial (de fondo a pantalla completa empieza más liviano)
     const MIN_SCALE = small ? 0.45 : 0.55;
     let raf = 0, visible = true, time = 0, prev = performance.now(), frames = 0, slow = 0, fast = 0;
 
@@ -232,9 +250,15 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
       canvas.height = Math.max(1, Math.round(rect.height * dpr * scale));
       gl.viewport(0, 0, canvas.width, canvas.height);
       const aspect = rect.width / Math.max(rect.height, 1);
-      // En pantallas anchas va a la derecha (el título queda a la izquierda); en celular, centrado y abajo
-      gl.uniform2f(u.uCenter, aspect > 1.6 ? aspect * 0.2 : 0, aspect > 1.6 ? -0.02 : -0.16);
-      gl.uniform1f(u.uZoom, aspect > 1.6 ? 1.55 : 1.15);
+      // Encuadre de fondo (como la referencia): agujero grande arriba a la izquierda, saliéndose de la pantalla,
+      // y el disco cruzando en diagonal hacia abajo a la derecha. En celular, más centrado.
+      const wide = aspect > 1;
+      gl.uniform2f(u.uCenter, wide ? -0.1 * aspect : -0.12, wide ? 0.2 : 0.28);
+      gl.uniform1f(u.uZoom, wide ? 1.2 : 1.05);
+      gl.uniform1f(u.uRoll, wide ? 0.42 : 0.3);
+      gl.uniform1f(u.uDist, 12.5);
+      gl.uniform1f(u.uHeight, 0.9);
+      gl.uniform3f(u.uPlanet, wide ? 0.2 * aspect : 0.28, wide ? 0.2 : 0.38, wide ? 0.016 : 0.022);
     }
 
     function adapt(frameMs) {
@@ -295,7 +319,7 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [fallback]);
+  }, [fallback, quality]);
 
   if (fallback) return <BlackHole2D intensity={intensity} className={className} />;
   return <canvas ref={canvasRef} className={`bh-canvas ${className}`} aria-hidden="true" />;

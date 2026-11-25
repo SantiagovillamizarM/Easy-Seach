@@ -1,7 +1,11 @@
+import { Suspense, lazy } from "react";
 import { useTheme } from "../context/ThemeContext.jsx";
 import LiquidBackdrop from "./LiquidBackdrop.jsx";
 import NightSkyBackdrop from "./NightSkyBackdrop.jsx";
 import "../theme.css";
+
+// El agujero negro solo se descarga en el panel de administración
+const BlackHole = lazy(() => import("./admin/blackhole/BlackHole.jsx"));
 
 // Contenedor de página que respeta el modo claro/oscuro elegido en el encabezado.
 // - Sube por detrás del encabezado (under-header) para que el fondo empiece en el borde de la pantalla.
@@ -20,7 +24,15 @@ export default function ThemedPage({ children, variant }) {
       {/* Fondo animado: líquido perla en claro y cielo estrellado en oscuro (igual que en resultados) */}
       <div className="themed-page-sky" aria-hidden="true">
         {admin ? (
-          <div className="admin-void" />
+          <>
+            {/* Fondo del administrador: el agujero negro de cerca (como en Interstellar) y una sombra encima
+                para que los paneles se lean */}
+            <div className="admin-void" />
+            <Suspense fallback={null}>
+              <BlackHole className="themed-page-sky-canvas admin-hole" quality={0.8} intensity={0.6} />
+            </Suspense>
+            <div className="admin-hole-shade" />
+          </>
         ) : theme === "dark" ? (
           <NightSkyBackdrop className="themed-page-sky-canvas" />
         ) : (
