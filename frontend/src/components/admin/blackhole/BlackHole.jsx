@@ -242,7 +242,7 @@ const uniforms = (gl, p, names) => Object.fromEntries(names.map((n) => [n, gl.ge
 // Motor WebGL2: hornea las geodésicas y dibuja cada cuadro. Lanza un error si el equipo no lo soporta.
 function createEngine(canvas) {
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, depth: false, stencil: false,
-    powerPreference: "high-performance", desynchronized: true });
+    powerPreference: "high-performance" });
   if (!gl || !gl.getExtension("EXT_color_buffer_float")) throw new Error("sin WebGL2 con texturas flotantes");
 
   const bake = program(gl, BAKE);
