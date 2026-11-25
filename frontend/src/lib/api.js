@@ -170,6 +170,7 @@ export const api = {
   // Panel administrativo (solo admin)
   admin: {
     overview: (opts) => request("/admin/overview", opts),
+    dashboard: (days, opts) => request(`/admin/dashboard?days=${days}`, opts),
     reviews: (params, opts) => request(`/admin/reviews?${qs(params)}`, opts),
     approveReview: (id) => request(`/admin/reviews/${id}/approve`, { method: "POST" }),
     rejectReview: (id, reason) => request(`/admin/reviews/${id}/reject`, { method: "POST", body: { reason } }),

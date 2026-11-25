@@ -1,121 +1,335 @@
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ErrorBox, Loading, PageHeader, useApiData } from "../../components/admin/ui.jsx";
+import BlackHole from "../../components/admin/blackhole/BlackHole.jsx";
+import {
+  AreaChart, BarList, Delta, DotHeatmap, Donut, Funnel, RadialRing, Sparkline, WordCloud, fmt, fmtUsd,
+} from "../../components/admin/blackhole/Charts.jsx";
+import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { api } from "../../lib/api.js";
+import "./black-hole.css";
 
-function TaskTile({ to, label, count, hint }) {
-  const done = count === 0;
+// Dashboard del administrador: "Horizonte de eventos". Todo lo que pasa en la app cae hacia el centro:
+// visitas, búsquedas, usuarios, preguntas a la IA y negocios. Se ve solo con rol admin.
+
+const PERIODS = [{ days: 7, label: "7D" }, { days: 30, label: "30D" }, { days: 90, label: "90D" }, { days: 365, label: "1A" }];
+const METRICS = [
+  { key: "visitors", label: "Visitantes", color: "var(--bh-pink)" },
+  { key: "pageviews", label: "Páginas vistas", color: "var(--bh-violet)" },
+  { key: "searches", label: "Búsquedas", color: "var(--bh-accretion)" },
+  { key: "new_users", label: "Usuarios nuevos", color: "var(--bh-good)" },
+  { key: "questions", label: "Preguntas a la IA", color: "#8ec5ff" },
+];
+const PROVIDER_COLORS = { xai: "var(--bh-accretion)", openai: "var(--bh-good)", gemini: "var(--bh-violet)", reglas: "var(--bh-faint)" };
+const DEVICE = [
+  { key: "mobile", label: "Celular", color: "var(--bh-accretion)" },
+  { key: "desktop", label: "Computador", color: "var(--bh-violet)" },
+  { key: "tablet", label: "Tableta", color: "var(--bh-pink)" },
+];
+const SECTION_LABEL = {
+  inicio: "Inicio", buscar: "Resultados", lugar: "Página de un negocio", asistente: "Asistente IA", perfil: "Perfil",
+  favoritos: "Favoritos", historial: "Historial", panel: "Panel del dueño", "registrar-negocio": "Registrar negocio",
+  cuenta: "Ingreso y registro", otras: "Otras",
+};
+
+function Panel({ title, eyebrow, action, className = "", children }) {
   return (
-    <Link to={to} className="card group flex flex-col gap-1 p-4 transition hover:border-brand-200">
-      <span className="text-sm font-semibold text-ink-soft">{label}</span>
-      <span className="flex items-baseline gap-2">
-        <span className="text-3xl font-extrabold tabular-nums">{count}</span>
-        {done && (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-open">
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Al día
-          </span>
-        )}
-      </span>
-      <span className="mt-auto flex items-center gap-1 text-xs text-ink-soft group-hover:text-brand-700">
-        {hint}
-        <ArrowRight className="h-3 w-3" aria-hidden="true" />
-      </span>
-    </Link>
+    <section className={`bh-panel bh-hud ${className}`}>
+      <header className="bh-head">
+        <div>
+          {eyebrow && <p className="bh-eyebrow">{eyebrow}</p>}
+          <h2 className="bh-title">{title}</h2>
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
   );
 }
 
-function Stat({ label, value }) {
+function Kpi({ label, kpi, series, hint, color, value }) {
   return (
-    <div>
-      <dt className="text-xs text-ink-soft">{label}</dt>
-      <dd className="text-xl font-bold tabular-nums">{Number(value).toLocaleString("es-CO")}</dd>
+    <div className="bh-kpi">
+      <p className="bh-kpi-label">{label}</p>
+      <div className="bh-kpi-value">
+        <strong>{value ?? fmt(kpi.value)}</strong>
+        {kpi.previous !== undefined && <Delta value={kpi.value} previous={kpi.previous} />}
+      </div>
+      {hint && <small>{hint}</small>}
+      {series && <Sparkline values={series} color={color} />}
     </div>
   );
 }
 
-// Medidor de completitud: un solo color, el valor escrito al lado (nunca solo color)
-function Meter({ label, value, total }) {
-  const pct = total ? Math.round((value / total) * 100) : 0;
+function Alerts({ pending }) {
+  const items = [
+    { to: "/admin/solicitudes", label: "Solicitudes de negocios", value: pending?.claims },
+    { to: "/admin/resenas", label: "Reseñas por moderar", value: pending?.reviews },
+    { to: "/admin/resenas?estado=reported", label: "Reportes abiertos", value: pending?.reports },
+    { to: "/admin/duplicados", label: "Posibles duplicados", value: pending?.duplicates },
+  ];
   return (
-    <li>
-      <div className="mb-1 flex justify-between gap-3 text-sm">
-        <span>{label}</span>
-        <span className="tabular-nums text-ink-soft">
-          <strong className="font-semibold text-ink">{pct}%</strong> · {value.toLocaleString("es-CO")} de {total.toLocaleString("es-CO")}
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-muted" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-        <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.max(pct, value > 0 ? 1 : 0)}%` }} />
-      </div>
-    </li>
+    <ul className="bh-alerts">
+      {items.map((it) => (
+        <li key={it.to}>
+          <Link to={it.to} className={`bh-alert ${it.value ? "is-hot" : ""}`}>
+            <strong>{it.value ?? "–"}</strong>
+            <span>{it.value === 0 ? `${it.label} · al día` : it.label}</span>
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Ticker({ feed }) {
+  if (!feed.length) return null;
+  const KIND = { usuario: "USR", busqueda: "BUS", solicitud: "SOL", resena: "RES" };
+  const line = feed.map((e, i) => (
+    <span key={i}>
+      <b>{KIND[e.kind] ?? "EVT"} · {new Date(e.at).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</b>
+      {e.text}
+    </span>
+  ));
+  return (
+    <div className="bh-ticker" aria-label="Actividad reciente">
+      <div className="bh-ticker-track">{line}</div>
+      <div className="bh-ticker-track" aria-hidden="true">{line}</div>
+    </div>
   );
 }
 
 export default function AdminOverview() {
-  const { data, error, loading } = useApiData((opts) => api.admin.overview(opts), []);
+  const { user } = useAuth();
+  const [days, setDays] = useState(30);
+  const [chosenMetric, setMetric] = useState(null);
+  const { data, error, loading } = useApiData((opts) => api.admin.dashboard(days, opts), [days]);
+  const { data: overview } = useApiData((opts) => api.admin.overview(opts), []);
 
   if (error) return <ErrorBox message={error} />;
-  if (loading && !data) return <Loading />;
+  if (!data) return <div className="bh-skeleton" aria-busy="true">Cruzando el horizonte de eventos…</div>;
 
-  const { pending, establishments: est, completeness: c, users, reviews, searches_7d: s } = data;
+  const { kpis, series, traffic, users, search, ai, business, content } = data;
+  const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
+  const busiest = Math.max(1, ...series.searches.map((v, i) => v + series.pageviews[i] + series.questions[i]));
+  const intensity = 0.25 + 0.75 * Math.min(1, today / busiest);
+  // Sin elegir, la gráfica abre en la primera métrica con datos (las visitas se cuentan desde esta versión)
+  const metric = chosenMetric ?? (METRICS.find((m) => series[m.key].some(Boolean)) ?? METRICS[0]).key;
+  const active = METRICS.find((m) => m.key === metric);
+  const deviceTotal = DEVICE.reduce((s, d) => s + traffic.devices[d.key], 0);
+  const aiItems = ai.usage.map((u) => ({ label: u.label, value: u.count, color: PROVIDER_COLORS[u.provider] ?? "var(--bh-faint)" }));
+  const aiTotal = aiItems.reduce((s, i) => s + i.value, 0);
+  const claims = business.claims;
+  const pendingClaims = (claims.claim_pending ?? 0) + (claims.register_pending ?? 0);
+
   return (
-    <>
-      <PageHeader title="Resumen" description="Tareas pendientes y estado general de la información." />
-
-      <section aria-label="Tareas pendientes" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <TaskTile to="/admin/resenas" label="Reseñas por revisar" count={pending.reviews} hint="Moderar" />
-        <TaskTile to="/admin/resenas?estado=reported" label="Reportes abiertos" count={pending.reports} hint="Revisar reportes" />
-        <TaskTile to="/admin/solicitudes" label="Solicitudes de negocios" count={pending.claims} hint="Verificar" />
-        <TaskTile to="/admin/duplicados" label="Posibles duplicados" count={pending.duplicates} hint="Revisar pares" />
-      </section>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <section className="card p-5">
-          <h2 className="font-bold">Calidad de la información</h2>
-          <p className="mb-4 text-xs text-ink-soft">
-            Negocios activos que tienen cada dato. Lo que falta no se puede mostrar ni usar en las recomendaciones.
-          </p>
-          <ul className="space-y-4">
-            <Meter label="Con horario" value={c.with_hours} total={est.active} />
-            <Meter label="Con precios" value={c.with_prices} total={est.active} />
-            <Meter label="Con descripción" value={c.with_description} total={est.active} />
-            <Meter label="Con productos o servicios" value={c.with_offerings} total={est.active} />
-            <Meter label="Con fotos" value={c.with_photos} total={est.active} />
-            <Meter label="Administrados por su dueño" value={est.with_owner} total={est.active} />
-          </ul>
+    <div className={`bh ${loading ? "opacity-80" : ""}`}>
+      <div className="bh-grid-layout">
+        {/* ------------------------------ Hero ------------------------------ */}
+        <section className="bh-hero bh-span-12" aria-labelledby="bh-title">
+          <BlackHole intensity={intensity} className="bh-hero-canvas" />
+          <div className="bh-hero-top">
+            <div>
+              <p className="bh-eyebrow">Nº 001 · Panel de {user.full_name.split(" ")[0]}</p>
+              <h1 id="bh-title">Horizonte <em>de eventos</em></h1>
+              <p className="bh-hero-sub">Todo lo que pasa en Easy Search cae hacia aquí: visitas, búsquedas, usuarios, IA y negocios.</p>
+            </div>
+            <div className="bh-pills" role="group" aria-label="Periodo">
+              {PERIODS.map((p) => (
+                <button key={p.days} type="button" aria-pressed={days === p.days} onClick={() => setDays(p.days)}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="bh-hero-meta">
+            <span>Actividad de hoy: <strong>{fmt(today)}</strong> eventos</span>
+            <span>Brillo del disco: <strong>{Math.round(intensity * 100)}%</strong></span>
+            <span>Periodo: <strong>últimos {days} días</strong></span>
+          </div>
         </section>
 
-        <div className="space-y-6">
-          <section className="card p-5">
-            <h2 className="mb-3 font-bold">Negocios</h2>
-            <dl className="grid grid-cols-3 gap-4">
-              <Stat label="Activos" value={est.active} />
-              <Stat label="Verificados" value={est.verified} />
-              <Stat label="Ocultos o duplicados" value={est.hidden + est.duplicate} />
-            </dl>
-          </section>
-          <section className="card p-5">
-            <h2 className="mb-3 font-bold">Comunidad</h2>
-            <dl className="grid grid-cols-3 gap-4">
-              <Stat label="Usuarios" value={users.total} />
-              <Stat label="Propietarios" value={users.owners} />
-              <Stat label="Reseñas publicadas" value={reviews.approved} />
-            </dl>
-          </section>
-          <section className="card p-5">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="font-bold">Búsquedas (últimos 7 días)</h2>
-              <Link to="/admin/busquedas" className="text-xs font-semibold text-brand-700 hover:underline">Ver estadísticas</Link>
+        {/* ------------------------------ KPIs ------------------------------ */}
+        <div className="bh-kpis bh-span-12">
+          <Kpi label="Visitantes" kpi={kpis.visitors} series={series.visitors} color="var(--bh-pink)" hint="Únicos por día" />
+          <Kpi label="Páginas vistas" kpi={kpis.pageviews} series={series.pageviews} color="var(--bh-violet)" />
+          <Kpi label="Búsquedas" kpi={kpis.searches} series={series.searches} color="var(--bh-accretion)" />
+          <Kpi label="Usuarios nuevos" kpi={kpis.new_users} series={series.new_users} color="var(--bh-good)" />
+          <Kpi label="Preguntas a la IA" kpi={kpis.questions} series={series.questions} color="#8ec5ff" />
+          <Kpi label="Costo de IA (estimado)" kpi={kpis.ai_cost} value={fmtUsd(kpis.ai_cost.value)}
+               hint={`≈ ${fmtUsd(kpis.ai_cost.monthly)} al mes a este ritmo`} />
+        </div>
+
+        {/* ------------------------------ Pulso ------------------------------ */}
+        <Panel className="bh-span-8" eyebrow="Nº 002 · Pulso" title="Cómo se mueve la app"
+               action={(
+                 <div className="bh-tabs" role="group" aria-label="Métrica">
+                   {METRICS.map((m) => (
+                     <button key={m.key} type="button" aria-pressed={metric === m.key} onClick={() => setMetric(m.key)}>{m.label}</button>
+                   ))}
+                 </div>
+               )}>
+          <AreaChart dates={data.dates} values={series[metric]} label={active.label} color={active.color} />
+        </Panel>
+
+        <Panel className="bh-span-4" eyebrow="Nº 003 · Pendientes" title="Lo que te espera">
+          <Alerts pending={overview?.pending} />
+          <p className="bh-note mt-3">Revisa las solicitudes pronto: cada negocio verificado es un posible cliente.</p>
+        </Panel>
+
+        {/* ------------------------------ Tráfico ------------------------------ */}
+        <Panel className="bh-span-7" eyebrow="Nº 004 · Horas pico" title="Cuándo entra la gente">
+          <DotHeatmap grid={traffic.heatmap} />
+        </Panel>
+
+        <Panel className="bh-span-5" eyebrow="Nº 005 · Tráfico" title="Desde dónde llegan">
+          <div className="grid items-center gap-4 sm:grid-cols-2">
+            <RadialRing items={DEVICE.map((d) => ({ label: d.label, value: traffic.devices[d.key], color: d.color }))}
+                        center={`${deviceTotal ? Math.round((traffic.devices.mobile / deviceTotal) * 100) : 0}%`} sub="desde celular" />
+            <div className="space-y-4">
+              <ul className="bh-legend">
+                {DEVICE.map((d) => (
+                  <li key={d.key}><i style={{ background: d.color }} /><span>{d.label}</span><span className="bh-num">{fmt(traffic.devices[d.key])}</span></li>
+                ))}
+              </ul>
+              <BarList items={traffic.referrers.map((r) => ({ label: r.source === "directo" ? "Directo o WhatsApp" : r.source, value: r.count }))}
+                       empty="Sin visitas registradas todavía." />
             </div>
-            <dl className="grid grid-cols-3 gap-4">
-              <Stat label="Búsquedas" value={s.total} />
-              <Stat label="Sin resultados" value={s.zero_results} />
-              <Stat label="Con resultados" value={s.total - s.zero_results} />
-            </dl>
-          </section>
+          </div>
+          <p className="bh-note mt-3">Con sesión iniciada: <strong>{traffic.logged_in_pct}%</strong> de las páginas vistas.</p>
+        </Panel>
+
+        {/* ------------------------------ Usuarios ------------------------------ */}
+        <Panel className="bh-span-7" eyebrow="Nº 006 · Crecimiento" title="De visitante a usuario fiel">
+          <Funnel steps={[
+            { label: "Cuentas creadas", value: users.total },
+            { label: "Correo confirmado", value: users.verified },
+            { label: "Hicieron al menos una búsqueda", value: users.searched },
+            { label: "Activos en los últimos 7 días", value: users.active_7d },
+          ]} />
+          <div className="bh-stat-row mt-4">
+            <div className="bh-stat"><span>Volvieron otro día</span><strong>{users.returning_pct}%</strong></div>
+            <div className="bh-stat"><span>Activos en el periodo</span><strong>{fmt(users.active_in_range)}</strong></div>
+            <div className="bh-stat"><span>Propietarios</span><strong>{fmt(users.owners)}</strong></div>
+          </div>
+        </Panel>
+
+        {/* ------------------------------ IA ------------------------------ */}
+        <Panel className="bh-span-5" eyebrow="Nº 007 · IA y costos" title="Quién responde y cuánto cuesta">
+          <div className="flex flex-wrap items-center gap-5">
+            <div className="relative">
+              <Donut items={aiItems} />
+              <div className="absolute inset-0 grid place-content-center text-center">
+                <strong className="bh-num text-lg">{fmt(aiTotal)}</strong>
+                <span className="text-[0.62rem] text-[var(--bh-mute)]">respuestas</span>
+              </div>
+            </div>
+            <ul className="bh-legend min-w-[150px] flex-1">
+              {aiItems.map((i) => (
+                <li key={i.label}><i style={{ background: i.color }} /><span>{i.label}</span><span className="bh-num">{fmt(i.value)}</span></li>
+              ))}
+            </ul>
+          </div>
+          <div className="bh-stat-row mt-4">
+            <div className="bh-stat"><span>Búsquedas con IA paga</span><strong>{fmtUsd(ai.search_cost)}</strong></div>
+            <div className="bh-stat"><span>Asistente</span><strong>{fmtUsd(ai.assistant_cost)}</strong></div>
+            <div className="bh-stat"><span>Respuesta del asistente</span><strong>{ai.assistant.avg_seconds ? `${ai.assistant.avg_seconds} s` : "–"}</strong></div>
+            <div className="bh-stat"><span>Calificación del asistente</span><strong>{ai.assistant.rating_avg ? `${ai.assistant.rating_avg}/5` : "–"}</strong></div>
+          </div>
+          <p className="bh-note mt-3">
+            Estimado con los tokens medidos: una búsqueda con Grok ≈ {fmtUsd(ai.cost_per_search.xai)}; con OpenAI ≈ {fmtUsd(ai.cost_per_search.openai)}. Gemini es gratis.
+          </p>
+        </Panel>
+
+        {/* ------------------------------ Búsquedas ------------------------------ */}
+        <Panel className="bh-span-6" eyebrow="Nº 008 · Demanda" title="Lo que más busca la gente"
+               action={<Link to="/admin/busquedas" className="bh-link">Ver todo</Link>}>
+          <WordCloud words={search.top_queries} />
+          <p className="bh-note">
+            Sin resultados: <strong>{search.zero_pct}%</strong> de las búsquedas ({fmt(search.zero_results)}). Eso es demanda que la app todavía no cubre.
+          </p>
+        </Panel>
+
+        <Panel className="bh-span-6" eyebrow="Nº 009 · Oferta vs demanda" title="Categorías que piden más negocios">
+          {search.demand.length ? (
+            <div className="bh-scroll">
+              <table className="bh-table">
+                <thead><tr><th>Categoría</th><th>Búsquedas</th><th>Negocios</th><th>Por negocio</th></tr></thead>
+                <tbody>
+                  {search.demand.map((d) => (
+                    <tr key={d.slug}>
+                      <td>{d.name}</td>
+                      <td className="bh-num">{fmt(d.searches)}</td>
+                      <td className="bh-num">{fmt(d.businesses)}</td>
+                      <td className="bh-num" style={{ color: d.businesses === 0 || d.searches / d.businesses > 2 ? "var(--bh-accretion)" : undefined }}>
+                        {d.businesses ? (d.searches / d.businesses).toFixed(1) : "∞"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="bh-note">Todavía no hay búsquedas con categoría en este periodo.</p>}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="bh-eyebrow mb-2">Sin resultados</p>
+              <BarList items={search.zero_queries.map((q) => ({ label: q.query, value: q.count }))} color="var(--bh-bad)" empty="Ninguna. Todo se encontró." />
+            </div>
+            <div>
+              <p className="bh-eyebrow mb-2">Lugares más buscados</p>
+              <BarList items={search.places.map((p) => ({ label: p.place, value: p.count }))} color="var(--bh-accretion)" />
+            </div>
+          </div>
+        </Panel>
+
+        {/* ------------------------------ Negocios ------------------------------ */}
+        <Panel className="bh-span-5" eyebrow="Nº 010 · Negocios" title="Del mapa a la verificación">
+          <Funnel steps={[
+            { label: "Negocios activos", value: business.active },
+            { label: "Con dueño", value: business.with_owner },
+            { label: "Verificados", value: business.verified },
+            { label: "Completos (horario, precios y descripción)", value: business.complete },
+          ]} />
+          <div className="bh-stat-row mt-4">
+            <div className="bh-stat"><span>Solicitudes pendientes</span><strong>{fmt(pendingClaims)}</strong></div>
+            <div className="bh-stat"><span>Registros aprobados</span><strong>{fmt(claims.register_approved ?? 0)}</strong></div>
+            <div className="bh-stat"><span>Reseñas publicadas</span><strong>{fmt(content.reviews.approved)}</strong></div>
+            <div className="bh-stat"><span>Calificación promedio</span><strong>{content.rating_avg ? `${content.rating_avg}★` : "–"}</strong></div>
+          </div>
+        </Panel>
+
+        <Panel className="bh-span-7" eyebrow="Nº 011 · Monetización" title="Clientes potenciales"
+               action={<span className="bh-note">Sin dueño, pero la gente los busca</span>}>
+          {business.leads.length ? (
+            <div className="bh-scroll">
+              <table className="bh-table">
+                <thead><tr><th>Negocio</th><th>Visitas</th><th>En favoritos</th></tr></thead>
+                <tbody>
+                  {business.leads.map((l) => (
+                    <tr key={l.id}>
+                      <td>
+                        <Link to={`/lugar/${l.slug}`} className="inline-flex items-center gap-1">
+                          {l.name}
+                          <ArrowUpRight className="h-3 w-3 opacity-60" aria-hidden="true" />
+                        </Link>
+                      </td>
+                      <td className="bh-num">{fmt(l.views)}</td>
+                      <td className="bh-num">{fmt(l.favorites)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="bh-note">Cuando la gente visite páginas de negocios sin dueño, aparecerán aquí para ofrecerles un plan.</p>}
+          <p className="bh-note mt-3">
+            Páginas más visitadas: {traffic.sections.slice(0, 4).map((s) => `${SECTION_LABEL[s.section] ?? s.section} (${fmt(s.count)})`).join(" · ") || "sin datos"}.
+          </p>
+        </Panel>
+
+        <div className="bh-span-12">
+          <Ticker feed={data.feed} />
         </div>
       </div>
-    </>
+    </div>
   );
 }

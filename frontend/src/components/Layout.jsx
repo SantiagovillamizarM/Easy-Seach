@@ -1,6 +1,8 @@
 import { Bot } from "lucide-react";
-import { Suspense, useLayoutEffect, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { trackPageview } from "../lib/analytics.js";
 import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
@@ -138,6 +140,13 @@ function Footer() {
 
 export default function Layout() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const loggedIn = Boolean(user);
+
+  // Una visita por cada página que se abre (anónima; el panel de administración no se cuenta)
+  useEffect(() => {
+    trackPageview(pathname, loggedIn);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex min-h-screen flex-col">
       <Header />

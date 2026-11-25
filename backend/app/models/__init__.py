@@ -1,4 +1,5 @@
 """Importa todos los modelos para que Alembic y SQLAlchemy los conozcan."""
+from app.models.analytics import PageView
 from app.models.base import Base
 from app.models.catalog import (
     Category,
@@ -26,6 +27,7 @@ __all__ = [
     "Offering",
     "OpeningHour",
     "OwnershipClaim",
+    "PageView",
     "Place",
     "Report",
     "Review",

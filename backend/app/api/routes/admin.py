@@ -32,6 +32,7 @@ from app.models import (
 from app.schemas.admin import DuplicateDismissIn, EstablishmentAdminUpdate, ReviewDecision, UserAdminUpdate
 from app.schemas.owner import AdminClaimOut, BusinessProposal, ClaimDecision
 from app.services.catalog import LOAD_OPTIONS, to_summary
+from app.services.dashboard import build_dashboard
 from app.services.embeddings import Embedder, get_embedder, sync_establishments
 from app.services.moderation import recalculate_rating
 from app.services.notifications import notify_claim_decision, notify_owner_new_review
@@ -65,6 +66,12 @@ def stats(db: Session = Depends(get_db)) -> dict:
         "municipalities": db.scalar(select(func.count(Place.id)).where(Place.kind == "municipio")),
         "neighborhoods": db.scalar(select(func.count(Place.id)).where(Place.kind == "barrio")),
     }
+
+
+@router.get("/dashboard")
+def dashboard(days: int = Query(30, ge=7, le=365), db: Session = Depends(get_db)) -> dict:
+    """Cómo va la aplicación: tráfico web, uso, IA y costos estimados, negocios y contenido."""
+    return build_dashboard(db, days)
 
 
 @router.get("/overview")

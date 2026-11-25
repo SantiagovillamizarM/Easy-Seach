@@ -23,9 +23,10 @@ MODULOS = [
      ["places", "categories", "establishments", "establishment_categories", "offerings", "opening_hours",
       "special_hours", "establishment_photos", "embeddings"]),
     ("Usuarios e interacción",
-     "Cuentas, favoritos, historial de búsqueda, reseñas, reportes, solicitudes de propiedad y duplicados.",
+     "Cuentas, favoritos, historial de búsqueda, reseñas, reportes, solicitudes de negocios, duplicados y las "
+     "visitas anónimas a la web (analítica propia).",
      ["users", "favorites", "search_history", "reviews", "reports", "ownership_claims", "duplicate_dismissals",
-      "establishments"]),
+      "page_views", "establishments"]),
     ("Asistente con IA (Spring Boot + JPA)",
      "Consultas al asistente RAG, respuestas, fuentes con su similitud y calificaciones. Las tablas las crea Alembic "
      "y Spring Boot las usa con JPA (`gateway/.../asistente`).",
