@@ -301,8 +301,8 @@ function monotonePath(pts) {
   return d;
 }
 
-// Gráfica de los indicadores: una columna por día (la de hoy, más brillante) y encima la tendencia suavizada
-// (promedio de 5 días) con brillo y un punto que late. Se dibuja de izquierda a derecha al aparecer.
+// Gráfica de los indicadores: la tendencia suavizada (promedio de 5 días) con brillo, su área degradada y un
+// punto que late en el valor de hoy. Se dibuja de izquierda a derecha al aparecer.
 export function SparkArea({ values, color }) {
   const id = useId();
   const W = 200, H = 64, TOP = 8, BOTTOM = 58, PAD_L = 4, PAD_R = 12;
@@ -315,29 +315,18 @@ export function SparkArea({ values, color }) {
     return win.reduce((a, b) => a + b, 0) / win.length;
   });
   const line = monotonePath(trend.map((v, i) => [x(i), y(v)]));
-  const colW = Math.max(1.2, ((W - PAD_L - PAD_R) / Math.max(n, 1)) * 0.5);
   const empty = values.every((v) => !v);
   const endX = x(n - 1), endY = y(trend[n - 1] ?? 0);
   return (
     <div className="bh-sparkarea" style={{ "--kc": color }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          <linearGradient id={`${id}-c`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor={color} stopOpacity="0.95" />
-            <stop offset="1" stopColor={color} stopOpacity="0.12" />
-          </linearGradient>
           <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor={color} stopOpacity="0.22" />
             <stop offset="1" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1="0" x2={W} y1={BOTTOM + 0.5} y2={BOTTOM + 0.5} className="bh-sparkarea-grid" vectorEffect="non-scaling-stroke" />
-        {values.map((v, i) => (v > 0 ? (
-          <rect key={i} x={x(i) - colW / 2} width={colW} y={y(v)} height={BOTTOM - y(v)} rx="0.8"
-                fill={i === n - 1 ? "#ffffff" : `url(#${id}-c)`} opacity={i === n - 1 ? 0.95 : 0.85} />
-        ) : (
-          <rect key={i} x={x(i) - colW / 2} width={colW} y={BOTTOM - 1.2} height="1.2" fill={color} opacity="0.25" />
-        )))}
         {!empty && <path d={`${line} L${endX},${H} L${PAD_L},${H} Z`} fill={`url(#${id}-a)`} />}
         {!empty && (
           <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round"
