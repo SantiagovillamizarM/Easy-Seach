@@ -55,12 +55,17 @@ def _pct(part: int | float, total: int | float) -> float:
 
 
 class _Range:
-    def __init__(self, days: int):
+    """Periodo de `days` días hasta hoy. `previous()` da el periodo anterior del mismo largo (para comparar)."""
+    def __init__(self, days: int, shift: int = 0):
         self.days = days
         self.today = datetime.now(BOGOTA).date()
-        self.first_day = self.today - timedelta(days=days - 1)
+        self.first_day = self.today - timedelta(days=days - 1 + shift * days)
         self.start = datetime.combine(self.first_day, datetime.min.time(), BOGOTA)
         self.prev_start = self.start - timedelta(days=days)
+        self.end = self.start + timedelta(days=days) if shift else None
+
+    def previous(self) -> "_Range":
+        return _Range(self.days, shift=1)
 
     def dates(self) -> list[date]:
         return [self.first_day + timedelta(days=i) for i in range(self.days)]
@@ -80,7 +85,8 @@ def _trend(db: Session, r: _Range, col, created, *conds, distinct_col=None) -> d
 
 def _daily(db: Session, r: _Range, created, *conds, value=None) -> list[int]:
     agg = value if value is not None else func.count()
-    rows = dict(db.execute(select(_day(created).label("d"), agg).where(created >= r.start, *conds)
+    bounds = (created >= r.start,) + ((created < r.end,) if r.end else ())
+    rows = dict(db.execute(select(_day(created).label("d"), agg).where(*bounds, *conds)
                            .group_by("d")).all())
     return [int(rows.get(d, 0)) for d in r.dates()]
 
@@ -100,9 +106,12 @@ def _assistant(db: Session, r: _Range) -> dict:
     rating = db.execute(text(
         "SELECT avg(k.puntuacion), count(*) FROM calificaciones k JOIN respuestas_ia r ON r.id = k.respuesta_id "
         "JOIN consultas_ia c ON c.id = r.consulta_id WHERE c.creada_en >= :start"), params).one()
-    daily_rows = dict(db.execute(text(
-        "SELECT (creada_en AT TIME ZONE 'America/Bogota')::date AS d, count(*) FROM consultas_ia "
-        "WHERE creada_en >= :start GROUP BY d"), params).all())
+    daily_sql = text("SELECT (creada_en AT TIME ZONE 'America/Bogota')::date AS d, count(*) FROM consultas_ia "
+                     "WHERE creada_en >= :start AND creada_en < :end GROUP BY d")
+    far = r.start + timedelta(days=100 * 365)
+    daily_rows = dict(db.execute(daily_sql, {"start": r.start, "end": far}).all())
+    p = r.previous()
+    prev_rows = dict(db.execute(daily_sql, {"start": p.start, "end": p.end}).all())
     total = sum(states.values())
     return {
         "questions": {"value": total, "previous": previous},
@@ -112,11 +121,13 @@ def _assistant(db: Session, r: _Range) -> dict:
         "rating_avg": round(float(rating[0]), 2) if rating[0] is not None else None,
         "ratings": rating[1],
         "daily": [int(daily_rows.get(d, 0)) for d in r.dates()],
+        "daily_prev": [int(prev_rows.get(d, 0)) for d in p.dates()],
     }
 
 
 def build_dashboard(db: Session, days: int) -> dict:
     r = _Range(days)
+    prev = r.previous()
     active = Establishment.status == "active"
     in_range = SearchHistory.created_at >= r.start
     parser = SearchHistory.parsed_query["parser"].astext
@@ -255,6 +266,14 @@ def build_dashboard(db: Session, days: int) -> dict:
             "new_users": _daily(db, r, User.created_at),
             "questions": assistant["daily"],
         },
+        # Mismo largo, periodo anterior: la gráfica de pulso lo dibuja como línea punteada para comparar
+        "series_prev": {
+            "pageviews": _daily(db, prev, PageView.created_at),
+            "visitors": _daily(db, prev, PageView.created_at, value=func.count(distinct(PageView.visitor_hash))),
+            "searches": _daily(db, prev, SearchHistory.created_at),
+            "new_users": _daily(db, prev, User.created_at),
+            "questions": assistant["daily_prev"],
+        },
         "traffic": {
             "devices": {d: devices.get(d, 0) for d in ("mobile", "desktop", "tablet")},
             "referrers": [{"source": s, "count": c} for s, c in referrers],
@@ -275,7 +294,7 @@ def build_dashboard(db: Session, days: int) -> dict:
             "usage": [{"provider": p, "label": PROVIDER_LABEL.get(p, p), "count": c} for p, c in usage.items()],
             "search_cost": round(search_cost, 4), "assistant_cost": round(assistant_cost, 4),
             "cost_per_search": {p: round(cost_of(p, SEARCH_TOKENS), 5) for p in ("xai", "openai")},
-            "assistant": {k: v for k, v in assistant.items() if k not in ("daily", "questions")},
+            "assistant": {k: v for k, v in assistant.items() if k not in ("daily", "daily_prev", "questions")},
         },
         "business": {
             "active": _count(db, Establishment.id, active), "with_owner": with_owner,

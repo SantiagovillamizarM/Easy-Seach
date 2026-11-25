@@ -98,6 +98,7 @@ def test_dashboard_numbers(client, db, admin_headers):
     assert d["kpis"]["searches"]["value"] == 3 and d["kpis"]["pageviews"]["value"] == 2
     assert d["kpis"]["visitors"]["value"] == 2 and d["kpis"]["questions"]["value"] == 1
     assert d["series"]["searches"][-1] == 3
+    assert len(d["series_prev"]["searches"]) == 7 and sum(d["series_prev"]["searches"]) == 0
     assert d["search"]["zero_results"] == 2 and d["search"]["top_queries"][0] == {"query": "pizza", "count": 2}
     assert d["search"]["places"] == [{"place": "Girón", "count": 1}]
     usage = {u["provider"]: u["count"] for u in d["ai"]["usage"]}
@@ -109,3 +110,14 @@ def test_dashboard_numbers(client, db, admin_headers):
     assert d["users"]["searched"] == 1 and d["users"]["active_7d"] == 1
     assert any(e["kind"] == "busqueda" for e in d["feed"])
     assert db.scalar(select(User.id).where(User.email == "busca@test.com"))
+
+
+def test_previous_period_series(client, db, admin_headers):
+    from datetime import timedelta
+    old = datetime.now(timezone.utc) - timedelta(days=9)
+    db.add(SearchHistory(user_id=None, query_text="pizza", results_count=2, parsed_query={"parser": "reglas"},
+                         created_at=old))
+    db.flush()
+    d = client.get("/api/admin/dashboard?days=7", headers=admin_headers).json()
+    assert sum(d["series"]["searches"]) == 0
+    assert sum(d["series_prev"]["searches"]) == 1 and d["kpis"]["searches"]["previous"] == 1

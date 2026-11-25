@@ -1,8 +1,10 @@
-import { ArrowUpRight, Bot, ChevronRight, Coins, Eye, Search, UserPlus, Users } from "lucide-react";
+import {
+  ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Search, Store, UserPlus, Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AreaChart, BarList, CountUp, Delta, DotHeatmap, Donut, Funnel, RadialRing, SparkArea, WordCloud, fmt, fmtUsd,
+  BarList, CountUp, Delta, DotHeatmap, Donut, Funnel, PulseChart, RadialRing, SparkArea, WordCloud, fmt, fmtUsd,
 } from "../../components/admin/blackhole/Charts.jsx";
 import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -13,12 +15,13 @@ import "./black-hole.css";
 // visitas, búsquedas, usuarios, preguntas a la IA y negocios. Se ve solo con rol admin.
 
 const PERIODS = [{ days: 7, label: "7D" }, { days: 30, label: "30D" }, { days: 90, label: "90D" }, { days: 365, label: "1A" }];
+// Mismos colores que las tarjetas de indicadores
 const METRICS = [
-  { key: "visitors", label: "Visitantes", color: "var(--bh-pink)" },
-  { key: "pageviews", label: "Páginas vistas", color: "var(--bh-violet)" },
-  { key: "searches", label: "Búsquedas", color: "var(--bh-accretion)" },
-  { key: "new_users", label: "Usuarios nuevos", color: "var(--bh-good)" },
-  { key: "questions", label: "Preguntas a la IA", color: "#8ec5ff" },
+  { key: "visitors", label: "Visitantes", short: "Visitantes", color: "#7dd3fc" },
+  { key: "pageviews", label: "Páginas vistas", short: "Páginas", color: "#60a5fa" },
+  { key: "searches", label: "Búsquedas", short: "Búsquedas", color: "#3b82f6" },
+  { key: "new_users", label: "Usuarios nuevos", short: "Usuarios", color: "#22d3ee" },
+  { key: "questions", label: "Preguntas a la IA", short: "Preguntas IA", color: "#a5c8ff" },
 ];
 const PROVIDER_COLORS = { xai: "var(--bh-accretion)", openai: "var(--bh-good)", gemini: "var(--bh-violet)", reglas: "var(--bh-faint)" };
 const DEVICE = [
@@ -93,25 +96,91 @@ function CostKpi({ cost, search, assistant }) {
   );
 }
 
+// Pendientes: total arriba y cada tarea con su ícono, qué hay que hacer y su número.
+// Las que tienen trabajo brillan; las que están al día se ven apagadas con un ✓.
 function Alerts({ pending }) {
   const items = [
-    { to: "/admin/solicitudes", label: "Solicitudes de negocios", value: pending?.claims },
-    { to: "/admin/resenas", label: "Reseñas por moderar", value: pending?.reviews },
-    { to: "/admin/resenas?estado=reported", label: "Reportes abiertos", value: pending?.reports },
-    { to: "/admin/duplicados", label: "Posibles duplicados", value: pending?.duplicates },
+    { to: "/admin/solicitudes", label: "Solicitudes de negocios", hint: "Llama, verifica y aprueba", icon: Store, value: pending?.claims },
+    { to: "/admin/resenas", label: "Reseñas por moderar", hint: "Publica o rechaza", icon: MessageSquareText, value: pending?.reviews },
+    { to: "/admin/resenas?estado=reported", label: "Reportes abiertos", hint: "Revisa lo que reportaron", icon: Flag, value: pending?.reports },
+    { to: "/admin/duplicados", label: "Posibles duplicados", hint: "Une o descarta pares", icon: Copy, value: pending?.duplicates },
   ];
+  const loaded = pending != null;
+  const total = items.reduce((s, it) => s + (it.value ?? 0), 0);
   return (
-    <ul className="bh-alerts">
-      {items.map((it) => (
-        <li key={it.to}>
-          <Link to={it.to} className={`bh-alert ${it.value ? "is-hot" : ""}`}>
-            <strong>{it.value ?? "–"}</strong>
-            <span>{it.value === 0 ? `${it.label} · al día` : it.label}</span>
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <div className="bh-todo">
+      <div className={`bh-todo-total ${loaded && total === 0 ? "is-done" : ""}`}>
+        {loaded && total === 0 ? (
+          <>
+            <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+            <div><strong>Todo al día</strong><span>No hay nada pendiente</span></div>
+          </>
+        ) : (
+          <>
+            <strong className="bh-num"><CountUp value={total} /></strong>
+            <div><strong>tareas pendientes</strong><span>en {items.filter((i) => i.value).length} secciones</span></div>
+          </>
+        )}
+      </div>
+      <ul className="bh-alerts">
+        {items.map(({ to, label, hint, icon: Icon, value }) => (
+          <li key={to}>
+            <Link to={to} className={`bh-alert ${value ? "is-hot" : "is-done"}`}>
+              <span className="bh-alert-icon"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+              <span className="bh-alert-text">
+                <b>{label}</b>
+                <small>{value ? hint : "Al día"}</small>
+              </span>
+              {value ? <strong className="bh-alert-count">{fmt(value)}</strong>
+                : <Check className="bh-alert-check h-4 w-4" aria-label="Al día" />}
+              <ChevronRight className="bh-alert-go h-4 w-4" aria-hidden="true" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Pulso: pestañas con el total de cada métrica, cifras del periodo y la gráfica con el periodo anterior
+function Pulse({ data, metric, setMetric }) {
+  const active = METRICS.find((m) => m.key === metric);
+  const values = data.series[metric];
+  const previous = data.series_prev?.[metric];
+  const total = values.reduce((a, b) => a + b, 0);
+  const prevTotal = previous ? previous.reduce((a, b) => a + b, 0) : undefined;
+  const best = values.reduce((b, v, i) => (v > values[b] ? i : b), 0);
+  const fmtDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+  return (
+    <>
+      <div className="bh-pulse-tabs" role="group" aria-label="Métrica">
+        {METRICS.map((m) => (
+          <button key={m.key} type="button" aria-pressed={metric === m.key} onClick={() => setMetric(m.key)}
+                  style={{ "--kc": m.color }}>
+            <i />
+            <span title={m.label}>{m.short}</span>
+            <b className="bh-num">{fmt(data.series[m.key].reduce((a, c) => a + c, 0))}</b>
+          </button>
+        ))}
+      </div>
+      <div className="bh-pulse-stats" style={{ "--kc": active.color }}>
+        <div className="is-main">
+          <span>Total del periodo</span>
+          <strong><CountUp value={total} /></strong>
+          {prevTotal !== undefined && <Delta value={total} previous={prevTotal} />}
+        </div>
+        <div><span>Promedio diario</span><strong>{(total / values.length).toLocaleString("es-CO", { maximumFractionDigits: 1 })}</strong></div>
+        <div><span>Mejor día</span><strong>{values[best] ? `${fmt(values[best])}` : "–"}</strong><small>{values[best] ? fmtDay(data.dates[best]) : ""}</small></div>
+        <div><span>Hoy</span><strong>{fmt(values.at(-1) ?? 0)}</strong></div>
+      </div>
+      <PulseChart dates={data.dates} values={values} previous={previous} label={active.label} color={active.color} />
+      {previous && (
+        <p className="bh-pulse-legend">
+          <span><i style={{ background: active.color }} />Este periodo</span>
+          <span><i className="is-prev" />Periodo anterior</span>
+        </p>
+      )}
+    </>
   );
 }
 
@@ -162,7 +231,6 @@ export default function AdminOverview() {
   const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
   // Sin elegir, la gráfica abre en la primera métrica con datos (las visitas se cuentan desde esta versión)
   const metric = chosenMetric ?? (METRICS.find((m) => series[m.key].some(Boolean)) ?? METRICS[0]).key;
-  const active = METRICS.find((m) => m.key === metric);
   const deviceTotal = DEVICE.reduce((s, d) => s + traffic.devices[d.key], 0);
   const aiItems = ai.usage.map((u) => ({ label: u.label, value: u.count, color: PROVIDER_COLORS[u.provider] ?? "var(--bh-faint)" }));
   const aiTotal = aiItems.reduce((s, i) => s + i.value, 0);
@@ -203,20 +271,12 @@ export default function AdminOverview() {
         </div>
 
         {/* ------------------------------ Pulso ------------------------------ */}
-        <Panel className="bh-span-8" eyebrow="Nº 002 · Pulso" title="Cómo se mueve la app"
-               action={(
-                 <div className="bh-tabs" role="group" aria-label="Métrica">
-                   {METRICS.map((m) => (
-                     <button key={m.key} type="button" aria-pressed={metric === m.key} onClick={() => setMetric(m.key)}>{m.label}</button>
-                   ))}
-                 </div>
-               )}>
-          <AreaChart dates={data.dates} values={series[metric]} label={active.label} color={active.color} />
+        <Panel className="bh-span-8" eyebrow="Nº 002 · Pulso" title="Cómo se mueve la app">
+          <Pulse data={data} metric={metric} setMetric={setMetric} />
         </Panel>
 
         <Panel className="bh-span-4" eyebrow="Nº 003 · Pendientes" title="Lo que te espera">
           <Alerts pending={overview?.pending} />
-          <p className="bh-note mt-3">Revisa las solicitudes pronto: cada negocio verificado es un posible cliente.</p>
         </Panel>
 
         {/* ------------------------------ Tráfico ------------------------------ */}

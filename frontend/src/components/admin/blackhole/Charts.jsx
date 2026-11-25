@@ -337,3 +337,86 @@ export function SparkArea({ values, color }) {
     </div>
   );
 }
+
+// Gráfica de pulso: curva suave con brillo y área degradada, el periodo anterior como línea punteada y, al pasar
+// el mouse (o tocar), un cursor con el valor del día y el del mismo día del periodo anterior.
+export function PulseChart({ dates, values, previous, label, color }) {
+  const id = useId();
+  const box = useRef(null);
+  const [hover, setHover] = useState(null);
+  const W = 800, H = 260, TOP = 14, BOTTOM = 232;
+  const prev = previous && previous.length === values.length ? previous : null;
+  const top = Math.max(4, ...values, ...(prev ?? []));
+  const step = top <= 8 ? 2 : Math.ceil(top / 4 / 5) * 5 || 1;
+  const nice = Math.ceil(top / step) * step;
+  const n = values.length;
+  const x = (i) => (n > 1 ? (i / (n - 1)) * W : W / 2);
+  const y = (v) => BOTTOM - (v / nice) * (BOTTOM - TOP);
+  const line = monotonePath(values.map((v, i) => [x(i), y(v)]));
+  const prevLine = prev ? monotonePath(prev.map((v, i) => [x(i), y(v)])) : null;
+  const ticks = [];
+  for (let t = 0; t <= nice; t += step) ticks.push(t);
+  const every = Math.max(1, Math.ceil(n / 6));
+
+  function onMove(e) {
+    const rect = box.current.getBoundingClientRect();
+    const rel = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(rel * (n - 1)));
+  }
+  const hx = hover !== null ? (x(hover) / W) * 100 : 0;
+  const fmtDay = (iso, opts) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO", opts);
+
+  return (
+    <div className="bh-pulse" style={{ "--kc": color }}>
+      <div className="bh-pulse-y" aria-hidden="true">
+        {ticks.slice().reverse().map((t) => <span key={t} style={{ top: `${(y(t) / H) * 100}%` }}>{fmt(t)}</span>)}
+      </div>
+      <div className="bh-pulse-plot" ref={box} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} por día`}>
+          <defs>
+            <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor={color} stopOpacity="0.34" />
+              <stop offset="0.55" stopColor={color} stopOpacity="0.08" />
+              <stop offset="1" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={`${id}-l`} x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stopColor={color} stopOpacity="0.55" />
+              <stop offset="0.85" stopColor={color} stopOpacity="1" />
+              <stop offset="1" stopColor="#ffffff" stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          {ticks.map((t) => (
+            <line key={t} x1="0" x2={W} y1={y(t)} y2={y(t)} className="bh-pulse-grid" vectorEffect="non-scaling-stroke" />
+          ))}
+          {prevLine && (
+            <path d={prevLine} fill="none" className="bh-pulse-prev" vectorEffect="non-scaling-stroke" />
+          )}
+          <path d={`${line} L${W},${BOTTOM} L0,${BOTTOM} Z`} fill={`url(#${id}-a)`} className="bh-pulse-area" />
+          <path d={line} fill="none" stroke={`url(#${id}-l)`} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" className="bh-pulse-line" />
+          {hover !== null && (
+            <line x1={x(hover)} x2={x(hover)} y1={TOP} y2={BOTTOM} className="bh-pulse-cursor" vectorEffect="non-scaling-stroke" />
+          )}
+        </svg>
+        <span className="bh-pulse-end" style={{ left: "100%", top: `${(y(values[n - 1] ?? 0) / H) * 100}%` }} />
+        {hover !== null && (
+          <>
+            <span className="bh-dot" style={{ left: `${hx}%`, top: `${(y(values[hover]) / H) * 100}%` }} />
+            <div className={`bh-tip ${hx > 68 ? "is-left" : ""}`} style={{ left: `${hx}%` }}>
+              <span>{fmtDay(dates[hover], { weekday: "long", day: "numeric", month: "long" })}</span>
+              <strong>{fmt(values[hover])} <small>{label.toLowerCase()}</small></strong>
+              {prev && <span className="bh-tip-prev">Periodo anterior: {fmt(prev[hover])}</span>}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="bh-pulse-x" aria-hidden="true">
+        {dates.map((d, i) => (i % every === 0 || i === n - 1 ? (
+          <span key={d} style={{ left: `${(x(i) / W) * 100}%` }} className={i === n - 1 ? "is-last" : ""}>
+            {i === n - 1 ? "Hoy" : fmtDay(d, { day: "numeric", month: "short" })}
+          </span>
+        ) : null))}
+      </div>
+    </div>
+  );
+}
