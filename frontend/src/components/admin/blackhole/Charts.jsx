@@ -12,11 +12,11 @@ const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO
 export function Delta({ value, previous }) {
   if (!previous) {
     if (!value) return <span className="bh-delta is-flat">sin cambio</span>;
-    return <span className="bh-delta is-up">nuevo</span>;
+    return <span className="bh-delta is-up">▲ nuevo</span>;
   }
   const pct = Math.round(((value - previous) / previous) * 100);
   const cls = pct > 0 ? "is-up" : pct < 0 ? "is-down" : "is-flat";
-  return <span className={`bh-delta ${cls}`}>{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>;
+  return <span className={`bh-delta ${cls}`}>{pct > 0 ? "▲ +" : pct < 0 ? "▼ −" : ""}{Math.abs(pct)}%</span>;
 }
 
 export function Sparkline({ values, color = "var(--bh-accretion)" }) {

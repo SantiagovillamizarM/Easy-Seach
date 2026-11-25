@@ -174,3 +174,85 @@
   background-color: #ffffff;
   box-shadow: 0 2px 6px #00000080;
 }
+
+/* ======================================================================================
+   Panel de administración: siempre oscuro, solo negros, azules y grises.
+   Mismo esquema que el modo oscuro, con los tokens de color cambiados a azul y los estados
+   (aprobado, pendiente, rechazado) en tonos de azul y gris: el texto de cada etiqueta dice el estado.
+   ====================================================================================== */
+.theme-scope.admin-scope[data-theme="dark"] {
+  --color-ink: #e7ecf6;
+  --color-ink-soft: #94a0b8;
+  --color-line: #9fb4dc1c;
+  --color-muted: #9fb4dc12;
+  --color-canvas: #05070c;
+  --color-brand-50: #3b82f61f;
+  --color-brand-100: #3b82f633;
+  --color-brand-200: #60a5fa59;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2f6fe4;
+  --color-brand-700: #93c5fd;
+  --color-open: #7dd3fc;
+  --color-open-bg: #38bdf81f;
+  --color-closed: #a9b4c8;
+  --color-closed-bg: #94a3b81f;
+  --color-warn: #bfdbfe;
+  --color-warn-bg: #60a5fa1f;
+  --color-warn-line: #60a5fa40;
+  --color-warn-soft: #60a5fa29;
+  --color-star: #93c5fd;
+
+  --surface-light: linear-gradient(165deg, #0d131f 0%, #0a0f19 60%, #080c14 100%);
+  --surface-ai: linear-gradient(160deg, #0f1a2e, #0b1322 60%, #0a1120);
+  --shadow-card: inset 0 1px 0 #ffffff0d, 0 24px 44px -30px #000;
+  --shadow-lift: inset 0 1px 0 #ffffff14, 0 24px 44px -24px #000, 0 0 34px -18px #3b82f6aa;
+
+  background: #03050a;
+}
+.admin-void {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  background:
+    radial-gradient(1px 1px at 12% 18%, #cfe0ff99, transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, #cfe0ff80, transparent 60%),
+    radial-gradient(1.2px 1.2px at 84% 42%, #cfe0ff70, transparent 60%),
+    radial-gradient(1px 1px at 32% 66%, #cfe0ff60, transparent 60%),
+    radial-gradient(1px 1px at 52% 88%, #cfe0ff70, transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 78%, #cfe0ff60, transparent 60%),
+    radial-gradient(1px 1px at 92% 76%, #cfe0ff80, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 75% 0%, #1e3a8a33, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 0% 100%, #0f2a5c2e, transparent 70%),
+    linear-gradient(180deg, #03050a, #050811 55%, #03050a);
+}
+.admin-scope[data-theme="dark"] .card-hover:hover { border-color: #60a5fa4d; }
+.admin-scope[data-theme="dark"] .btn-ghost:hover:not(:disabled) { border-color: #60a5fa4d; }
+.admin-scope[data-theme="dark"] .btn-primary {
+  background-image: linear-gradient(125deg, #1d4ed8, #2563eb 55%, #3b82f6);
+  box-shadow: 0 8px 20px -10px #3b82f6aa;
+}
+.admin-scope[data-theme="dark"] .input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px #3b82f62e; }
+.admin-scope[data-theme="dark"] .ai-surface { border-color: #60a5fa2e; }
+.admin-scope[data-theme="dark"] .workspace-heading {
+  background: radial-gradient(ellipse 45% 80% at 100% 0%, #3b82f62a, transparent 70%), var(--surface-light);
+}
+
+/* Encabezado sobre el panel de administración: acentos azules en lugar de violetas */
+.site-nav-admin {
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-200: #93c5fd;
+}
+.site-nav.site-nav-admin {
+  --color-brand-50: #3b82f61f;
+  --color-brand-100: #3b82f633;
+}
+.site-nav.site-nav-admin .btn-primary {
+  background-color: #2563eb;
+  background-image: linear-gradient(125deg, #1d4ed8, #2563eb 55%, #3b82f6);
+  box-shadow: 0 8px 20px -10px #3b82f6aa;
+}
+.site-nav.site-nav-admin .search-console:focus-within { border-color: #60a5fa; }

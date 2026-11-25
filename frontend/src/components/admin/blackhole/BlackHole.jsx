@@ -22,11 +22,11 @@ function makeParticles(count) {
 }
 
 function colorFor(r, alpha) {
-  // cerca del horizonte: blanco caliente; lejos: ámbar y luego cobre
+  // cerca del horizonte: blanco azulado muy caliente; lejos: azul y luego azul profundo
   const f = Math.min(1, (r - 1.25) / 2.35);
-  const red = 255;
-  const green = Math.round(236 - f * 120);
-  const blue = Math.round(214 - f * 170);
+  const red = Math.round(236 - f * 160);
+  const green = Math.round(244 - f * 110);
+  const blue = 255;
   return `rgba(${red},${green},${blue},${alpha})`;
 }
 
@@ -91,13 +91,13 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
       // estrellas lejanas
       for (const s of stars) {
         const a = 0.15 + 0.35 * Math.abs(Math.sin(time * 0.6 + s.p));
-        ctx.fillStyle = `rgba(230,225,255,${a * s.s})`;
+        ctx.fillStyle = `rgba(214,228,255,${a * s.s})`;
         ctx.fillRect(s.x * w, s.y * h, 1.2, 1.2);
       }
       // resplandor general
       const glow = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 4.2);
-      glow.addColorStop(0, `rgba(255,170,90,${0.16 * energy})`);
-      glow.addColorStop(0.45, `rgba(180,120,255,${0.07 * energy})`);
+      glow.addColorStop(0, `rgba(96,150,255,${0.16 * energy})`);
+      glow.addColorStop(0.45, `rgba(30,64,175,${0.08 * energy})`);
       glow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, w, h);
@@ -136,7 +136,7 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
       ctx.arc(cx, cy, R, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = `rgba(255,236,214,${0.55 + 0.35 * energy})`;
+      ctx.strokeStyle = `rgba(226,238,255,${0.55 + 0.35 * energy})`;
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.arc(cx, cy, R * 1.015, 0, Math.PI * 2);

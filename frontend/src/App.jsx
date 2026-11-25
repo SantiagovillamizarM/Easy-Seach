@@ -79,7 +79,7 @@ export default function App() {
         {/* Registrar un negocio nuevo: la solicitud llega al panel de administración para verificarla */}
         <Route path="registrar-negocio" element={<RequireAuth verified><ThemedPage><RegisterBusinessPage /></ThemedPage></RequireAuth>} />
         <Route path="panel/lugar/:id" element={<RequireAuth><ThemedPage><OwnerEditorPage /></ThemedPage></RequireAuth>} />
-        <Route path="admin" element={<RequireAuth><ThemedPage>{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
+        <Route path="admin" element={<RequireAuth><ThemedPage variant="admin">{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
           <Route index element={adminPage(AdminOverview)} />
           <Route path="resenas" element={adminPage(AdminReviews)} />
           <Route path="solicitudes" element={adminPage(AdminClaims)} />

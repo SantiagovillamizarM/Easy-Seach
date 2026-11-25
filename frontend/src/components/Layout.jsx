@@ -30,7 +30,9 @@ function Header() {
   // Páginas con tema en modo oscuro: el encabezado va oscuro sobre su fondo nocturno
   const { theme } = useTheme();
   const themed = isThemedRoute(pathname);
-  const themedDark = themed && theme === "dark";
+  // El panel de administración va siempre en oscuro (sin selector de tema)
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const themedDark = themed && (theme === "dark" || isAdmin);
   const dark = themedDark || (hasDarkHero && (overHero || !scrolled));
   const headerRef = useRef(null);
 
@@ -58,7 +60,7 @@ function Header() {
   return (
     <header
       ref={headerRef}
-      className={`site-nav ${themedDark ? "site-nav-on-dark" : ""} sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
+      className={`site-nav ${themedDark ? "site-nav-on-dark" : ""} ${isAdmin ? "site-nav-admin" : ""} sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
         dark
           ? scrolled
             ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)] backdrop-blur-md"
@@ -87,7 +89,7 @@ function Header() {
           <div className="flex-1" />
         )}
         {/* El selector aparece en las páginas que ya tienen modo oscuro */}
-        {themed && <ThemeToggle dark={dark} />}
+        {themed && !isAdmin && <ThemeToggle dark={dark} />}
         <Link
           to="/asistente"
           aria-label="Asistente"
