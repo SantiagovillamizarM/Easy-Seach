@@ -420,3 +420,106 @@ export function PulseChart({ dates, values, previous, label, color }) {
     </div>
   );
 }
+
+// Horas pico: celdas día × hora en escala de azules, franjas del día arriba, barra por día a la derecha,
+// histograma por hora abajo, y al pasar el mouse qué día/hora es y cuántos eventos tuvo.
+const DAYS_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const BANDS = [
+  { label: "Madrugada", from: 0 }, { label: "Mañana", from: 6 }, { label: "Tarde", from: 12 }, { label: "Noche", from: 18 },
+];
+export function PeakHeatmap({ grid }) {
+  const [hover, setHover] = useState(null);
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const max = Math.max(1, ...grid.flat());
+  const total = grid.flat().reduce((a, b) => a + b, 0);
+  const dayTotals = grid.map((row) => row.reduce((a, b) => a + b, 0));
+  const hourTotals = Array.from({ length: 24 }, (_, h) => grid.reduce((s, row) => s + row[h], 0));
+  const maxDay = Math.max(1, ...dayTotals), maxHour = Math.max(1, ...hourTotals);
+  let peak = { w: 1, h: 0, v: 0 };
+  grid.forEach((row, w) => row.forEach((v, h) => { if (v > peak.v) peak = { w, h, v }; }));
+  const bestDay = dayTotals.indexOf(Math.max(...dayTotals));
+  const bandTotals = BANDS.map((b) => hourTotals.slice(b.from, b.from + 6).reduce((a, c) => a + c, 0));
+  const bestBand = bandTotals.indexOf(Math.max(...bandTotals));
+  const pct = (v) => (total ? Math.round((v / total) * 100) : 0);
+  const level = (v) => (v ? Math.max(1, Math.ceil((v / max) * 4)) : 0);
+  const shown = hover ?? (peak.v ? { ...peak, isPeak: true } : null);
+
+  return (
+    <div className="bh-peak">
+      <div className="bh-peak-chips">
+        <div><span>Hora pico</span><strong>{peak.v ? `${peak.h}:00` : "–"}</strong><small>{peak.v ? DAYS_LONG[peak.w] : "sin datos"}</small></div>
+        <div><span>Día más activo</span><strong>{total ? DAYS_LONG[bestDay].slice(0, 3) : "–"}</strong><small>{total ? `${pct(dayTotals[bestDay])}% de la actividad` : "sin datos"}</small></div>
+        <div><span>Franja más activa</span><strong>{total ? BANDS[bestBand].label : "–"}</strong><small>{total ? `${pct(bandTotals[bestBand])}% de la actividad` : "sin datos"}</small></div>
+      </div>
+      <div className="bh-peak-scroll">
+        <div className="bh-peak-grid" onPointerLeave={() => setHover(null)}>
+          <span />
+          {BANDS.map((b, i) => (
+            <span key={b.label} className={`bh-peak-band ${i === bestBand && total ? "is-best" : ""}`} style={{ gridColumn: `${b.from + 2} / span 6` }}>
+              {b.label}
+            </span>
+          ))}
+          <span />
+          {order.map((w) => (
+            <div key={w} className="bh-peak-row">
+              <span className="bh-peak-day">{DAYS_LONG[w].slice(0, 3)}</span>
+              {grid[w].map((v, h) => {
+                const isPeak = peak.v > 0 && w === peak.w && h === peak.h;
+                return (
+                  <span key={h} className={`bh-peak-cell l${level(v)} ${isPeak ? "is-peak" : ""} ${hover && hover.w === w && hover.h === h ? "is-hover" : ""}`}
+                        onPointerEnter={() => setHover({ w, h, v })} aria-label={`${DAYS_LONG[w]} ${h}:00, ${v} eventos`} />
+                );
+              })}
+              <span className="bh-peak-daybar"><i style={{ width: `${(dayTotals[w] / maxDay) * 68}%` }} /><b>{fmt(dayTotals[w])}</b></span>
+            </div>
+          ))}
+          <span />
+          {hourTotals.map((v, h) => (
+            <span key={h} className="bh-peak-hour">
+              <i style={{ height: `${Math.max(v ? 12 : 4, (v / maxHour) * 100)}%` }} className={v === maxHour && v ? "is-best" : ""} />
+              <small>{h % 3 === 0 ? h : ""}</small>
+            </span>
+          ))}
+          <span />
+        </div>
+      </div>
+      <div className="bh-peak-foot">
+        <p aria-live="polite">
+          {shown
+            ? <>{shown.isPeak ? "Hora pico: " : ""}<strong>{DAYS_LONG[shown.w]} {shown.h}:00–{shown.h + 1}:00</strong> · {fmt(shown.v)} {shown.v === 1 ? "evento" : "eventos"}</>
+            : "Todavía no hay actividad en este periodo."}
+        </p>
+        <span className="bh-peak-legend">Menos <i className="l1" /><i className="l2" /><i className="l3" /><i className="l4" /> Más</span>
+      </div>
+    </div>
+  );
+}
+
+// Anillo segmentado: un arco por parte, con separación y brillo; en el centro la parte principal
+export function SegmentRing({ items, label }) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const R = 40, C = 2 * Math.PI * R, GAP = total && items.filter((i) => i.value).length > 1 ? 3 : 0;
+  const top = items.reduce((a, b) => (b.value > a.value ? b : a), items[0]);
+  let offset = 0;
+  return (
+    <div className="bh-segring">
+      <svg viewBox="0 0 100 100" role="img" aria-label={items.map((i) => `${i.label}: ${i.value}`).join(", ")}>
+        <circle cx="50" cy="50" r={R} className="bh-segring-track" />
+        {total > 0 && items.filter((i) => i.value > 0).map((it) => {
+          const len = (it.value / total) * C;
+          const el = (
+            <circle key={it.label} cx="50" cy="50" r={R} fill="none" stroke={it.color} strokeWidth="9" strokeLinecap="round"
+                    strokeDasharray={`${Math.max(len - GAP, 0.1)} ${C}`} strokeDashoffset={-offset - GAP / 2}
+                    transform="rotate(-90 50 50)" style={{ filter: `drop-shadow(0 0 4px ${it.color})` }} />
+          );
+          offset += len;
+          return el;
+        })}
+      </svg>
+      <div className="bh-segring-center">
+        <strong>{total ? `${Math.round((top.value / total) * 100)}%` : "–"}</strong>
+        <span>{total ? top.label.toLowerCase() : label}</span>
+      </div>
+    </div>
+  );
+}

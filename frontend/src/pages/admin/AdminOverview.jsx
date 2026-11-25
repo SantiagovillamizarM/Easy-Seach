@@ -1,10 +1,11 @@
 import {
-  ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Search, Store, UserPlus, Users,
+  ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Monitor, Search, Smartphone,
+  Store, Tablet, UserPlus, Users,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarList, CountUp, Delta, DotHeatmap, Donut, Funnel, PulseChart, RadialRing, SparkArea, WordCloud, fmt, fmtUsd,
+  BarList, CountUp, Delta, Donut, Funnel, PeakHeatmap, PulseChart, SegmentRing, SparkArea, WordCloud, fmt, fmtUsd,
 } from "../../components/admin/blackhole/Charts.jsx";
 import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -25,9 +26,9 @@ const METRICS = [
 ];
 const PROVIDER_COLORS = { xai: "var(--bh-accretion)", openai: "var(--bh-good)", gemini: "var(--bh-violet)", reglas: "var(--bh-faint)" };
 const DEVICE = [
-  { key: "mobile", label: "Celular", color: "var(--bh-accretion)" },
-  { key: "desktop", label: "Computador", color: "var(--bh-violet)" },
-  { key: "tablet", label: "Tableta", color: "var(--bh-pink)" },
+  { key: "mobile", label: "Celular", icon: Smartphone, color: "#7dd3fc" },
+  { key: "desktop", label: "Computador", icon: Monitor, color: "#3b82f6" },
+  { key: "tablet", label: "Tableta", icon: Tablet, color: "#a5c8ff" },
 ];
 const SECTION_LABEL = {
   inicio: "Inicio", buscar: "Resultados", lugar: "Página de un negocio", asistente: "Asistente IA", perfil: "Perfil",
@@ -184,6 +185,60 @@ function Pulse({ data, metric, setMetric }) {
   );
 }
 
+// Tráfico: anillo por dispositivo, tarjetitas con su cantidad, fuentes de visitas y quién entra con sesión
+function Traffic({ traffic }) {
+  const total = DEVICE.reduce((sum, d) => sum + traffic.devices[d.key], 0);
+  const share = (v) => (total ? Math.round((v / total) * 100) : 0);
+  const sources = traffic.referrers;
+  const maxSource = Math.max(1, ...sources.map((r) => r.count));
+  const logged = traffic.logged_in_pct;
+  return (
+    <div className="bh-traffic">
+      <div className="bh-traffic-devices">
+        <SegmentRing items={DEVICE.map((d) => ({ label: d.label, value: traffic.devices[d.key], color: d.color }))} label="sin visitas" />
+        <ul>
+          {DEVICE.map(({ key, label, icon: Icon, color }) => (
+            <li key={key} style={{ "--kc": color }}>
+              <span className="bh-traffic-icon"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+              <span className="bh-traffic-name">{label}</span>
+              <b className="bh-num">{fmt(traffic.devices[key])}</b>
+              <small>{share(traffic.devices[key])}%</small>
+              <i className="bh-traffic-bar"><em style={{ width: `${share(traffic.devices[key])}%` }} /></i>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="bh-eyebrow">De dónde llegan</p>
+      {sources.length ? (
+        <ul className="bh-sources">
+          {sources.map((r) => {
+            const name = r.source === "directo" ? "Directo o WhatsApp" : r.source;
+            return (
+              <li key={r.source}>
+                <span className="bh-source-badge">{r.source === "directo" ? "↗" : name[0].toUpperCase()}</span>
+                <span className="bh-source-name">{name}</span>
+                <b className="bh-num">{fmt(r.count)}</b>
+                <i className="bh-traffic-bar"><em style={{ width: `${(r.count / maxSource) * 100}%` }} /></i>
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p className="bh-note">Sin visitas registradas todavía.</p>}
+
+      <div className="bh-session">
+        <div className="bh-session-bar" role="img" aria-label={`Con sesión ${logged}%, sin sesión ${100 - logged}%`}>
+          <i style={{ width: `${logged}%` }} />
+        </div>
+        <div className="bh-session-legend">
+          <span><b className="is-in" />Con sesión <strong>{logged}%</strong></span>
+          <span><b />Sin sesión <strong>{Math.round((100 - logged) * 10) / 10}%</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Ticker({ feed }) {
   if (!feed.length) return null;
   const KIND = { usuario: "USR", busqueda: "BUS", solicitud: "SOL", resena: "RES" };
@@ -231,7 +286,6 @@ export default function AdminOverview() {
   const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
   // Sin elegir, la gráfica abre en la primera métrica con datos (las visitas se cuentan desde esta versión)
   const metric = chosenMetric ?? (METRICS.find((m) => series[m.key].some(Boolean)) ?? METRICS[0]).key;
-  const deviceTotal = DEVICE.reduce((s, d) => s + traffic.devices[d.key], 0);
   const aiItems = ai.usage.map((u) => ({ label: u.label, value: u.count, color: PROVIDER_COLORS[u.provider] ?? "var(--bh-faint)" }));
   const aiTotal = aiItems.reduce((s, i) => s + i.value, 0);
   const claims = business.claims;
@@ -281,24 +335,11 @@ export default function AdminOverview() {
 
         {/* ------------------------------ Tráfico ------------------------------ */}
         <Panel className="bh-span-7" eyebrow="Nº 004 · Horas pico" title="Cuándo entra la gente">
-          <DotHeatmap grid={traffic.heatmap} />
+          <PeakHeatmap grid={traffic.heatmap} />
         </Panel>
 
         <Panel className="bh-span-5" eyebrow="Nº 005 · Tráfico" title="Desde dónde llegan">
-          <div className="grid items-center gap-4 sm:grid-cols-2">
-            <RadialRing items={DEVICE.map((d) => ({ label: d.label, value: traffic.devices[d.key], color: d.color }))}
-                        center={`${deviceTotal ? Math.round((traffic.devices.mobile / deviceTotal) * 100) : 0}%`} sub="desde celular" />
-            <div className="space-y-4">
-              <ul className="bh-legend">
-                {DEVICE.map((d) => (
-                  <li key={d.key}><i style={{ background: d.color }} /><span>{d.label}</span><span className="bh-num">{fmt(traffic.devices[d.key])}</span></li>
-                ))}
-              </ul>
-              <BarList items={traffic.referrers.map((r) => ({ label: r.source === "directo" ? "Directo o WhatsApp" : r.source, value: r.count }))}
-                       empty="Sin visitas registradas todavía." />
-            </div>
-          </div>
-          <p className="bh-note mt-3">Con sesión iniciada: <strong>{traffic.logged_in_pct}%</strong> de las páginas vistas.</p>
+          <Traffic traffic={traffic} />
         </Panel>
 
         {/* ------------------------------ Usuarios ------------------------------ */}
