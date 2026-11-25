@@ -144,6 +144,8 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
       for (const p of particles) drawParticle(p, cx, cy, R, energy, true);
       ctx.globalCompositeOperation = "source-over";
 
+      // Primer cuadro dibujado: el canvas se enciende con un fundido (bh-canvas en black-hole.css)
+      if (!canvas.dataset.ready) canvas.dataset.ready = "1";
       if (!reduce && visible) raf = requestAnimationFrame(frame);
     }
 
@@ -175,5 +177,5 @@ export default function BlackHole({ intensity = 0.5, className = "" }) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={`bh-canvas ${className}`} aria-hidden="true" />;
 }

@@ -41,7 +41,8 @@ const AdminSearchStats = lazy(() => import("./pages/admin/AdminSearchStats.jsx")
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories.jsx"));
 
 const adminPage = (Page) => (
-  <Suspense fallback={<p className="py-10 text-sm text-ink-soft">Cargando…</p>}>
+  // Sin texto de "Cargando…": el espacio se reserva y la sección aparece con un fundido suave
+  <Suspense fallback={<div className="min-h-[60vh]" aria-busy="true" />}>
     <Page />
   </Suspense>
 );

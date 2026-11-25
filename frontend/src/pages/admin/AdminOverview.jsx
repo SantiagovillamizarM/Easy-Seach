@@ -101,6 +101,22 @@ function Ticker({ feed }) {
   );
 }
 
+// Esqueleto con la forma del dashboard: mientras llegan los datos no hay saltos ni textos de "cargando"
+function DashboardSkeleton() {
+  return (
+    <div className="bh" aria-busy="true" aria-label="Cargando el panel">
+      <div className="bh-grid-layout bh-skeleton-grid">
+        <div className="bh-ghost bh-span-12" style={{ height: 360 }} />
+        <div className="bh-kpis bh-span-12">
+          {Array.from({ length: 6 }, (_, i) => <div key={i} className="bh-ghost" style={{ height: 118 }} />)}
+        </div>
+        <div className="bh-ghost bh-span-8" style={{ height: 380 }} />
+        <div className="bh-ghost bh-span-4" style={{ height: 380 }} />
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOverview() {
   const { user } = useAuth();
   const [days, setDays] = useState(30);
@@ -109,7 +125,7 @@ export default function AdminOverview() {
   const { data: overview } = useApiData((opts) => api.admin.overview(opts), []);
 
   if (error) return <ErrorBox message={error} />;
-  if (!data) return <div className="bh-skeleton" aria-busy="true">Cruzando el horizonte de eventos…</div>;
+  if (!data) return <DashboardSkeleton />;
 
   const { kpis, series, traffic, users, search, ai, business, content } = data;
   const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
@@ -125,8 +141,8 @@ export default function AdminOverview() {
   const pendingClaims = (claims.claim_pending ?? 0) + (claims.register_pending ?? 0);
 
   return (
-    <div className={`bh ${loading ? "opacity-80" : ""}`}>
-      <div className="bh-grid-layout">
+    <div className={`bh ${loading ? "is-refreshing" : ""}`}>
+      <div className="bh-grid-layout bh-reveal">
         {/* ------------------------------ Hero ------------------------------ */}
         <section className="bh-hero bh-span-12" aria-labelledby="bh-title">
           <BlackHole intensity={intensity} className="bh-hero-canvas" />

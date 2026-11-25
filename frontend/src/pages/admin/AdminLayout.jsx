@@ -1,6 +1,6 @@
 import { BarChart3, Copy, LayoutDashboard, MessageSquareWarning, ShieldAlert, Store, Tags, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { api } from "../../lib/api.js";
 
@@ -19,6 +19,7 @@ export default function AdminLayout() {
   const { user, updateUser } = useAuth();
   const [pending, setPending] = useState(null);
   const [roleChecked, setRoleChecked] = useState(false);
+  const { pathname } = useLocation();
 
   // Se confirma el rol con el servidor (el guardado en el navegador podría estar desactualizado).
   // La seguridad real está en el backend: todas las rutas /api/admin exigen rol admin.
@@ -60,7 +61,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="admin-enter mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[220px_minmax(0,1fr)]">
       <nav aria-label="Secciones del panel administrativo" className="card p-2 lg:sticky lg:top-24 lg:self-start">
         <p className="mb-2 hidden px-3 text-xs font-bold uppercase tracking-wide text-ink-soft lg:block">Administración</p>
         <ul className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-1">
@@ -91,7 +92,8 @@ export default function AdminLayout() {
           })}
         </ul>
       </nav>
-      <div className="min-w-0">
+      {/* Cada sección entra con un fundido corto al cambiar de pestaña */}
+      <div key={pathname} className="admin-page-enter min-w-0">
         <Outlet />
       </div>
     </div>

@@ -294,3 +294,50 @@
   .bh-ticker-track { animation: none; flex-wrap: wrap; white-space: normal; }
   .bh-heat-cell i { transition: none; }
 }
+
+/* ------------------------------ Carga suave ------------------------------ */
+/* Esqueleto: bloques con un brillo azul que pasa despacio */
+.bh-ghost {
+  border-radius: 22px;
+  border: 1px solid var(--bh-line);
+  background:
+    linear-gradient(100deg, transparent 20%, rgba(96, 165, 250, 0.07) 45%, transparent 70%) 0 0 / 220% 100%,
+    linear-gradient(160deg, rgba(18, 28, 46, 0.6), rgba(9, 14, 24, 0.55));
+  animation: bh-shimmer 2.2s ease-in-out infinite, bh-fade-in 0.6s ease-out both;
+}
+@keyframes bh-shimmer { from { background-position: 120% 0, 0 0; } to { background-position: -120% 0, 0 0; } }
+
+/* Contenido: cada panel entra con un fundido y sube un poco, uno tras otro */
+.bh-reveal > * { animation: bh-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.bh-reveal > :nth-child(1) { animation-delay: 0ms; }
+.bh-reveal > :nth-child(2) { animation-delay: 90ms; }
+.bh-reveal > :nth-child(3) { animation-delay: 170ms; }
+.bh-reveal > :nth-child(4) { animation-delay: 230ms; }
+.bh-reveal > :nth-child(5) { animation-delay: 290ms; }
+.bh-reveal > :nth-child(6) { animation-delay: 340ms; }
+.bh-reveal > :nth-child(7) { animation-delay: 390ms; }
+.bh-reveal > :nth-child(8) { animation-delay: 430ms; }
+.bh-reveal > :nth-child(9) { animation-delay: 470ms; }
+.bh-reveal > :nth-child(10) { animation-delay: 510ms; }
+.bh-reveal > :nth-child(n + 11) { animation-delay: 550ms; }
+.bh-kpis > * { animation: bh-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.bh-kpis > :nth-child(2) { animation-delay: 140ms; }
+.bh-kpis > :nth-child(3) { animation-delay: 180ms; }
+.bh-kpis > :nth-child(4) { animation-delay: 220ms; }
+.bh-kpis > :nth-child(5) { animation-delay: 260ms; }
+.bh-kpis > :nth-child(6) { animation-delay: 300ms; }
+@keyframes bh-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes bh-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* El agujero negro se enciende despacio */
+.bh-canvas { opacity: 0; transition: opacity 1.6s ease-out; }
+.bh-canvas[data-ready] { opacity: 1; }
+
+/* Al cambiar de periodo no se borra nada: se atenúa mientras llegan los datos nuevos */
+.bh { transition: opacity 0.35s ease; }
+.bh.is-refreshing { opacity: 0.55; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bh-ghost, .bh-reveal > *, .bh-kpis > * { animation: none; }
+  .bh-canvas { transition: none; }
+}
