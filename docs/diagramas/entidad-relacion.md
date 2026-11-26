@@ -1,11 +1,11 @@
 # Diagramas entidad-relación
 
-Generado desde la base de datos real con `backend/scripts/generar_diagrama_er.py` el 2026-11-20.
+Generado desde la base de datos real con `backend/scripts/generar_diagrama_er.py` el 2026-11-25.
 Base de datos: PostgreSQL 16 + pgvector. Esquema administrado con migraciones de Alembic.
 
 Convenciones: **PK** llave primaria, **FK** llave foránea, **UK** valor único. `||--o{` uno a muchos, `||--o|` uno a uno, `|o` el padre es opcional (la columna admite nulo).
 
-Total: 20 tablas y 33 relaciones.
+Total: 21 tablas y 34 relaciones.
 
 ## Catálogo de negocios y búsqueda semántica
 
@@ -138,7 +138,7 @@ erDiagram
 
 ## Usuarios e interacción
 
-Cuentas, favoritos, historial de búsqueda, reseñas, reportes, solicitudes de propiedad y duplicados.
+Cuentas, favoritos, historial de búsqueda, reseñas, reportes, solicitudes de negocios, duplicados y las visitas anónimas a la web (analítica propia).
 
 ```mermaid
 erDiagram
@@ -214,6 +214,11 @@ erDiagram
         varchar review_note
         timestamptz created_at
         timestamptz updated_at
+        varchar kind
+        varchar applicant_role
+        varchar applicant_position
+        jsonb proposed_data
+        timestamptz consent_at
     }
     duplicate_dismissals {
         int id PK
@@ -221,6 +226,17 @@ erDiagram
         int establishment_b_id FK
         int dismissed_by_id FK
         timestamptz created_at
+    }
+    page_views {
+        bigint id PK
+        timestamptz created_at
+        varchar section
+        varchar path
+        int establishment_id FK
+        varchar visitor_hash
+        varchar device
+        varchar referrer
+        bool is_logged_in
     }
     establishments {
         int id PK "ver su módulo"
@@ -230,9 +246,10 @@ erDiagram
     establishments ||--o{ duplicate_dismissals : "establishment_b_id"
     establishments ||--o{ favorites : "establishment_id"
     users ||--o{ favorites : "user_id"
-    establishments ||--o{ ownership_claims : "establishment_id"
+    establishments |o--o{ ownership_claims : "establishment_id"
     users |o--o{ ownership_claims : "reviewed_by_id"
     users ||--o{ ownership_claims : "user_id"
+    establishments |o--o{ page_views : "establishment_id"
     establishments |o--o{ reports : "establishment_id"
     users |o--o{ reports : "reporter_id"
     users |o--o{ reports : "resolved_by_id"

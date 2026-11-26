@@ -31,6 +31,8 @@ que no entendía y aprobó cada commit; todos los commits del repositorio son su
 | Claude Code (Anthropic, modelo Claude Opus), extensión de VS Code | Asistente de programación | Análisis del enunciado, propuestas de arquitectura, generación y revisión de código, pruebas automatizadas, verificaciones con la app real y documentación |
 | Google Gemini (chat) | Asistente conversacional | Consultas puntuales del autor, entre ellas si Gemini podía reemplazar a OpenRouter |
 | Google Gemini API (`gemini-2.5-flash-lite`, respaldo `gemini-2.5-flash`) | **Componente del producto**, no herramienta de desarrollo | Interpreta las búsquedas, redacta recomendaciones y responde en el asistente RAG, siempre con datos de la base |
+| xAI API (Grok, `grok-4.7`, configurable) | **Componente del producto** (opcional, de pago, IA principal) | Misma API que OpenAI (Chat Completions con JSON estricto): interpreta las búsquedas, redacta recomendaciones, modera reseñas y responde en el asistente RAG; razonamiento en esfuerzo bajo; OpenAI y Gemini de respaldo |
+| OpenAI API (`gpt-4.1-mini`, configurable) | **Componente del producto** (opcional, de pago) | Con clave configurada interpreta las búsquedas, redacta recomendaciones, modera reseñas y responde en el asistente RAG (n8n), con salida JSON estricta; Gemini queda de respaldo automático y las reglas como último plan B |
 | multilingual-e5-small (sentence-transformers) | **Componente del producto** | Genera los embeddings guardados en pgvector para la búsqueda semántica y el asistente |
 
 ## 3. Forma de trabajo
@@ -77,6 +79,8 @@ indicaciones del autor. El detalle de lo construido, lo verificado y los problem
 | Datos de OpenStreetMap + carga manual | Solo carga manual | Daba datos reales de miles de negocios desde el inicio |
 | Embeddings locales con multilingual-e5-small | API de embeddings de pago | Gratis, en español y sin depender de cuotas externas |
 | Gemini detrás de una interfaz intercambiable | Atar el código a un proveedor | Permite cambiar de proveedor de IA sin tocar la búsqueda |
+| Control de costos de OpenAI: tope de tokens por respuesta (300 interpretación, 900 recomendaciones, 150 moderación, 800 asistente) y cupo diario por usuario (40 búsquedas y 25 preguntas; después Gemini) | Sin límites o bloquear al usuario al agotar el cupo | Medido con el tokenizador de OpenAI: una búsqueda ≈ 1.000 tokens de entrada y 520 de salida (≈ US$ 0,0016) y una pregunta ≈ 1.100 y 500 (≈ US$ 0,0013) con gpt-4.1-mini; el peor caso por usuario queda en ≈ US$ 0,10 al día y nadie se queda sin servicio |
+| Cadena OpenAI → Gemini → reglas (FastAPI) y OpenAI → Gemini → Gemini respaldo (asistente en n8n) | Reemplazar Gemini por OpenAI | El autor tenía API de pago de OpenAI y quería respuestas más precisas; la cadena mantiene el servicio si se acaba el saldo o un proveedor cae, y Gemini (aprobado por el profesor) sigue siempre disponible. El prompt del asistente se reforzó para razonar la necesidad real y comparar opciones con datos de las fichas |
 | `gemini-2.5-flash-lite` | Otros modelos de Gemini | Pruebas reales: el más rápido que interpretaba bien (1,3 s) |
 | Búsqueda híbrida (vectorial + texto completo) | Solo búsqueda vectorial | Los nombres propios y las palabras exactas se encuentran mejor con texto completo |
 | Validar las respuestas de la IA contra los datos | Confiar en el prompt | Se eliminan precios, horas o calificaciones que la IA no saque de la base |

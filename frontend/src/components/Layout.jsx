@@ -1,6 +1,8 @@
 import { Bot } from "lucide-react";
-import { Suspense, useLayoutEffect, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { trackPageview } from "../lib/analytics.js";
 import { useOverDarkHero, useScrolled } from "../lib/motion.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import Logo from "./Logo.jsx";
@@ -10,7 +12,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import UserMenu from "./UserMenu.jsx";
 
 // Páginas con modo claro/oscuro (selector sol/luna en el encabezado). El resto, por ahora, solo en claro.
-const THEMED_PREFIXES = ["/buscar", "/asistente", "/lugar/", "/perfil", "/favoritos", "/historial", "/panel", "/admin"];
+const THEMED_PREFIXES = ["/buscar", "/asistente", "/lugar/", "/perfil", "/favoritos", "/historial", "/panel", "/admin", "/registrar-negocio"];
 const isThemedRoute = (pathname) => THEMED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`));
 
 // Páginas que empiezan con un fondo nocturno (data-dark-hero)
@@ -28,7 +30,9 @@ function Header() {
   // Páginas con tema en modo oscuro: el encabezado va oscuro sobre su fondo nocturno
   const { theme } = useTheme();
   const themed = isThemedRoute(pathname);
-  const themedDark = themed && theme === "dark";
+  // El panel de administración va siempre en oscuro (sin selector de tema)
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const themedDark = themed && (theme === "dark" || isAdmin);
   const dark = themedDark || (hasDarkHero && (overHero || !scrolled));
   const headerRef = useRef(null);
 
@@ -56,7 +60,7 @@ function Header() {
   return (
     <header
       ref={headerRef}
-      className={`site-nav ${themedDark ? "site-nav-on-dark" : ""} sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
+      className={`site-nav ${themedDark ? "site-nav-on-dark" : ""} ${isAdmin ? "site-nav-admin" : ""} sticky top-0 z-[1000] border-b transition-[background-color,border-color,box-shadow] duration-300 ease-[var(--ease-out-soft)] ${
         dark
           ? scrolled
             ? "border-white/10 bg-night/80 shadow-[0_4px_24px_rgb(0_0_0/0.25)] backdrop-blur-md"
@@ -85,7 +89,7 @@ function Header() {
           <div className="flex-1" />
         )}
         {/* El selector aparece en las páginas que ya tienen modo oscuro */}
-        {themed && <ThemeToggle dark={dark} />}
+        {themed && !isAdmin && <ThemeToggle dark={dark} />}
         <Link
           to="/asistente"
           aria-label="Asistente"
@@ -120,6 +124,11 @@ function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-xs sm:flex-row sm:justify-between">
         <p>© {new Date().getFullYear()} Easy Search · Búsqueda inteligente en el área metropolitana de Bucaramanga</p>
         <p>
+          <Link to="/registrar-negocio" className="font-semibold text-white/85 underline decoration-white/30 underline-offset-2 hover:text-white">
+            ¿Tienes un negocio? Regístralo gratis
+          </Link>
+        </p>
+        <p>
           Datos de lugares ©{" "}
           <a className="underline decoration-white/30 underline-offset-2 hover:text-white" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
             colaboradores de OpenStreetMap
@@ -133,6 +142,13 @@ function Footer() {
 
 export default function Layout() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const loggedIn = Boolean(user);
+
+  // Una visita por cada página que se abre (anónima; el panel de administración no se cuenta)
+  useEffect(() => {
+    trackPageview(pathname, loggedIn);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex min-h-screen flex-col">
       <Header />

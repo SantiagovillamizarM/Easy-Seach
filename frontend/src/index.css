@@ -442,6 +442,25 @@
   font-family: var(--font-sans);
 }
 
+/* Trancón en el mapa del lugar: tramo en rojo que late suave y etiqueta fija con la vía y la demora */
+.es-jam-line { animation: es-jam-pulse 1.4s ease-in-out infinite alternate; }
+@keyframes es-jam-pulse { from { stroke-opacity: 0.95; } to { stroke-opacity: 0.55; } }
+.leaflet-tooltip.es-jam-label {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 9999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px -4px rgb(220 38 38 / 0.7);
+}
+.leaflet-tooltip-top.es-jam-label::before { border-top-color: #dc2626; }
+@media (prefers-reduced-motion: reduce) {
+  .es-jam-line { animation: none; }
+}
+
 /* ============================================================
    Revelado al entrar en pantalla
    El estado oculto solo existe si el script activó "js-motion" en <html>:

@@ -19,10 +19,18 @@ class TrafficRequest(BaseModel):
     longitude: float = Field(ge=-180, le=180)
 
 
+class JamOut(BaseModel):
+    street: str | None              # vía donde está el trancón (para la etiqueta del mapa)
+    delay_minutes: int
+    points: list[list[float]]       # trazado del tramo: [[lat, lng], …]
+
+
 class TrafficOut(BaseModel):
     delay_min: int
     delay_max: int
     streets: list[str]
+    route: list[list[float]] = []   # ruta del local a la zona del usuario (simplificada)
+    jams: list[JamOut] = []         # tramos con trancón, para marcarlos en rojo en el mapa
 
 
 class TrafficResponse(BaseModel):

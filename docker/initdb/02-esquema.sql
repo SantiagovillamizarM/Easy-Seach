@@ -1,5 +1,5 @@
 -- Easy Search: esquema completo de la base de datos (PostgreSQL 16 + pgvector).
--- Generado con scripts/exportar_sql_inicial.py el 2026-11-20 11:11.
+-- Generado con scripts/exportar_sql_inicial.py el 2026-11-25 06:32.
 -- Lo ejecuta PostgreSQL solo la primera vez que se crea la base (docker/initdb).
 -- Incluye la versión de Alembic: al arrancar, `alembic upgrade head` no tiene nada que aplicar.
 
@@ -7,7 +7,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kVFWHZ7EkdLzrbYl1J7KkAgj8FqRBgCiHAQ96Fc1lWQYoSe7LhOsXFQCWMqCH8o
+\restrict 97FofZgjdBbObIsFrDEcUglTrZuQ8bDoq3dHB6GwhzytSwpGdkf2xTrBwUnez6B
 
 -- Dumped from database version 16.15 (Debian 16.15-1.pgdg12+2)
 -- Dumped by pg_dump version 16.15 (Debian 16.15-1.pgdg12+2)
@@ -478,7 +478,7 @@ ALTER SEQUENCE public.opening_hours_id_seq OWNED BY public.opening_hours.id;
 
 CREATE TABLE public.ownership_claims (
     id integer NOT NULL,
-    establishment_id integer NOT NULL,
+    establishment_id integer,
     user_id integer NOT NULL,
     message text,
     contact_phone character varying(50),
@@ -488,6 +488,15 @@ CREATE TABLE public.ownership_claims (
     review_note character varying(300),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    kind character varying(20) DEFAULT 'claim'::character varying NOT NULL,
+    applicant_role character varying(20),
+    applicant_position character varying(100),
+    proposed_data jsonb,
+    consent_at timestamp with time zone,
+    CONSTRAINT ck_ownership_claims_applicant_role_valid CHECK (((applicant_role IS NULL) OR ((applicant_role)::text = ANY ((ARRAY['dueno'::character varying, 'encargado'::character varying])::text[])))),
+    CONSTRAINT ck_ownership_claims_claim_has_establishment CHECK ((((kind)::text = 'register'::text) OR (establishment_id IS NOT NULL))),
+    CONSTRAINT ck_ownership_claims_kind_valid CHECK (((kind)::text = ANY ((ARRAY['claim'::character varying, 'register'::character varying])::text[]))),
+    CONSTRAINT ck_ownership_claims_register_has_data CHECK ((((kind)::text = 'claim'::text) OR (proposed_data IS NOT NULL))),
     CONSTRAINT ck_ownership_claims_status_valid CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[])))
 );
 
@@ -510,6 +519,43 @@ CREATE SEQUENCE public.ownership_claims_id_seq
 --
 
 ALTER SEQUENCE public.ownership_claims_id_seq OWNED BY public.ownership_claims.id;
+
+
+--
+-- Name: page_views; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.page_views (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    section character varying(30) NOT NULL,
+    path character varying(200) NOT NULL,
+    establishment_id integer,
+    visitor_hash character varying(32) NOT NULL,
+    device character varying(10) NOT NULL,
+    referrer character varying(100),
+    is_logged_in boolean DEFAULT false NOT NULL,
+    CONSTRAINT ck_page_views_device_valid CHECK (((device)::text = ANY ((ARRAY['mobile'::character varying, 'tablet'::character varying, 'desktop'::character varying])::text[])))
+);
+
+
+--
+-- Name: page_views_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.page_views_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: page_views_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.page_views_id_seq OWNED BY public.page_views.id;
 
 
 --
@@ -865,6 +911,13 @@ ALTER TABLE ONLY public.ownership_claims ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: page_views id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.page_views ALTER COLUMN id SET DEFAULT nextval('public.page_views_id_seq'::regclass);
+
+
+--
 -- Name: places id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1023,6 +1076,14 @@ ALTER TABLE ONLY public.opening_hours
 
 ALTER TABLE ONLY public.ownership_claims
     ADD CONSTRAINT pk_ownership_claims PRIMARY KEY (id);
+
+
+--
+-- Name: page_views pk_page_views; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.page_views
+    ADD CONSTRAINT pk_page_views PRIMARY KEY (id);
 
 
 --
@@ -1267,6 +1328,20 @@ CREATE INDEX ix_ownership_claims_user_id ON public.ownership_claims USING btree 
 
 
 --
+-- Name: ix_page_views_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_page_views_created_at ON public.page_views USING btree (created_at);
+
+
+--
+-- Name: ix_page_views_establishment_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_page_views_establishment_id ON public.page_views USING btree (establishment_id);
+
+
+--
 -- Name: ix_places_normalized_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1500,6 +1575,14 @@ ALTER TABLE ONLY public.ownership_claims
 
 
 --
+-- Name: page_views fk_page_views_establishment_id_establishments; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.page_views
+    ADD CONSTRAINT fk_page_views_establishment_id_establishments FOREIGN KEY (establishment_id) REFERENCES public.establishments(id) ON DELETE SET NULL;
+
+
+--
 -- Name: places fk_places_parent_id_places; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1583,8 +1666,8 @@ ALTER TABLE ONLY public.special_hours
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kVFWHZ7EkdLzrbYl1J7KkAgj8FqRBgCiHAQ96Fc1lWQYoSe7LhOsXFQCWMqCH8o
+\unrestrict 97FofZgjdBbObIsFrDEcUglTrZuQ8bDoq3dHB6GwhzytSwpGdkf2xTrBwUnez6B
 
 
 -- Versión de las migraciones con la que se generó este esquema
-INSERT INTO public.alembic_version (version_num) VALUES ('d1e2f3a4b5c6');
+INSERT INTO public.alembic_version (version_num) VALUES ('f3a4b5c6d7e8');

@@ -10,7 +10,8 @@ export default function OwnerClaimCard({ establishment }) {
   const location = useLocation();
   const [claim, setClaim] = useState(undefined); // undefined = cargando
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ message: "", contact_phone: "" });
+  const [form, setForm] = useState({ message: "", contact_phone: "", applicant_role: "", applicant_position: "" });
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
 
@@ -33,13 +34,24 @@ export default function OwnerClaimCard({ establishment }) {
   async function submit(e) {
     e.preventDefault();
     setError(null);
+    if (!form.applicant_role) {
+      setError("Cuéntanos si eres el dueño o el encargado.");
+      return;
+    }
     if (form.message.trim().length < 20) {
       setError("Cuéntanos un poco más (mínimo 20 caracteres) para poder verificarte.");
       return;
     }
+    if (!acceptTerms) {
+      setError("Debes autorizar el uso de los datos para enviar la solicitud.");
+      return;
+    }
     setSending(true);
     try {
-      setClaim(await api.createClaim(establishment.id, { message: form.message.trim(), contact_phone: form.contact_phone.trim() }));
+      setClaim(await api.createClaim(establishment.id, {
+        message: form.message.trim(), contact_phone: form.contact_phone.trim(), applicant_role: form.applicant_role,
+        applicant_position: form.applicant_position.trim() || null, accept_terms: true,
+      }));
       setOpen(false);
     } catch (err) {
       setError(err.message);
@@ -102,6 +114,35 @@ export default function OwnerClaimCard({ establishment }) {
 
       {!isOwner && user && open && (
         <form onSubmit={submit} className="mt-2 space-y-3">
+          <fieldset>
+            <legend className="mb-1 text-sm font-semibold">¿Eres el dueño o el encargado?</legend>
+            <div className="flex flex-wrap gap-2">
+              {[["dueno", "Dueño"], ["encargado", "Encargado autorizado"]].map(([value, label]) => (
+                <label key={value} className={`chip cursor-pointer ${form.applicant_role === value ? "border-brand-400 bg-brand-50 text-brand-700" : ""}`}>
+                  <input
+                    type="radio"
+                    name={`claim-role-${establishment.id}`}
+                    value={value}
+                    className="accent-brand-600"
+                    checked={form.applicant_role === value}
+                    onChange={(e) => setForm((f) => ({ ...f, applicant_role: e.target.value }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div>
+            <label htmlFor="claim-position" className="mb-1 block text-sm font-semibold">Tu cargo (opcional)</label>
+            <input
+              id="claim-position"
+              className="input"
+              maxLength={100}
+              placeholder="Ej.: administradora"
+              value={form.applicant_position}
+              onChange={(e) => setForm((f) => ({ ...f, applicant_position: e.target.value }))}
+            />
+          </div>
           <div>
             <label htmlFor="claim-message" className="mb-1 block text-sm font-semibold">¿Cómo podemos verificar que eres el propietario?</label>
             <textarea
@@ -126,6 +167,13 @@ export default function OwnerClaimCard({ establishment }) {
               onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
             />
           </div>
+          <label className="flex items-start gap-2 text-xs text-ink-soft">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
+            <span>
+              Autorizo a Easy Search a usar estos datos para verificarme y a publicar la información del negocio. Mis datos
+              personales no se publican (Ley 1581 de 2012).
+            </span>
+          </label>
           {error && <p role="alert" className="text-sm text-closed">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" className="btn-primary flex-1" disabled={sending}>Enviar solicitud</button>

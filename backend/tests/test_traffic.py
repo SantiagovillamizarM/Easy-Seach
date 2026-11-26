@@ -78,7 +78,7 @@ def test_jam_gives_range_and_streets(searcher, place):
     _use(FakeTraffic(Route(travel_seconds=1500, typical_seconds=900, jammed_streets=["Carrera 27"])))
     body = _post(searcher, place).json()
     assert body["available"] is True
-    assert body["report"] == {"delay_min": 10, "delay_max": 15, "streets": ["Carrera 27"]}
+    assert body["report"] == {"delay_min": 10, "delay_max": 15, "streets": ["Carrera 27"], "route": [], "jams": []}
 
 
 def test_small_delay_gives_no_notice(searcher, place):
@@ -164,6 +164,35 @@ def test_parse_tomtom_response():
              "delayInSeconds": 155},
         ],
     }]}
+    data["routes"][0]["legs"] = [{"points": [{"latitude": 7.0 + i * 1e-4, "longitude": -73.1} for i in range(460)]}]
     route = parse_tomtom(data)
     assert (route.travel_seconds, route.typical_seconds, route.jam_delay_seconds) == (1989, 2079, 155)
     assert route.jammed_streets == ["la vía a Floridablanca", "Carrera 27"]   # donde empieza y por donde sigue
+    # Trazado para el mapa: toda la ruta y el tramo con trancón (puntos 386 a 423, ambos incluidos)
+    assert len(route.points) == 460
+    assert len(route.jams) == 1
+    jam = route.jams[0]
+    assert jam.street == "la vía a Floridablanca y Carrera 27" and jam.delay_seconds == 155
+    assert len(jam.points) == 38 and jam.points[0] == route.points[386]
+
+
+
+def test_simplify_keeps_ends_and_limits_points():
+    from app.services.traffic import simplify
+    pts = [(7.0 + i * 1e-5, -73.0) for i in range(1000)]
+    out = simplify(pts, 300)
+    assert len(out) == 300 and out[0] == [7.0, -73.0] and out[-1] == [round(pts[-1][0], 5), -73.0]
+    assert simplify(pts[:10], 300) == [[round(a, 5), b] for a, b in pts[:10]]
+
+
+def test_report_includes_route_and_jams_for_the_map(searcher, place):
+    from app.services.traffic import Jam
+    route_pts = [(7.06 + i * 1e-3, -73.09) for i in range(50)]
+    _use(FakeTraffic(Route(travel_seconds=1500, typical_seconds=900, jammed_streets=["Via 45A"],
+                           points=route_pts, jams=[Jam("Via 45A", 420, route_pts[10:20]), Jam(None, 60, route_pts[30:31])])))
+    report = _post(searcher, place).json()["report"]
+    assert len(report["route"]) == 50 and report["route"][0] == [7.06, -73.09]
+    # Solo los tramos con al menos 2 puntos (se pueden dibujar como línea)
+    assert len(report["jams"]) == 1
+    assert report["jams"][0]["street"] == "Via 45A" and report["jams"][0]["delay_minutes"] == 7
+    assert len(report["jams"][0]["points"]) == 10

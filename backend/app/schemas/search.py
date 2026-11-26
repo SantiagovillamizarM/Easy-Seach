@@ -56,7 +56,8 @@ class InterpretationOut(BaseModel):
     open_now: bool
     min_rating: float | None
     preferences: list[str]
-    parser: Literal["gemini", "reglas"]
+    is_search: bool = True   # False: el mensaje no pedía nada (saludo, charla, texto sin sentido)
+    parser: Literal["xai", "openai", "gemini", "reglas"]
 
 
 class SearchHitOut(EstablishmentSummary):
@@ -78,12 +79,12 @@ class RecommendationOut(BaseModel):
     establishment_id: int
     text: str
     data_gaps: list[str]
-    source: Literal["gemini", "reglas"]
+    source: Literal["xai", "openai", "gemini", "reglas"]
 
 
 class RecommendationsResponse(BaseModel):
     summary: str | None
-    source: Literal["gemini", "reglas"]
+    source: Literal["xai", "openai", "gemini", "reglas"]
     items: list[RecommendationOut]
 
 

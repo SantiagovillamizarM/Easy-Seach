@@ -49,7 +49,17 @@ class Settings(BaseSettings):
     # Sin clave, esas rutas responden 503 (desactivadas). Nunca se exponen al navegador: Spring Boot las bloquea.
     internal_api_key: str | None = None
 
-    # --- IA generativa (Gemini) ---
+    # --- IA generativa: Grok (xAI) y OpenAI de pago, Gemini gratis de respaldo ---
+    # "auto": en cadena Grok → OpenAI → Gemini (los que tengan clave); "xai", "openai" o "gemini": solo ese.
+    llm_provider: str = "auto"
+    xai_api_key: str | None = None
+    xai_model: str = "grok-4.7"
+    # Dirección de la API de Grok: la oficial de xAI o una pasarela compatible (ej. la de un reto o evento)
+    xai_base_url: str = "https://api.x.ai/v1"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4.1-mini"
+    # Cupo diario por usuario de búsquedas con IA de pago (Grok u OpenAI); al agotarlo responde Gemini (gratis)
+    openai_searches_per_day: int = 40
     # Sin clave, la búsqueda sigue funcionando con el intérprete por reglas.
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash-lite"

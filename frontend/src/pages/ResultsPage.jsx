@@ -27,6 +27,8 @@ import "./results-dashboard.css";
 const ResultsMap = lazy(() => import("../components/ResultsMap.jsx"));
 const EMPTY_RESULTS = [];
 const RECOMMENDED_COUNT = 6; // la IA explica los primeros resultados
+// Ejemplos que se proponen cuando el mensaje no era una búsqueda ("hola")
+const SEARCH_EXAMPLES = ["Almuerzo barato en Cabecera", "Taller de motos en Girón", "Droguería abierta ahora"];
 
 
 function buildPayload(params, coords) {
@@ -261,6 +263,8 @@ export default function ResultsPage() {
   );
 
   const results = useMemo(() => data?.results ?? [], [data]);
+  // Saludo, charla o texto sin sentido ("hola"): el backend no busca y lo indica en la interpretación
+  const notASearch = data?.interpretation?.is_search === false;
   const hasQuery = q.trim().length >= 2;
   const showResults = hasQuery && !error && results.length > 0;
   const selectResult = (id) => {
@@ -326,7 +330,7 @@ export default function ResultsPage() {
             </div>
           )}
         </header>
-        {hasQuery && !error && data && <InterpretationBar interpretation={data.interpretation} location={data.location} />}
+        {hasQuery && !error && data && !notASearch && <InterpretationBar interpretation={data.interpretation} location={data.location} />}
 
         {data && data.guest_remaining != null && !error && <GuestBanner remaining={data.guest_remaining} next={here} />}
 
@@ -375,7 +379,7 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {data?.notices
+        {!notASearch && data?.notices
           ?.filter((n) => !(data.needs_location && n.includes("ubicación")))
           .map((notice) => (
             <p key={notice} className="flex items-start gap-2 text-sm text-ink-soft">
@@ -463,7 +467,25 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {!loading && !error && hasQuery && data && results.length === 0 && (
+          {!loading && !error && hasQuery && data && notASearch && (
+            <div className="card flex flex-col items-center gap-3 p-8 text-center">
+              <AiBot size={56} />
+              <p className="font-semibold">No encontré qué buscar en tu mensaje.</p>
+              <p className="max-w-md text-sm text-ink-soft">
+                Escríbeme un lugar, producto o servicio y te muestro dónde encontrarlo. Por ejemplo:
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {SEARCH_EXAMPLES.map((example) => (
+                  <Link key={example} to={`/buscar?${new URLSearchParams({ q: example })}`} className="chip hover:border-brand-200 hover:text-ink">
+                    <Sparkles className="h-3 w-3" aria-hidden="true" />
+                    {example}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && hasQuery && data && !notASearch && results.length === 0 && (
             <div className="card flex flex-col items-center gap-2 p-8 text-center">
               <SearchX className="h-8 w-8 text-ink-soft" aria-hidden="true" />
               <p className="font-semibold">No encontramos lugares para esta búsqueda.</p>

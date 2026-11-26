@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, auth, catalog, health, internal, me, owner, reviews, search, traffic
+from app.api.routes import admin, analytics, auth, catalog, health, internal, me, owner, reviews, search, traffic
 from app.core.config import get_settings
 from app.services.photos import PUBLIC_PREFIX, upload_root
 
@@ -96,6 +96,7 @@ app.include_router(me.router, prefix="/api")
 app.include_router(reviews.router, prefix="/api")
 app.include_router(owner.router, prefix="/api")
 app.include_router(traffic.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 # Rutas para los flujos de n8n (clave interna; Spring Boot no las deja pasar desde el navegador)
 app.include_router(internal.router, prefix="/api")
 

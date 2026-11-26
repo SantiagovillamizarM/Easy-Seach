@@ -46,7 +46,7 @@ function RejectForm({ onSubmit, onCancel, busy }) {
         <input className="input py-2" maxLength={300} required placeholder="Escribe el motivo" aria-label="Otro motivo" value={custom} onChange={(e) => setCustom(e.target.value)} />
       )}
       <div className="flex gap-2">
-        <button type="submit" className="btn bg-closed px-3 py-2 text-sm text-white hover:opacity-90" disabled={busy}>Rechazar reseña</button>
+        <button type="submit" className="btn bg-closed px-3 py-2 text-sm text-canvas hover:opacity-90" disabled={busy}>Rechazar reseña</button>
         <button type="button" className="btn-ghost px-3 py-2 text-sm" onClick={onCancel}>Cancelar</button>
       </div>
     </form>

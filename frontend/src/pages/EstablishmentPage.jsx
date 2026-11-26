@@ -80,6 +80,8 @@ export default function EstablishmentPage() {
   const { coords } = useUserLocation();
   const [est, setEst] = useState(null);
   const [error, setError] = useState(null);
+  // Aviso de trancón: además del texto, trae la ruta y los tramos con trancón que se marcan en el mapa
+  const [traffic, setTraffic] = useState(null);
 
   // Las reseñas recalculan la calificación: se refleja en el encabezado sin recargar la página
   const updateRating = useCallback((avg, count) => {
@@ -174,7 +176,7 @@ export default function EstablishmentPage() {
           <ActionLink href={instagramUrl(est.instagram)} icon={AtSign}>Instagram</ActionLink>
         </div>
 
-        <TrafficNotice establishmentId={est.id} />
+        <TrafficNotice establishmentId={est.id} onReport={setTraffic} />
       </header>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -212,7 +214,12 @@ export default function EstablishmentPage() {
         <aside className="space-y-5">
           <div className="card h-64 overflow-hidden">
             <Suspense fallback={<div className="skeleton h-full w-full" />}>
-              <ResultsMap results={[{ ...est, hours_status: est.hours_status }]} userCoords={coords} activeId={est.id} />
+              <ResultsMap
+                results={[{ ...est, hours_status: est.hours_status }]}
+                userCoords={coords}
+                activeId={est.id}
+                traffic={traffic}
+              />
             </Suspense>
           </div>
 

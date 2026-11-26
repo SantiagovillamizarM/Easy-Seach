@@ -1,6 +1,7 @@
 import { Bot, ChevronDown, Heart, History, LogOut, ShieldCheck, Store, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { prefetchAdmin } from "../lib/prefetchAdmin.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export const ACCOUNT_LINKS = [
@@ -70,7 +71,11 @@ export default function UserMenu({ dark = false }) {
         <div role="menu" className="card site-menu absolute right-0 z-[1200] mt-2 w-56 p-1.5">
           <p className="truncate px-3 py-2 text-xs text-ink-soft">{user.email}</p>
           {linksFor(user.role).map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-brand-50">
+            // viewTransition: la página actual se funde con la nueva (sin saltos bruscos, p. ej. al entrar al panel)
+            <Link key={to} to={to} role="menuitem" viewTransition
+                  onPointerEnter={to === "/admin" ? prefetchAdmin : undefined}
+                  onFocus={to === "/admin" ? prefetchAdmin : undefined}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-brand-50">
               <Icon className="h-4 w-4 text-ink-soft" aria-hidden="true" />
               {label}
             </Link>

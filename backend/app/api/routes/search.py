@@ -14,6 +14,7 @@ from app.schemas.search import (
     SearchRequest,
     SearchResponse,
 )
+from app.services.ai_quota import llm_for_user
 from app.services.catalog import LOAD_OPTIONS, to_summary
 from app.services.embeddings import Embedder, get_embedder
 from app.services.llm import LLMProvider, get_llm
@@ -35,6 +36,8 @@ def smart_search(
 ):
     """Cuentas confirmadas: sin límite diario. Invitados: unas pocas búsquedas de prueba al día (protege la
     cuota de la IA frente a robots y abusos). Ver app/api/access.py."""
+    # Con cupo diario de OpenAI responde OpenAI; al agotarlo, Gemini (ver app/services/ai_quota.py)
+    llm = llm_for_user(db, access.user, llm)
     result = search(db, SearchParams(**data.model_dump()), embedder, llm)
     intent = result.intent
 
@@ -82,12 +85,13 @@ def recommendations(
     data: RecommendationsRequest,
     db: Session = Depends(get_db),
     llm: LLMProvider | None = Depends(get_llm),
-    _access: SearchAccess = Depends(search_access("recommendations", 20)),
+    access: SearchAccess = Depends(search_access("recommendations", 20)),
 ):
     """Explica por qué cada resultado encaja con la búsqueda, usando solo datos de la base de datos.
 
     Se pide DESPUÉS de mostrar los resultados, para no retrasar la búsqueda.
     """
+    llm = llm_for_user(db, access.user, llm, already_recorded=True)  # la búsqueda ya quedó en el historial
     detected = find_place_in_text(db, data.q)
     intent = parse_query(data.q, llm, detected.matched_text if detected else None)  # usa la caché de la búsqueda
 

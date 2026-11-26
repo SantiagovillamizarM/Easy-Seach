@@ -417,3 +417,85 @@ def build_owner_reply_email(user_name: str, place: str, rating: int, comment: st
         footer="Recibiste este correo porque escribiste una reseña en Easy Search.",
         unsubscribe_url=unsubscribe_url)
     return subject, text, html
+
+
+# ------------------------------- Solicitudes de negocios ------------------------------------
+
+def _facts_box(rows: list[tuple[str, str]]) -> str:
+    """Tabla de datos (etiqueta: valor). Los valores ya vienen escapados."""
+    lines = "".join(
+        f'<tr><td valign="top" style="padding:4px 12px 4px 0;font-family:{FONT};font-size:13px;color:{INK_SOFT};'
+        f'white-space:nowrap">{label}</td><td style="padding:4px 0;font-family:{FONT};font-size:14px;'
+        f'color:{INK};font-weight:600">{value}</td></tr>'
+        for label, value in rows)
+    return f"""
+  <!-- DATOS -->
+  <tr><td class="pad" style="padding:20px 36px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:{BRAND_SOFT};border-radius:18px;border-left:4px solid {BRAND}">
+      <tr><td style="padding:14px 20px"><table role="presentation" cellpadding="0" cellspacing="0">{lines}</table></td></tr>
+    </table>
+  </td></tr>
+"""
+
+
+def build_new_claim_email(admin_name: str, kind: str, place: str, municipality: str | None, applicant: str,
+                          applicant_role: str, phone: str, url: str) -> tuple[str, str, str]:
+    """Correo al administrador cuando llega una solicitud (registrar un negocio o administrar uno existente)."""
+    first = admin_name.split()[0] if admin_name else ""
+    new = kind == "register"
+    action = "registrar" if new else "administrar"
+    subject = f"Nueva solicitud para {action} «{place}»"
+    where = f" ({municipality})" if municipality else ""
+    text = (f"Hola {first},\n\n{applicant} ({applicant_role}) pide {action} {place}{where} en Easy Search.\n"
+            f"Teléfono para verificarlo: {phone}\n\nRevisa la solicitud en el panel: {url}" + _SIGNATURE)
+
+    e = html_escape
+    intro = ("Alguien quiere registrar un negocio <strong>nuevo</strong> en Easy Search. Llámalo, confirma que "
+             "maneja el negocio y apruébalo para crear su perfil verificado." if new else
+             "Alguien quiere administrar un negocio que ya está en Easy Search. Llámalo y confirma que lo maneja "
+             "antes de aprobarlo.")
+    rows = [("Negocio", e(place) + e(where)), ("Solicitante", e(applicant)), ("Es", e(applicant_role)),
+            ("Teléfono", e(phone))]
+    body = (_greeting(e(first), intro) + _facts_box(rows)
+            + _button(url, "Revisar la solicitud", "Se abre el panel de administración, en &laquo;Solicitudes&raquo;.")
+            + _tip(ORANGE, "ANTES DE APROBAR",
+                   "Pide el RUT o el certificado de cámara de comercio y verifica que el nombre coincida."))
+    html = _notice_layout(
+        title_tag=e(subject), preheader=f"{e(applicant)} pide {action} {e(place)}.",
+        badge="Solicitud", title="Llegó una solicitud de negocio", subtitle=e(place), body=body,
+        footer="Recibiste este correo porque eres administrador de Easy Search.")
+    return subject, text, html
+
+
+def build_claim_decision_email(user_name: str, place: str, approved: bool, note: str | None,
+                               url: str) -> tuple[str, str, str]:
+    """Correo al solicitante cuando el administrador aprueba o rechaza su solicitud."""
+    first = user_name.split()[0] if user_name else ""
+    e = html_escape
+    if approved:
+        subject = f"Ya puedes administrar «{place}» en Easy Search"
+        text = (f"Hola {first},\n\nAprobamos tu solicitud: {place} ya está a tu nombre y tiene el sello de "
+                f"verificado.\n" + (f"Nota: {note}\n" if note else "")
+                + f"\nCompleta el horario, los precios, los productos y las fotos desde tu panel: {url}" + _SIGNATURE)
+        body = (_greeting(e(first), f'Aprobamos tu solicitud: <strong style="color:{INK}">{e(place)}</strong> ya '
+                                    "está a tu nombre y tiene el sello de verificado.")
+                + (_facts_box([("Nota", e(note))]) if note else "")
+                + _button(url, "Completar mi negocio", "Se abre tu panel comercial.")
+                + _tip(OPEN, "CONSEJO", "Los negocios con horario, precios y fotos aparecen mejor en las búsquedas "
+                                        "y en las recomendaciones del asistente."))
+        title, badge, preheader = "¡Tu negocio está verificado!", "Aprobada", f"{e(place)} ya está a tu nombre."
+    else:
+        reason = note or "No pudimos verificar que administras este negocio."
+        subject = f"Tu solicitud para «{place}» no fue aprobada"
+        text = (f"Hola {first},\n\nRevisamos tu solicitud para {place} y no la pudimos aprobar.\n"
+                f"Motivo: {reason}\n\nSi crees que es un error, puedes enviar una nueva solicitud: {url}" + _SIGNATURE)
+        body = (_greeting(e(first), f'Revisamos tu solicitud para <strong style="color:{INK}">{e(place)}</strong> '
+                                    "y no la pudimos aprobar.")
+                + _facts_box([("Motivo", e(reason))])
+                + _button(url, "Ver en Easy Search", "Puedes enviar una nueva solicitud con más datos para verificarte.")
+                + _tip(BRAND, "TIP", "Tener a mano el RUT o el certificado de cámara de comercio agiliza la verificación."))
+        title, badge, preheader = "Revisamos tu solicitud", "Solicitud", f"Tu solicitud para {e(place)} no fue aprobada."
+    html = _notice_layout(title_tag=e(subject), preheader=preheader, badge=badge, title=title, subtitle=e(place),
+                          body=body, footer="Recibiste este correo porque enviaste una solicitud en Easy Search.")
+    return subject, text, html

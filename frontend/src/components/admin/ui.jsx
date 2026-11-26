@@ -1,30 +1,48 @@
-import { ChevronLeft, ChevronRight, Inbox, LoaderCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Piezas compartidas por las secciones del panel administrativo.
 
+// Últimos datos de cada sección del panel (en memoria, mientras la pestaña esté abierta). Al volver a una
+// sección se muestran al instante y se actualizan en segundo plano: cambiar de sección no muestra esqueletos.
+const recent = new Map();
+const RECENT_MAX = 40;
+function remember(key, data) {
+  recent.delete(key);
+  recent.set(key, data);
+  if (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value);
+}
+
 /**
  * Carga datos de la API y permite recargarlos. Cancela la petición anterior si cambian los parámetros.
+ * Muestra primero lo último que se cargó con los mismos parámetros (si hay) y lo actualiza en segundo plano.
  * Uso: const { data, error, loading, reload } = useApiData((opts) => api.admin.users(params, opts), [params]);
  */
 export function useApiData(fetcher, deps) {
-  const [state, setState] = useState({ data: null, error: null, loading: true });
-  const controllerRef = useRef(null);
+  // La misma función con los mismos parámetros = los mismos datos
   // Intencional: quien usa el hook declara de qué depende la carga (como en useEffect)
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo
   const load = useCallback(fetcher, deps);
+  const key = useMemo(() => `${load.toString()}|${JSON.stringify(deps)}`, [load]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [state, setState] = useState(() => ({ data: recent.get(key) ?? null, error: null, loading: true }));
+  const controllerRef = useRef(null);
 
   const reload = useCallback(() => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    const requestKey = key;
+    const cached = recent.get(requestKey);
+    setState((s) => ({ ...s, data: cached ?? s.data, loading: true, error: null }));
     load({ signal: controller.signal })
-      .then((data) => setState({ data, error: null, loading: false }))
+      .then((data) => {
+        remember(requestKey, data);
+        setState({ data, error: null, loading: false });
+      })
       .catch((err) => {
         if (err.name !== "AbortError") setState((s) => ({ ...s, error: err.message, loading: false }));
       });
-  }, [load]);
+  }, [load, key]);
 
   useEffect(() => {
     reload();
@@ -51,12 +69,14 @@ export function ErrorBox({ message }) {
   return <p role="alert" className="rounded-xl bg-closed-bg px-3 py-2 text-sm text-closed">{message}</p>;
 }
 
+// Mientras llegan los datos: bloques con un brillo que pasa despacio (como el resumen), sin textos de "cargando"
 export function Loading() {
   return (
-    <p className="flex items-center gap-2 py-10 text-sm text-ink-soft" role="status">
-      <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-      Cargando…
-    </p>
+    <div className="admin-skeleton" role="status" aria-label="Cargando">
+      <div className="admin-skeleton-block" style={{ height: 118 }} />
+      <div className="admin-skeleton-block" style={{ height: 118 }} />
+      <div className="admin-skeleton-block" style={{ height: 90 }} />
+    </div>
   );
 }
 
@@ -83,7 +103,7 @@ export function FilterTabs({ tabs, value, onChange, label }) {
             aria-selected={selected}
             onClick={() => onChange(t.key)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-              selected ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-brand-50 hover:text-ink"
+              selected ? "bg-brand-600 text-canvas" : "text-ink-soft hover:bg-brand-50 hover:text-ink"
             }`}
           >
             {t.label}
@@ -155,7 +175,7 @@ export function useFlash() {
 export function Flash({ message }) {
   if (!message) return null;
   return (
-    <p role="status" className="fixed bottom-4 left-1/2 z-[1300] -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
+    <p role="status" className="fixed bottom-4 left-1/2 z-[1300] -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg">
       {message}
     </p>
   );

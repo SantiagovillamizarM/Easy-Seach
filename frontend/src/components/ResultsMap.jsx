@@ -1,6 +1,6 @@
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { Link } from "react-router-dom";
 
 // Centro por defecto: área metropolitana de Bucaramanga
@@ -44,12 +44,37 @@ function FitBounds({ points }) {
   return null;
 }
 
-export default function ResultsMap({ results, userCoords, activeId, onSelect, className = "" }) {
+// Trancón en la ruta (página del lugar): la ruta en azul suave y cada tramo con trancón en rojo, con una
+// etiqueta fija que dice en qué vía está y cuánto demora
+function TrafficLayer({ traffic }) {
+  return (
+    <>
+      {traffic.route?.length > 1 && (
+        <Polyline positions={traffic.route} pathOptions={{ color: "#6366f1", weight: 5, opacity: 0.45, lineCap: "round" }} />
+      )}
+      {traffic.jams?.map((jam, i) => (
+        <Polyline
+          key={i}
+          positions={jam.points}
+          pathOptions={{ color: "#dc2626", weight: 7, opacity: 0.95, lineCap: "round", className: "es-jam-line" }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -6]} className="es-jam-label">
+            Trancón{jam.street ? `: ${jam.street}` : ""} · +{jam.delay_minutes} min
+          </Tooltip>
+        </Polyline>
+      ))}
+    </>
+  );
+}
+
+export default function ResultsMap({ results, userCoords, activeId, onSelect, traffic = null, className = "" }) {
   const points = useMemo(() => {
     const list = results.map((r) => [r.latitude, r.longitude]);
     if (userCoords) list.push([userCoords.latitude, userCoords.longitude]);
+    // Con trancón, el encuadre incluye toda la ruta para que se vea dónde está
+    if (traffic?.route?.length) list.push(...traffic.route);
     return list;
-  }, [results, userCoords]);
+  }, [results, userCoords, traffic]);
 
   return (
     <MapContainer center={DEFAULT_CENTER} zoom={12} scrollWheelZoom className={`h-full w-full ${className}`}>
@@ -58,6 +83,7 @@ export default function ResultsMap({ results, userCoords, activeId, onSelect, cl
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FitBounds points={points} />
+      {traffic && <TrafficLayer traffic={traffic} />}
       {userCoords && (
         <Marker position={[userCoords.latitude, userCoords.longitude]} icon={userIcon}>
           <Popup>Tu ubicación</Popup>

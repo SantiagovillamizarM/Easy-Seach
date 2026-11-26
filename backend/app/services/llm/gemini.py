@@ -5,7 +5,7 @@ import time
 
 import httpx
 
-from app.services.llm.base import LLMError
+from app.services.llm.base import PROVIDER_KEY, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,10 @@ class GeminiProvider:
             raise LLMError(f"Gemini respondió HTTP {r.status_code} {status}".strip())
         return r.json()
 
-    def generate_json(self, prompt: str, schema: dict, system: str | None = None) -> dict:
+    def generate_json(self, prompt: str, schema: dict, system: str | None = None,
+                      max_tokens: int | None = None) -> dict:
+        # max_tokens no se aplica: Gemini es gratuito y su modelo de respaldo usa tokens de "razonamiento"
+        # que cuentan dentro del tope, así que cortaría respuestas válidas sin ahorrar dinero.
         body: dict = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -68,7 +71,10 @@ class GeminiProvider:
             try:
                 data = self._call(model, body)
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return json.loads(text)
+                result = json.loads(text)
+                if isinstance(result, dict):
+                    result[PROVIDER_KEY] = self.name
+                return result
             except LLMError as exc:
                 last_error = exc
                 logger.warning("Gemini (%s) falló: %s", model, exc)

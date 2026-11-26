@@ -69,3 +69,8 @@ export function safeExternalUrl(raw) {
   if (!raw) return null;
   return /^https?:\/\//i.test(raw) ? raw : null;
 }
+
+// "  Panadería " -> "panaderia": para comparar textos sin tildes ni mayúsculas
+export function normalizeText(text) {
+  return (text ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}

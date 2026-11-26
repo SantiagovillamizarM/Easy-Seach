@@ -3,6 +3,8 @@ import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import ThemedPage from "./components/ThemedPage.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
+import { prefetchAdmin } from "./lib/prefetchAdmin.js";
 import HomePage from "./pages/HomePage.jsx";
 
 // Solo el inicio viaja en el paquete principal: el resto de páginas se descarga al visitarlas
@@ -20,6 +22,7 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const OwnerEditorPage = lazy(() => import("./pages/OwnerEditorPage.jsx"));
 const OwnerPanelPage = lazy(() => import("./pages/OwnerPanelPage.jsx"));
+const RegisterBusinessPage = lazy(() => import("./pages/RegisterBusinessPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.jsx"));
 const UnsubscribePage = lazy(() => import("./pages/UnsubscribePage.jsx"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage.jsx"));
@@ -31,6 +34,7 @@ const PREFETCH = [loadAuth, loadResults];
 // Panel administrativo: se descarga solo cuando un administrador entra (no pesa para los demás usuarios)
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.jsx"));
+// (para administradores se precargan en segundo plano: ver prefetchAdmin)
 const AdminReviews = lazy(() => import("./pages/admin/AdminReviews.jsx"));
 const AdminClaims = lazy(() => import("./pages/admin/AdminClaims.jsx"));
 const AdminEstablishments = lazy(() => import("./pages/admin/AdminEstablishments.jsx"));
@@ -40,12 +44,26 @@ const AdminSearchStats = lazy(() => import("./pages/admin/AdminSearchStats.jsx")
 const AdminCategories = lazy(() => import("./pages/admin/AdminCategories.jsx"));
 
 const adminPage = (Page) => (
-  <Suspense fallback={<p className="py-10 text-sm text-ink-soft">Cargando…</p>}>
+  // Sin texto de "Cargando…": el espacio se reserva y la sección aparece con un fundido suave
+  <Suspense fallback={<div className="min-h-[60vh]" aria-busy="true" />}>
     <Page />
   </Suspense>
 );
 
 export default function App() {
+  // Administradores: el panel se precarga cuando el navegador queda libre (entrar al panel es instantáneo)
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(prefetchAdmin, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetchAdmin, 2000);
+    return () => clearTimeout(id);
+  }, [isAdmin]);
+
   useEffect(() => {
     const prefetch = () => PREFETCH.forEach((load) => load().catch(() => {}));
     if ("requestIdleCallback" in window) {
@@ -75,8 +93,10 @@ export default function App() {
         <Route path="favoritos" element={<RequireAuth><ThemedPage><FavoritesPage /></ThemedPage></RequireAuth>} />
         <Route path="historial" element={<RequireAuth><ThemedPage><HistoryPage /></ThemedPage></RequireAuth>} />
         <Route path="panel" element={<RequireAuth><ThemedPage><OwnerPanelPage /></ThemedPage></RequireAuth>} />
+        {/* Registrar un negocio nuevo: la solicitud llega al panel de administración para verificarla */}
+        <Route path="registrar-negocio" element={<RequireAuth verified><ThemedPage><RegisterBusinessPage /></ThemedPage></RequireAuth>} />
         <Route path="panel/lugar/:id" element={<RequireAuth><ThemedPage><OwnerEditorPage /></ThemedPage></RequireAuth>} />
-        <Route path="admin" element={<RequireAuth><ThemedPage>{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
+        <Route path="admin" element={<RequireAuth><ThemedPage variant="admin">{adminPage(AdminLayout)}</ThemedPage></RequireAuth>}>
           <Route index element={adminPage(AdminOverview)} />
           <Route path="resenas" element={adminPage(AdminReviews)} />
           <Route path="solicitudes" element={adminPage(AdminClaims)} />

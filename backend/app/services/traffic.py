@@ -1,5 +1,8 @@
 """Aviso de tráfico: "Hay trancón en la Carrera 27; si vas a pedir a domicilio, puede demorar X–Y minutos más".
 
+Además del texto, el aviso trae la ruta y cada tramo con trancón (su vía, su demora y su trazado) para
+marcarlos en rojo en el mapa de la página del lugar.
+
 Se calcula la ruta del LOCAL hacia el USUARIO (el camino de un domicilio) con el tráfico en vivo de TomTom
 (capa gratuita: ~2.500 consultas al día) y se compara con lo NORMAL para ese día y hora: solo se avisa
 cuando hoy está peor de lo habitual (un trancón), no por el tráfico de todos los días.
@@ -32,6 +35,17 @@ MIN_DELAY_MINUTES = 5      # por debajo de esto no vale la pena avisar
 MIN_KM, MAX_KM = 0.3, 30   # muy cerca no hay ruta que valga; muy lejos ya no es el área metropolitana
 CACHE_SECONDS = 5 * 60     # el tráfico cambia, pero no cada minuto
 CACHE_MAX_ENTRIES = 5000
+MAX_ROUTE_POINTS = 300     # la ruta se simplifica para el mapa (TomTom devuelve cientos de puntos)
+MAX_JAM_POINTS = 150       # cada tramo con trancón conserva más detalle: es lo que se marca en rojo
+MAX_JAMS = 4
+
+
+@dataclass
+class Jam:
+    """Un tramo con trancón: la vía donde está, cuánto demora y su trazado (lat, lng)."""
+    street: str | None
+    delay_seconds: int
+    points: list[tuple[float, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -41,6 +55,8 @@ class Route:
     typical_seconds: int | None = None      # lo normal para este día y hora
     jam_delay_seconds: int = 0              # lo que suman los trancones reportados ahora mismo
     jammed_streets: list[str] = field(default_factory=list)
+    points: list[tuple[float, float]] = field(default_factory=list)   # trazado de toda la ruta
+    jams: list[Jam] = field(default_factory=list)                      # tramos con trancón (mayor demora primero)
 
 
 @dataclass
@@ -48,6 +64,9 @@ class TrafficReport:
     delay_min: int
     delay_max: int
     streets: list[str]
+    # Para el mapa: [[lat, lng], …] de la ruta y de cada tramo con trancón
+    route: list[list[float]] = field(default_factory=list)
+    jams: list[dict] = field(default_factory=list)
 
 
 class TrafficProvider(Protocol):
@@ -100,10 +119,19 @@ class TomTomTraffic:
             raise TrafficError("respuesta inesperada") from exc
 
 
+def simplify(points: list[tuple[float, float]], max_points: int) -> list[list[float]]:
+    """Reduce un trazado a lo sumo `max_points` puntos (conservando el primero y el último), redondeados a ~1 m."""
+    if len(points) > max_points:
+        step = (len(points) - 1) / (max_points - 1)
+        points = [points[round(i * step)] for i in range(max_points)]
+    return [[round(lat, 5), round(lng, 5)] for lat, lng in points]
+
+
 def parse_tomtom(data: dict) -> Route:
     route = data["routes"][0]
     summary = route["summary"]
     typical = summary.get("historicTrafficTravelTimeInSeconds")
+    points = [(p["latitude"], p["longitude"]) for leg in route.get("legs", []) for p in leg.get("points", [])]
 
     # Vías de cada tramo con trancón: la que se lleva al empezar el tramo y las que se toman dentro de él
     instructions = sorted((i for i in route.get("guidance", {}).get("instructions", []) if i.get("street")),
@@ -112,17 +140,25 @@ def parse_tomtom(data: dict) -> Route:
                    and s.get("simpleCategory") in ("JAM", "ROAD_WORK", "ROAD_CLOSURE")),
                   key=lambda s: -int(s.get("delayInSeconds", 0)))
     streets: list[str] = []
+    jam_list: list[Jam] = []
     for jam in jams:
         start, end = jam.get("startPointIndex", 0), jam.get("endPointIndex", 0)
         at_start = next((i["street"] for i in reversed(instructions) if i.get("pointIndex", 0) <= start), None)
         inside = [i["street"] for i in instructions if start < i.get("pointIndex", 0) <= end]
+        jam_streets = []
         for street in [at_start, *inside]:
             name = street_label(street) if street else None
+            if name and name not in jam_streets:
+                jam_streets.append(name)
             if name and name not in streets:
                 streets.append(name)
+        jam_list.append(Jam(street=" y ".join(jam_streets[:2]) or None,
+                            delay_seconds=int(jam.get("delayInSeconds", 0)),
+                            points=points[start:end + 1]))
     return Route(travel_seconds=int(summary["travelTimeInSeconds"]),
                  typical_seconds=int(typical) if typical else None,
-                 jam_delay_seconds=int(summary.get("trafficDelayInSeconds") or 0), jammed_streets=streets[:2])
+                 jam_delay_seconds=int(summary.get("trafficDelayInSeconds") or 0), jammed_streets=streets[:2],
+                 points=points, jams=jam_list)
 
 
 _TOWNS = {"bucaramanga", "floridablanca", "giron", "girón", "piedecuesta"}
@@ -232,6 +268,12 @@ def traffic_report(establishment_id: int, origin: tuple[float, float], user: tup
     delay = extra_delay(route)
     if delay >= MIN_DELAY_MINUTES * 60:
         low, high = delay_range(delay)
-        report = TrafficReport(delay_min=low, delay_max=high, streets=route.jammed_streets)
+        report = TrafficReport(
+            delay_min=low, delay_max=high, streets=route.jammed_streets,
+            route=simplify(route.points, MAX_ROUTE_POINTS),
+            jams=[{"street": j.street, "delay_minutes": max(1, math.ceil(j.delay_seconds / 60)),
+                   "points": simplify(j.points, MAX_JAM_POINTS)}
+                  for j in route.jams[:MAX_JAMS] if len(j.points) >= 2],
+        )
     _store(key, report)
     return report

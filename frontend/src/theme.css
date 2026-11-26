@@ -174,3 +174,183 @@
   background-color: #ffffff;
   box-shadow: 0 2px 6px #00000080;
 }
+
+/* La cabecera identifica la ruta incluso durante la carga. El filtro en la raíz incluye
+   el lienzo del agujero negro, los gráficos y los componentes compartidos del panel. */
+html:has(.site-nav-admin) {
+  background-color: #050505;
+  filter: grayscale(1);
+}
+
+.theme-scope.admin-scope[data-theme="dark"] {
+  --color-ink: #fafafa;
+  --color-ink-soft: #b8b8b8;
+  --color-line: #ffffff26;
+  --color-muted: #b2b2b212;
+  --color-canvas: #070707;
+  --color-brand-50: #7b7b7b1f;
+  --color-brand-100: #7b7b7b33;
+  --color-brand-200: #9c9c9c59;
+  --color-brand-400: #9c9c9c;
+  --color-brand-500: #7b7b7b;
+  --color-brand-600: #d0d0d0;
+  --color-brand-700: #bebebe;
+  --color-brand-900: #dedede;
+  --color-open: #c4c4c4;
+  --color-open-bg: #a5a5a51f;
+  --color-closed: #b3b3b3;
+  --color-closed-bg: #a1a1a11f;
+  --color-warn: #d8d8d8;
+  --color-warn-bg: #9c9c9c1f;
+  --color-warn-line: #9c9c9c40;
+  --color-warn-soft: #9c9c9c29;
+  --color-star: #bebebe;
+
+  --surface-light: linear-gradient(165deg, #252525 0%, #161616 60%, #101010 100%);
+  --surface-ai: linear-gradient(160deg, #303030, #1d1d1d 60%, #161616);
+  --shadow-card: inset 0 1px 0 #ffffff0d, 0 24px 44px -30px #000;
+  --shadow-lift: inset 0 1px 0 #ffffff14, 0 24px 44px -24px #000, 0 0 34px -18px #7b7b7baa;
+
+  background: #050505;
+}
+.admin-void {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  background:
+    radial-gradient(1px 1px at 12% 18%, #dfdfdf99, transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, #dfdfdf80, transparent 60%),
+    radial-gradient(1.2px 1.2px at 84% 42%, #dfdfdf70, transparent 60%),
+    radial-gradient(1px 1px at 32% 66%, #dfdfdf60, transparent 60%),
+    radial-gradient(1px 1px at 52% 88%, #dfdfdf70, transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 78%, #dfdfdf60, transparent 60%),
+    radial-gradient(1px 1px at 92% 76%, #dfdfdf80, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 75% 0%, #3a3a3a33, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 0% 100%, #2828282e, transparent 70%),
+    linear-gradient(180deg, #050505, #080808 55%, #050505);
+}
+.admin-scope[data-theme="dark"] .card-hover:hover { border-color: #9c9c9c4d; }
+.admin-scope[data-theme="dark"] .btn-ghost:hover:not(:disabled) { border-color: #9c9c9c4d; }
+.admin-scope[data-theme="dark"] .btn-primary,
+.site-nav.site-nav-admin .btn-primary {
+  color: #101010;
+  background: linear-gradient(125deg, #fff, #e6e6e6 55%, #c2c2c2);
+  box-shadow: 0 8px 20px -10px #ffffff59;
+}
+.admin-scope[data-theme="dark"] .input:focus { border-color: #9c9c9c; box-shadow: 0 0 0 3px #7b7b7b2e; }
+.admin-scope[data-theme="dark"] .ai-surface { border-color: #9c9c9c2e; }
+.admin-scope[data-theme="dark"] .workspace-heading {
+  background: radial-gradient(ellipse 45% 80% at 100% 0%, #7b7b7b2a, transparent 70%), var(--surface-light);
+}
+
+/* Encabezado sobre el panel de administración */
+.site-nav-admin {
+  --color-brand-400: #9c9c9c;
+  --color-brand-500: #7b7b7b;
+  --color-brand-600: #606060;
+  --color-brand-700: #4e4e4e;
+  --color-brand-200: #bebebe;
+}
+.site-nav.site-nav-admin {
+  --color-brand-50: #7b7b7b1f;
+  --color-brand-100: #7b7b7b33;
+}
+.site-nav.site-nav-admin .search-console:focus-within { border-color: #9c9c9c; }
+
+/* Panel de administración: entrada suave del panel completo y de cada sección */
+.admin-enter { animation: admin-fade 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.admin-page-enter { animation: admin-fade 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes admin-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .admin-enter, .admin-page-enter { animation: none; }
+}
+
+/* Agujero negro de fondo en el panel de administración: encima del fondo oscuro, y una sombra suave que oscurece
+   la zona de los paneles (a la derecha y abajo) para que todo se lea sin tapar el agujero */
+.admin-hole { margin-top: -100svh; }
+.admin-hole-shade {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  margin-top: -100svh;
+  background:
+    radial-gradient(ellipse 70% 75% at 40% 22%, transparent 30%, #04040466 75%),
+    linear-gradient(180deg, #04040400 55%, #040404aa 100%),
+    #0404044d;
+}
+/* Sobre el agujero negro el encabezado lleva siempre vidrio oscuro (el disco brillante pasa por detrás) */
+.site-nav.site-nav-admin {
+  /* sin desenfoque: sobre un fondo animado, el desenfoque se recalcula en cada cuadro y es lo más caro */
+  background-color: #050505e8;
+  border-color: #ffffff12;
+  backdrop-filter: none !important;
+}
+
+/* Protector de pantalla del panel: tras un rato sin actividad (data-admin-idle en <html>, ver AdminLayout)
+   se desvanece todo y queda solo el agujero negro. Se va despacio y vuelve rápido al mover el mouse. */
+html:has(.admin-scope) :is(.site-nav, .admin-enter, body > #root footer, .admin-hole-shade) {
+  transition: opacity 0.45s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+html[data-admin-idle] :is(.site-nav, .admin-enter, footer, .admin-hole-shade) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2.4s ease;
+}
+html[data-admin-idle] body { cursor: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-admin-idle] :is(.site-nav, .admin-enter, footer, .admin-hole-shade) { transition: none; }
+}
+
+/* Vaivén lento de la "cámara": lo hace el compositor del navegador (transform), sin costo para el shader */
+.admin-hole {
+  transform-origin: 42% 30%;
+  will-change: transform;
+  animation: admin-hole-sway 46s ease-in-out infinite alternate;
+}
+@keyframes admin-hole-sway {
+  from { transform: scale(1.02) translate(0, 0); }
+  to { transform: scale(1.06) translate(-1.2%, 0.8%); }
+}
+@media (prefers-reduced-motion: reduce) { .admin-hole { animation: none; } }
+
+/* ======================================================================================
+   Carga suave en todas las secciones del panel (reseñas, solicitudes, negocios…):
+   esqueleto con brillo mientras llegan los datos y entrada escalonada de lo que aparece.
+   Solo se anima lo que se monta: al actualizar en segundo plano no se repite.
+   ====================================================================================== */
+.admin-skeleton { display: grid; gap: 12px; }
+.admin-skeleton-block {
+  border-radius: 18px;
+  border: 1px solid var(--color-line);
+  background:
+    linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 6%) 45%, transparent 70%) 0 0 / 220% 100%,
+    rgb(255 255 255 / 3%);
+  animation: admin-shimmer 2.2s ease-in-out infinite, admin-soft-in 0.5s ease-out both;
+}
+@keyframes admin-shimmer { from { background-position: 120% 0, 0 0; } to { background-position: -120% 0, 0 0; } }
+
+/* Cada bloque de la sección (encabezado, filtros, tarjetas…) y cada elemento de las listas entra con un
+   fundido corto, uno tras otro. El resumen tiene su propia animación (.bh), por eso se excluye. */
+.admin-section > :not(.bh),
+.admin-section ul > li { animation: admin-soft-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.admin-section > :nth-child(2) { animation-delay: 50ms; }
+.admin-section > :nth-child(3) { animation-delay: 100ms; }
+.admin-section > :nth-child(4) { animation-delay: 150ms; }
+.admin-section > :nth-child(n + 5) { animation-delay: 200ms; }
+.admin-section ul > li:nth-child(2) { animation-delay: 40ms; }
+.admin-section ul > li:nth-child(3) { animation-delay: 80ms; }
+.admin-section ul > li:nth-child(4) { animation-delay: 120ms; }
+.admin-section ul > li:nth-child(5) { animation-delay: 160ms; }
+.admin-section ul > li:nth-child(6) { animation-delay: 200ms; }
+.admin-section ul > li:nth-child(7) { animation-delay: 240ms; }
+.admin-section ul > li:nth-child(n + 8) { animation-delay: 280ms; }
+/* dentro del resumen las listas ya tienen su propia entrada */
+.admin-section .bh ul > li { animation: none; }
+@keyframes admin-soft-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Mientras una lista se actualiza (cambio de filtro), se atenúa suave en vez de saltar */
+.admin-section .opacity-60 { transition: opacity 0.25s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-skeleton-block, .admin-section > :not(.bh), .admin-section ul > li { animation: none; }
+}

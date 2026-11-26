@@ -13,6 +13,14 @@ if (faltan.length) {
   process.exit(1);
 }
 
+// Misma regla que el flujo: Grok primero (salvo LLM_PROVIDER=openai), luego OpenAI
+function claveDePago() {
+  const eleccion = (env.LLM_PROVIDER || "auto").toLowerCase();
+  if ((eleccion === "auto" || eleccion === "xai") && env.XAI_API_KEY) return env.XAI_API_KEY;
+  if ((eleccion === "auto" || eleccion === "openai") && env.OPENAI_API_KEY) return env.OPENAI_API_KEY;
+  return null;
+}
+
 const credenciales = [
   {
     id: "EsPostgres000001",
@@ -42,7 +50,15 @@ const credenciales = [
     data: { name: "X-N8N-Key", value: env.N8N_WEBHOOK_KEY },
   },
   {
-    // n8n -> Gemini (flujo RAG). Sin clave el flujo responde con estado de error controlado.
+    // n8n -> IA de pago (flujo RAG, IA principal): Grok (xAI) si hay clave, si no OpenAI. Debe coincidir con
+    // la elección del nodo "Armar prompt". Sin ninguna clave, el flujo salta directo a Gemini.
+    id: "EsOpenAiApiKey01",
+    name: "IA de pago (Grok u OpenAI)",
+    type: "httpHeaderAuth",
+    data: { name: "Authorization", value: `Bearer ${claveDePago() || "sin-configurar"}` },
+  },
+  {
+    // n8n -> Gemini (flujo RAG, respaldo). Sin clave el flujo responde con estado de error controlado.
     id: "EsGeminiApiKey01",
     name: "Gemini API",
     type: "httpHeaderAuth",

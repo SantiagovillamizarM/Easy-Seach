@@ -215,6 +215,26 @@ MENTION_BOOST = 3.5   # en UNIT: mayor que el bono por cercanía con GPS (máx. 
 FAR_KM = 5.0          # con GPS, si lo más cercano que lo menciona está más lejos que esto, se avisa
 
 
+MAX_ENDING = 4  # letras que pueden seguir a la raíz: plurales y derivados ("s", "es", "eria" en "pizzeria")
+
+
+def _stem_in_word(stem: str, word: str) -> bool:
+    """La raíz aparece en la palabra y lo que sigue es solo una terminación corta.
+
+    Admite plurales, derivados y compuestos ("pizz" en "pizzeria", "fren" en "unifrenos"), pero no que la
+    raíz sea un pedazo de otra palabra ("cond" en "condominio" o en "acondicionamiento"). Las raíces largas
+    (8+ letras) ya son lo bastante específicas y se aceptan en cualquier posición.
+    """
+    if len(stem) >= 8:
+        return stem in word
+    start = word.find(stem)
+    while start != -1:
+        if len(word) - (start + len(stem)) <= MAX_ENDING:
+            return True
+        start = word.find(stem, start + 1)
+    return False
+
+
 def _mentions(text: str, keywords: list[str]) -> bool:
     """¿El texto contiene lo buscado? Compara raíces ("hamburguesas" ~ "hamburguesa") y también dentro de
     palabras compuestas ("frenos" ~ "Unifrenos", "pizza" ~ "Pizzería"). Raíces de menos de 4 letras no cuentan."""
@@ -224,7 +244,7 @@ def _mentions(text: str, keywords: list[str]) -> bool:
         stem = normalize(k)[: max(4, len(normalize(k)) - 2)]
         stems.append(stem)
         stems += [syn for root, syns in _SYNONYMS.items() if stem.startswith(root) for syn in syns]
-    if any(len(s) >= 4 and " " not in s and any(s in w for w in words) for s in stems):
+    if any(len(s) >= 4 and " " not in s and any(_stem_in_word(s, w) for w in words) for s in stems):
         return True
     # Frases ("comida china", "bandeja paisa"): cada palabra de 3+ letras debe aparecer (admite plurales)
     for k in keywords:
@@ -297,9 +317,20 @@ def _matched_snippet(entity_type: str, content: str, keywords: list[str]) -> str
 
 # ======================================================================================
 
+NOT_A_SEARCH_NOTICE = ("No encontramos qué buscar en tu mensaje. Escribe un lugar, producto o servicio, "
+                       "por ejemplo «almuerzo barato en Cabecera» o «taller de motos en Girón».")
+
+
 def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvider | None) -> SearchResult:
     detected = find_place_in_text(db, params.q)
     intent = parse_query(params.q, llm, detected.matched_text if detected else None)
+
+    # Saludos, charla o texto sin sentido ("hola", "asdfgh"): no hay nada que buscar. Antes se devolvían
+    # los lugares "más parecidos" por vectores, que siempre existen aunque no tengan nada que ver.
+    if not intent.is_search:
+        return SearchResult(intent, None, False, [NOT_A_SEARCH_NOTICE], [], _applied(
+            params.budget_min, params.budget_max, params.min_rating, params.open_now,
+            params.category if params.category in CATEGORIES else None))
 
     place, center, radius, location, needs_location, notices = _resolve_location(db, params, intent, detected)
 
@@ -366,6 +397,11 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
         # "se parecen" semánticamente (ej. una tienda de bebés al buscar llantas).
         if allowed_categories is not None and eid not in lex and not (allowed_categories & est_categories):
             continue
+        # Si NADIE menciona lo buscado, las categorías "afines" ya no sirven de respaldo: un supermercado
+        # es afín a bares y heladerías por la comida, pero eso no los hace vender lo que se pidió.
+        # Solo quedan los lugares de las categorías que lo venderían (las que interpretó la consulta).
+        if nothing_mentions_it and wanted_categories and eid not in lex and not (wanted_categories & est_categories):
+            continue
         if category_match:
             score += 0.6 * UNIT
         # Vende lo que se buscó: va antes que lo cercano que no lo vende.
@@ -426,11 +462,19 @@ def search(db: Session, params: SearchParams, embedder: Embedder, llm: LLMProvid
         wanted = ", ".join(f"«{k}»" for k in specific[:3])
         km = f"{min(mention_km):.1f}".replace(".", ",")
         notices.append(f"Cerca de ti no encontramos lugares que mencionen {wanted}; el más cercano está a {km} km.")
-    if nothing_mentions_it and hits:
+    if nothing_mentions_it:
         where = f" en {location.label}" if location and location.source != "gps" else (" cerca de ti" if location else "")
         wanted = ", ".join(f"«{k}»" for k in specific[:3])
-        notices.append(f"Ningún lugar{where} menciona {wanted} en su información. Te mostramos opciones "
-                       f"relacionadas; confirma con el lugar antes de ir.")
+        if not wanted_categories and not lex:
+            # Nadie lo menciona y no sabemos qué tipo de negocio lo vende: los "parecidos" por vectores
+            # serían lugares al azar (un pub, un gimnasio…). Mejor decirlo con honestidad y no mostrar nada.
+            hits = []
+        if hits:
+            notices.append(f"Ningún lugar{where} menciona {wanted} en su información. Te mostramos opciones "
+                           f"relacionadas; confirma con el lugar antes de ir.")
+        else:
+            notices.append(f"Ningún lugar{where} menciona {wanted} en su información. Prueba escribiendo qué "
+                           f"tipo de negocio buscas, por ejemplo «droguería» o «supermercado».")
 
     # ---- Horario: "abierto ahora" ----
     final: list[SearchHit] = []

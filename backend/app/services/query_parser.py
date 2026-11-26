@@ -1,6 +1,6 @@
 """Interpretación de la consulta en lenguaje natural.
 
-1. Se intenta con la IA (Gemini) → JSON estructurado.
+1. Se intenta con la IA (OpenAI y/o Gemini, ver app/services/llm) → JSON estructurado.
 2. Si la IA no está configurada o falla, se usa un intérprete por reglas (siempre disponible).
 3. Lo que diga la IA se VERIFICA contra el texto: no se acepta un presupuesto o lugar que el usuario no escribió.
 
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.text import normalize
 from app.data.categories import CATEGORIES
-from app.services.llm import LLMError, LLMProvider
+from app.services.llm import LLMError, LLMProvider, answered_by
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,9 @@ class QueryIntent(BaseModel):
     open_now: bool = False
     min_rating: float | None = None
     preferences: list[str] = Field(default_factory=list)
-    parser: Literal["gemini", "reglas"] = "reglas"
+    # False cuando no hay nada que buscar: saludos ("hola"), charla, pruebas o texto sin sentido ("asdfgh")
+    is_search: bool = True
+    parser: Literal["xai", "openai", "gemini", "reglas"] = "reglas"
 
 
 # ======================================================================================
@@ -170,6 +172,26 @@ def extract_budget(norm: str) -> tuple[int | None, int | None]:
     return budget_min, budget_max
 
 
+# Palabras de saludo, cortesía, charla o prueba: por sí solas no piden ningún lugar, producto ni servicio
+_CHITCHAT = set("""
+hola ola holi holis hello hey buenas buenos buen dia dias tardes noches saludos que tal como estas esta estan
+gracias muchas ok okay vale listo bien chao adios bye test prueba probando nada hmm mmm jaja jeje jajaja xd
+quien eres ayuda ayudame hacer puedes sabes oye ey alo sup
+""".split())
+_GIBBERISH = re.compile(r"[^aeiouáéíóúü]{5,}")  # 5+ consonantes seguidas no forman palabras en español
+
+
+def _is_real_word(word: str) -> bool:
+    return (word not in _CHITCHAT and any(v in word for v in "aeiouáéíóú")
+            and not _GIBBERISH.search(word))
+
+
+def _looks_like_a_search(keywords: list[str], categories: list[str], place_text: str | None,
+                         signals: list[bool]) -> bool:
+    """¿Pide algo concreto? Basta una palabra real, un tipo de negocio, un lugar o un filtro (cerca, barato…)."""
+    return bool(categories) or bool(place_text) or any(signals) or any(_is_real_word(k) for k in keywords)
+
+
 def parse_with_rules(query: str, place_text: str | None = None) -> QueryIntent:
     norm = normalize(query)
     budget_min, budget_max = extract_budget(norm)
@@ -187,17 +209,27 @@ def parse_with_rules(query: str, place_text: str | None = None) -> QueryIntent:
     need = re.sub(rf"{_MAX_WORDS}?\s*\$?\s*{_NUMBER}\s*(?:pesos)?", " ", need)
     keywords = [w for w in re.findall(r"[a-zñ]+", need) if w not in _STOPWORDS and len(w) > 2]
 
+    near_me = bool(_NEAR.search(norm)) and not _NEAR_PLACE.search(norm)
+    price_preference = "low" if _CHEAP.search(norm) else ("high" if _EXPENSIVE.search(norm) else None)
+    open_now = bool(_OPEN.search(norm))
+    min_rating = 4.0 if _RATING.search(norm) else None
+    is_search = _looks_like_a_search(keywords, categories, place_text,
+                                     [near_me, open_now, bool(price_preference), bool(min_rating),
+                                      budget_min is not None, budget_max is not None])
+    if not is_search:
+        return QueryIntent(need="", keywords=[], is_search=False, parser="reglas")
+
     return QueryIntent(
         need=" ".join(need.split()) or norm,
         keywords=keywords[:8],
         category_slugs=categories[:3],
         location_text=place_text,
-        near_me=bool(_NEAR.search(norm)) and not _NEAR_PLACE.search(norm),
+        near_me=near_me,
         budget_min=budget_min,
         budget_max=budget_max,
-        price_preference="low" if _CHEAP.search(norm) else ("high" if _EXPENSIVE.search(norm) else None),
-        open_now=bool(_OPEN.search(norm)),
-        min_rating=4.0 if _RATING.search(norm) else None,
+        price_preference=price_preference,
+        open_now=open_now,
+        min_rating=min_rating,
         preferences=[],
         parser="reglas",
     )
@@ -227,7 +259,11 @@ Reglas estrictas:
 - open_now: true solo si pide que esté abierto ahora.
 - min_rating: 4.0 si pide algo bien calificado o recomendado; null en otro caso.
 - preferences: características deseadas que mencione (ej. "porciones grandes", "para niños", "domicilio").
-  Lista vacía si no menciona ninguna."""
+  Lista vacía si no menciona ninguna.
+- is_search: true si pide encontrar algún lugar, producto o servicio (aunque sea vago, como "algo rico cerca").
+  false si NO hay nada que buscar: saludos ("hola", "buenas tardes"), agradecimientos, charla, pruebas
+  ("test", "probando") o texto sin sentido ("asdfgh"). Si es false, need queda vacío y keywords y
+  category_slugs como listas vacías. NUNCA inventes una necesidad genérica como "información general"."""
 
 
 def _schema() -> dict:
@@ -245,9 +281,10 @@ def _schema() -> dict:
             "open_now": {"type": "boolean"},
             "min_rating": {"type": "number", "nullable": True},
             "preferences": {"type": "array", "items": {"type": "string"}},
+            "is_search": {"type": "boolean"},
         },
         "required": ["need", "keywords", "category_slugs", "location_text", "near_me", "budget_min",
-                     "budget_max", "price_preference", "open_now", "min_rating", "preferences"],
+                     "budget_max", "price_preference", "open_now", "min_rating", "preferences", "is_search"],
     }
 
 
@@ -293,6 +330,7 @@ class _LRU(OrderedDict):
 
 
 _cache = _LRU()
+MAX_TOKENS = 300  # tope de la respuesta de la IA (lo normal son ~90 tokens)
 
 
 def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = None) -> QueryIntent:
@@ -307,13 +345,23 @@ def parse_query(query: str, llm: LLMProvider | None, place_text: str | None = No
         return cached.model_copy(deep=True)
 
     try:
-        raw = llm.generate_json(f"Consulta del usuario: {query}", _schema(), system=SYSTEM_PROMPT)
-        intent = QueryIntent(**raw, parser="gemini")
+        raw = llm.generate_json(f"Consulta del usuario: {query}", _schema(), system=SYSTEM_PROMPT,
+                                max_tokens=MAX_TOKENS)
+        provider = answered_by(raw, llm)
+        intent = QueryIntent(**raw, parser=provider)
     except (LLMError, ValidationError, TypeError) as exc:
         logger.warning("IA no disponible para interpretar, se usan reglas: %s", exc)
         return rules
 
     intent = _verify_against_text(intent, query, rules)
+    # La IA decide si hay algo que buscar, pero no puede descartar una consulta que nombra un tipo de
+    # negocio reconocible ("pizza", "ferretería"): ahí manda el texto, igual que con el lugar y el dinero.
+    if not intent.is_search and rules.category_slugs:
+        intent.is_search = True
+    if not intent.is_search:
+        intent = QueryIntent(need="", keywords=[], is_search=False, parser=provider)
+        _cache.put(key, intent)
+        return intent.model_copy(deep=True)
     if not intent.need.strip():
         intent.need = rules.need
     if not intent.keywords:

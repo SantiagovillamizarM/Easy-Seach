@@ -1,0 +1,536 @@
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+
+// Gráficas del dashboard "Horizonte de eventos", dibujadas a mano en SVG (sin librerías).
+// Los colores salen de las variables --bh-* de black-hole.css.
+
+export const fmt = (n) => Number(n ?? 0).toLocaleString("es-CO");
+export const fmtUsd = (n) => `US$ ${Number(n ?? 0).toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 3 : 2 })}`;
+
+const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+
+// Cambio frente al periodo anterior: "+12%", "−5%", "nuevo"
+export function Delta({ value, previous }) {
+  if (!previous) {
+    if (!value) return <span className="bh-delta is-flat">sin cambio</span>;
+    return <span className="bh-delta is-up">▲ nuevo</span>;
+  }
+  const pct = Math.round(((value - previous) / previous) * 100);
+  const cls = pct > 0 ? "is-up" : pct < 0 ? "is-down" : "is-flat";
+  return <span className={`bh-delta ${cls}`}>{pct > 0 ? "▲ +" : pct < 0 ? "▼ −" : ""}{Math.abs(pct)}%</span>;
+}
+
+export function Sparkline({ values, color = "var(--bh-accretion)" }) {
+  const id = useId();
+  const max = Math.max(1, ...values);
+  const step = values.length > 1 ? 100 / (values.length - 1) : 100;
+  const points = values.map((v, i) => `${(i * step).toFixed(2)},${(30 - (v / max) * 26 - 2).toFixed(2)}`);
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="bh-spark" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity="0.35" />
+          <stop offset="1" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,30 ${points.join(" ")} 100,30`} fill={`url(#${id})`} />
+      <polyline points={points.join(" ")} fill="none" stroke={color} strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// Gráfica de área con punto y cuadro de detalle al pasar el mouse (o tocar)
+export function AreaChart({ dates, values, label, color = "var(--bh-pink)" }) {
+  const id = useId();
+  const box = useRef(null);
+  const [hover, setHover] = useState(null);
+  const W = 800, H = 240, PAD_T = 16, PAD_B = 26;
+  const max = Math.max(4, ...values);
+  const nice = Math.ceil(max / 4) * 4;
+  const x = (i) => (values.length > 1 ? (i / (values.length - 1)) * W : W / 2);
+  const y = (v) => PAD_T + (1 - v / nice) * (H - PAD_T - PAD_B);
+  const line = values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(values.length - 1)},${H - PAD_B} L${x(0)},${H - PAD_B} Z`;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(nice * f));
+  const every = Math.max(1, Math.ceil(dates.length / 7));
+
+  function onMove(e) {
+    const rect = box.current.getBoundingClientRect();
+    const rel = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(rel * (values.length - 1)));
+  }
+
+  const hx = hover !== null ? (x(hover) / W) * 100 : 0;
+  return (
+    <div className="bh-area">
+      <div className="bh-area-plot" ref={box} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} por día`}>
+        <defs>
+          <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.38" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {ticks.map((t) => (
+          <line key={t} x1="0" x2={W} y1={y(t)} y2={y(t)} className="bh-grid" vectorEffect="non-scaling-stroke" />
+        ))}
+        <path d={area} fill={`url(#${id})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        {hover !== null && (
+          <line x1={x(hover)} x2={x(hover)} y1={PAD_T} y2={H - PAD_B} className="bh-cursor" vectorEffect="non-scaling-stroke" />
+        )}
+      </svg>
+      {hover !== null && (
+        <>
+          <span className="bh-dot" style={{ left: `${hx}%`, top: `${(y(values[hover]) / H) * 100}%` }} />
+          <div className={`bh-tip ${hx > 70 ? "is-left" : ""}`} style={{ left: `${hx}%` }}>
+            <span>{new Date(`${dates[hover]}T12:00:00`).toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "long" })}</span>
+            <strong>{fmt(values[hover])}</strong>
+            <span>{label.toLowerCase()}</span>
+          </div>
+        </>
+      )}
+      </div>
+      <div className="bh-area-y" aria-hidden="true">
+        {ticks.slice().reverse().map((t) => <span key={t}>{fmt(t)}</span>)}
+      </div>
+      <div className="bh-area-x" aria-hidden="true">
+        {dates.map((d, i) => (i % every === 0 || i === dates.length - 1 ? (
+          <span key={d} style={{ left: `${(x(i) / W) * 100}%` }}>{shortDate(d)}</span>
+        ) : null))}
+      </div>
+    </div>
+  );
+}
+
+// Calendario de puntos: día de la semana × hora; el punto crece con la actividad (estilo pantalla de control)
+const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+export function DotHeatmap({ grid }) {
+  const max = Math.max(1, ...grid.flat());
+  const order = [1, 2, 3, 4, 5, 6, 0]; // lunes primero
+  let peak = { w: 1, h: 0, v: -1 };
+  grid.forEach((row, w) => row.forEach((v, h) => { if (v > peak.v) peak = { w, h, v }; }));
+  return (
+    <div className="bh-heat">
+      <div className="bh-heat-grid" role="img" aria-label={`Hora pico: ${WEEKDAYS[peak.w]} a las ${peak.h}:00`}>
+        {order.map((w) => (
+          <div key={w} className="bh-heat-row">
+            <span className="bh-heat-day">{WEEKDAYS[w]}</span>
+            {grid[w].map((v, h) => {
+              const f = v / max;
+              return (
+                <span key={h} className="bh-heat-cell" title={`${WEEKDAYS[w]} ${h}:00 · ${v}`}>
+                  <i style={{ transform: `scale(${0.18 + f * 0.82})`, opacity: v ? 0.35 + f * 0.65 : 0.12 }}
+                     className={f > 0.66 ? "is-hot" : ""} />
+                </span>
+              );
+            })}
+          </div>
+        ))}
+        <div className="bh-heat-row bh-heat-hours" aria-hidden="true">
+          <span className="bh-heat-day" />
+          {Array.from({ length: 24 }, (_, h) => <span key={h} className="bh-heat-cell">{h % 3 === 0 ? h : ""}</span>)}
+        </div>
+      </div>
+      <p className="bh-note">
+        Hora pico: <strong>{peak.v > 0 ? `${WEEKDAYS[peak.w]} ${peak.h}:00–${peak.h + 1}:00` : "todavía sin datos"}</strong>
+      </p>
+    </div>
+  );
+}
+
+// Anillo de barras radiales (como el de actividad de la referencia): cada segmento es una parte del total
+export function RadialRing({ items, center, sub }) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const BARS = 72;
+  const bars = useMemo(() => {
+    const out = [];
+    const bounds = [];
+    for (let k = 0, acc = 0; k < items.length; k++) {
+      const share = total ? items[k].value / total : 0;
+      bounds.push({ ...items[k], from: acc, to: acc + share });
+      acc += share;
+    }
+    for (let i = 0; i < BARS; i++) {
+      const f = i / BARS;
+      const seg = bounds.find((b) => f >= b.from && f < b.to) ?? null;
+      const wobble = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.7));
+      out.push({ angle: f * 360, color: seg?.color ?? "var(--bh-line-strong)", len: seg ? 18 + 16 * wobble : 10 });
+    }
+    return out;
+  }, [items, total]);
+  return (
+    <div className="bh-ring">
+      <svg viewBox="0 0 200 200" role="img" aria-label={items.map((i) => `${i.label}: ${i.value}`).join(", ")}>
+        {bars.map((b, i) => (
+          <line key={i} x1="100" y1={100 - 52} x2="100" y2={100 - 52 - b.len} stroke={b.color} strokeWidth="2.6"
+                strokeLinecap="round" transform={`rotate(${b.angle} 100 100)`} />
+        ))}
+      </svg>
+      <div className="bh-ring-center">
+        <strong>{center}</strong>
+        <span>{sub}</span>
+      </div>
+    </div>
+  );
+}
+
+// Dona fina para repartir un total (proveedores de IA)
+export function Donut({ items }) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const R = 42, C = 2 * Math.PI * R;
+  let offset = 0;
+  return (
+    <svg viewBox="0 0 100 100" className="bh-donut" role="img" aria-label={items.map((i) => `${i.label}: ${i.value}`).join(", ")}>
+      <circle cx="50" cy="50" r={R} className="bh-donut-track" />
+      {total > 0 && items.filter((i) => i.value > 0).map((it) => {
+        const len = (it.value / total) * C;
+        const el = (
+          <circle key={it.label} cx="50" cy="50" r={R} fill="none" stroke={it.color} strokeWidth="7"
+                  strokeDasharray={`${Math.max(len - 1.5, 0.5)} ${C}`} strokeDashoffset={-offset}
+                  transform="rotate(-90 50 50)" strokeLinecap="round" />
+        );
+        offset += len;
+        return el;
+      })}
+    </svg>
+  );
+}
+
+// Embudo horizontal: cada etapa con su barra, su número y el % frente a la primera
+export function Funnel({ steps }) {
+  const top = Math.max(1, steps[0]?.value ?? 1);
+  return (
+    <ol className="bh-funnel">
+      {steps.map((s, i) => (
+        <li key={s.label}>
+          <div className="bh-funnel-head">
+            <span><em>Nº {String(i + 1).padStart(3, "0")}</em> {s.label}</span>
+            <span className="bh-num">{fmt(s.value)} <small>{Math.round((s.value / top) * 100)}%</small></span>
+          </div>
+          <div className="bh-funnel-track"><i style={{ width: `${Math.max((s.value / top) * 100, s.value ? 1.5 : 0)}%` }} /></div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// Lista con barras: una etiqueta, su valor y una barra proporcional
+export function BarList({ items, color = "var(--bh-violet)", empty = "Todavía sin datos" }) {
+  const max = Math.max(1, ...items.map((i) => i.value));
+  if (!items.length) return <p className="bh-note">{empty}</p>;
+  return (
+    <ul className="bh-bars">
+      {items.map((it) => (
+        <li key={it.label}>
+          <span className="bh-bars-label">{it.label}</span>
+          <span className="bh-num">{fmt(it.value)}</span>
+          <span className="bh-bars-track"><i style={{ width: `${(it.value / max) * 100}%`, background: color }} /></span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Nube de palabras: lo más buscado; el tamaño sigue a la cantidad de búsquedas
+export function WordCloud({ words }) {
+  const max = Math.max(1, ...words.map((w) => w.count));
+  if (!words.length) return <p className="bh-note">Todavía no hay búsquedas en este periodo.</p>;
+  return (
+    <ul className="bh-cloud">
+      {words.map((w, i) => {
+        const f = w.count / max;
+        return (
+          <li key={w.query} style={{ fontSize: `${0.7 + f * 0.75}rem`, opacity: 0.55 + f * 0.45, transform: `rotate(${((i * 37) % 7) - 3}deg)` }}
+              className={f > 0.6 ? "is-hot" : ""} title={`${w.query} · ${w.count} búsquedas`}>
+            {w.query.length > 26 ? `${w.query.slice(0, 25)}…` : w.query}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// Cifra que sube contando hasta su valor (con movimiento reducido aparece directo)
+// Las cifras cuentan desde cero solo la primera vez que se abre el resumen en la sesión; al volver aparecen
+// directamente con su valor (settleCounts lo activa el dashboard después de la primera carga)
+let countFromZero = true;
+export function settleCounts() {
+  countFromZero = false;
+}
+
+export function CountUp({ value, duration = 900, format = fmt }) {
+  const [shown, setShown] = useState(() => (countFromZero ? 0 : value));
+  const from = useRef(countFromZero ? 0 : value);
+  useEffect(() => {
+    const start = from.current;
+    if (start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      from.current = value;
+      setShown(value);
+      return undefined;
+    }
+    let frame = 0;
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      const current = start + (value - start) * (1 - (1 - k) ** 3);
+      setShown(current);
+      from.current = current;
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+  return format(Number.isInteger(value) ? Math.round(shown) : shown);
+}
+
+// Curva suave que no se pasa por debajo de cero ni inventa picos (interpolación cúbica monótona)
+function monotonePath(pts) {
+  const n = pts.length;
+  if (n < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
+  const dx = [], slope = [], tan = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1][0] - pts[i][0]);
+    slope.push((pts[i + 1][1] - pts[i][1]) / dx[i]);
+  }
+  tan.push(slope[0]);
+  for (let i = 1; i < n - 1; i++) tan.push(slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2);
+  tan.push(slope[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) { tan[i] = 0; tan[i + 1] = 0; continue; }
+    const a = tan[i] / slope[i], b = tan[i + 1] / slope[i], h = a * a + b * b;
+    if (h > 9) { const t = 3 / Math.sqrt(h); tan[i] = t * a * slope[i]; tan[i + 1] = t * b * slope[i]; }
+  }
+  let d = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(2)},${(pts[i][1] + tan[i] * h).toFixed(2)} ${(pts[i + 1][0] - h).toFixed(2)},${(pts[i + 1][1] - tan[i + 1] * h).toFixed(2)} ${pts[i + 1][0].toFixed(2)},${pts[i + 1][1].toFixed(2)}`;
+  }
+  return d;
+}
+
+// Gráfica de los indicadores: la tendencia suavizada (promedio de 5 días) con brillo, su área degradada y un
+// punto que late en el valor de hoy. Se dibuja de izquierda a derecha al aparecer.
+export function SparkArea({ values, color }) {
+  const id = useId();
+  const W = 200, H = 64, TOP = 8, BOTTOM = 58, PAD_L = 4, PAD_R = 12;
+  const n = values.length;
+  const max = Math.max(1, ...values);
+  const x = (i) => PAD_L + (n > 1 ? (i / (n - 1)) * (W - PAD_L - PAD_R) : (W - PAD_L - PAD_R) / 2);
+  const y = (v) => BOTTOM - (v / max) * (BOTTOM - TOP);
+  const trend = values.map((_, i) => {
+    const win = values.slice(Math.max(0, i - 2), i + 3);
+    return win.reduce((a, b) => a + b, 0) / win.length;
+  });
+  const line = monotonePath(trend.map((v, i) => [x(i), y(v)]));
+  const empty = values.every((v) => !v);
+  const endX = x(n - 1), endY = y(trend[n - 1] ?? 0);
+  return (
+    <div className="bh-sparkarea" style={{ "--kc": color }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1="0" x2={W} y1={BOTTOM + 0.5} y2={BOTTOM + 0.5} className="bh-sparkarea-grid" vectorEffect="non-scaling-stroke" />
+        {!empty && <path d={`${line} L${endX},${H} L${PAD_L},${H} Z`} fill={`url(#${id}-a)`} />}
+        {!empty && (
+          <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" className="bh-sparkarea-line" />
+        )}
+      </svg>
+      {!empty && <span className="bh-sparkarea-dot" style={{ left: `${(endX / W) * 100}%`, top: `${(endY / H) * 100}%` }} />}
+    </div>
+  );
+}
+
+// Gráfica de pulso: curva suave con brillo y área degradada, el periodo anterior como línea punteada y, al pasar
+// el mouse (o tocar), un cursor con el valor del día y el del mismo día del periodo anterior.
+export function PulseChart({ dates, values, previous, label, color }) {
+  const id = useId();
+  const box = useRef(null);
+  const [hover, setHover] = useState(null);
+  const W = 800, H = 260, TOP = 14, BOTTOM = 232;
+  const prev = previous && previous.length === values.length ? previous : null;
+  const top = Math.max(4, ...values, ...(prev ?? []));
+  const step = top <= 8 ? 2 : Math.ceil(top / 4 / 5) * 5 || 1;
+  const nice = Math.ceil(top / step) * step;
+  const n = values.length;
+  const x = (i) => (n > 1 ? (i / (n - 1)) * W : W / 2);
+  const y = (v) => BOTTOM - (v / nice) * (BOTTOM - TOP);
+  const line = monotonePath(values.map((v, i) => [x(i), y(v)]));
+  const prevLine = prev ? monotonePath(prev.map((v, i) => [x(i), y(v)])) : null;
+  const ticks = [];
+  for (let t = 0; t <= nice; t += step) ticks.push(t);
+  const every = Math.max(1, Math.ceil(n / 6));
+
+  function onMove(e) {
+    const rect = box.current.getBoundingClientRect();
+    const rel = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(rel * (n - 1)));
+  }
+  const hx = hover !== null ? (x(hover) / W) * 100 : 0;
+  const fmtDay = (iso, opts) => new Date(`${iso}T12:00:00`).toLocaleDateString("es-CO", opts);
+
+  return (
+    <div className="bh-pulse" style={{ "--kc": color }}>
+      <div className="bh-pulse-y" aria-hidden="true">
+        {ticks.slice().reverse().map((t) => <span key={t} style={{ top: `${(y(t) / H) * 100}%` }}>{fmt(t)}</span>)}
+      </div>
+      <div className="bh-pulse-plot" ref={box} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} por día`}>
+          <defs>
+            <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor={color} stopOpacity="0.34" />
+              <stop offset="0.55" stopColor={color} stopOpacity="0.08" />
+              <stop offset="1" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={`${id}-l`} x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stopColor={color} stopOpacity="0.55" />
+              <stop offset="0.85" stopColor={color} stopOpacity="1" />
+              <stop offset="1" stopColor="#ffffff" stopOpacity="1" />
+            </linearGradient>
+          </defs>
+          {ticks.map((t) => (
+            <line key={t} x1="0" x2={W} y1={y(t)} y2={y(t)} className="bh-pulse-grid" vectorEffect="non-scaling-stroke" />
+          ))}
+          {prevLine && (
+            <path d={prevLine} fill="none" className="bh-pulse-prev" vectorEffect="non-scaling-stroke" />
+          )}
+          <path d={`${line} L${W},${BOTTOM} L0,${BOTTOM} Z`} fill={`url(#${id}-a)`} className="bh-pulse-area" />
+          <path d={line} fill="none" stroke={`url(#${id}-l)`} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" className="bh-pulse-line" />
+          {hover !== null && (
+            <line x1={x(hover)} x2={x(hover)} y1={TOP} y2={BOTTOM} className="bh-pulse-cursor" vectorEffect="non-scaling-stroke" />
+          )}
+        </svg>
+        <span className="bh-pulse-end" style={{ left: "100%", top: `${(y(values[n - 1] ?? 0) / H) * 100}%` }} />
+        {hover !== null && (
+          <>
+            <span className="bh-dot" style={{ left: `${hx}%`, top: `${(y(values[hover]) / H) * 100}%` }} />
+            <div className={`bh-tip ${hx > 68 ? "is-left" : ""}`} style={{ left: `${hx}%` }}>
+              <span>{fmtDay(dates[hover], { weekday: "long", day: "numeric", month: "long" })}</span>
+              <strong>{fmt(values[hover])} <small>{label.toLowerCase()}</small></strong>
+              {prev && <span className="bh-tip-prev">Periodo anterior: {fmt(prev[hover])}</span>}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="bh-pulse-x" aria-hidden="true">
+        {dates.map((d, i) => (i % every === 0 || i === n - 1 ? (
+          <span key={d} style={{ left: `${(x(i) / W) * 100}%` }} className={i === n - 1 ? "is-last" : ""}>
+            {i === n - 1 ? "Hoy" : fmtDay(d, { day: "numeric", month: "short" })}
+          </span>
+        ) : null))}
+      </div>
+    </div>
+  );
+}
+
+// Horas pico: celdas día × hora en escala de azules, franjas del día arriba, barra por día a la derecha,
+// histograma por hora abajo, y al pasar el mouse qué día/hora es y cuántos eventos tuvo.
+const DAYS_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const BANDS = [
+  { label: "Madrugada", from: 0 }, { label: "Mañana", from: 6 }, { label: "Tarde", from: 12 }, { label: "Noche", from: 18 },
+];
+export function PeakHeatmap({ grid }) {
+  const [hover, setHover] = useState(null);
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const max = Math.max(1, ...grid.flat());
+  const total = grid.flat().reduce((a, b) => a + b, 0);
+  const dayTotals = grid.map((row) => row.reduce((a, b) => a + b, 0));
+  const hourTotals = Array.from({ length: 24 }, (_, h) => grid.reduce((s, row) => s + row[h], 0));
+  const maxDay = Math.max(1, ...dayTotals), maxHour = Math.max(1, ...hourTotals);
+  let peak = { w: 1, h: 0, v: 0 };
+  grid.forEach((row, w) => row.forEach((v, h) => { if (v > peak.v) peak = { w, h, v }; }));
+  const bestDay = dayTotals.indexOf(Math.max(...dayTotals));
+  const bandTotals = BANDS.map((b) => hourTotals.slice(b.from, b.from + 6).reduce((a, c) => a + c, 0));
+  const bestBand = bandTotals.indexOf(Math.max(...bandTotals));
+  const pct = (v) => (total ? Math.round((v / total) * 100) : 0);
+  const level = (v) => (v ? Math.max(1, Math.ceil((v / max) * 4)) : 0);
+  const shown = hover ?? (peak.v ? { ...peak, isPeak: true } : null);
+
+  return (
+    <div className="bh-peak">
+      <div className="bh-peak-chips">
+        <div><span>Hora pico</span><strong>{peak.v ? `${peak.h}:00` : "–"}</strong><small>{peak.v ? DAYS_LONG[peak.w] : "sin datos"}</small></div>
+        <div><span>Día más activo</span><strong>{total ? DAYS_LONG[bestDay].slice(0, 3) : "–"}</strong><small>{total ? `${pct(dayTotals[bestDay])}% de la actividad` : "sin datos"}</small></div>
+        <div><span>Franja más activa</span><strong>{total ? BANDS[bestBand].label : "–"}</strong><small>{total ? `${pct(bandTotals[bestBand])}% de la actividad` : "sin datos"}</small></div>
+      </div>
+      <div className="bh-peak-scroll">
+        <div className="bh-peak-grid" onPointerLeave={() => setHover(null)}>
+          <span />
+          {BANDS.map((b, i) => (
+            <span key={b.label} className={`bh-peak-band ${i === bestBand && total ? "is-best" : ""}`} style={{ gridColumn: `${b.from + 2} / span 6` }}>
+              {b.label}
+            </span>
+          ))}
+          <span />
+          {order.map((w) => (
+            <div key={w} className="bh-peak-row">
+              <span className="bh-peak-day">{DAYS_LONG[w].slice(0, 3)}</span>
+              {grid[w].map((v, h) => {
+                const isPeak = peak.v > 0 && w === peak.w && h === peak.h;
+                return (
+                  <span key={h} className={`bh-peak-cell l${level(v)} ${isPeak ? "is-peak" : ""} ${hover && hover.w === w && hover.h === h ? "is-hover" : ""}`}
+                        onPointerEnter={() => setHover({ w, h, v })} aria-label={`${DAYS_LONG[w]} ${h}:00, ${v} eventos`} />
+                );
+              })}
+              <span className="bh-peak-daybar"><i style={{ width: `${(dayTotals[w] / maxDay) * 68}%` }} /><b>{fmt(dayTotals[w])}</b></span>
+            </div>
+          ))}
+          <span />
+          {hourTotals.map((v, h) => (
+            <span key={h} className="bh-peak-hour">
+              <i style={{ height: `${Math.max(v ? 12 : 4, (v / maxHour) * 100)}%` }} className={v === maxHour && v ? "is-best" : ""} />
+              <small>{h % 3 === 0 ? h : ""}</small>
+            </span>
+          ))}
+          <span />
+        </div>
+      </div>
+      <div className="bh-peak-foot">
+        <p aria-live="polite">
+          {shown
+            ? <>{shown.isPeak ? "Hora pico: " : ""}<strong>{DAYS_LONG[shown.w]} {shown.h}:00–{shown.h + 1}:00</strong> · {fmt(shown.v)} {shown.v === 1 ? "evento" : "eventos"}</>
+            : "Todavía no hay actividad en este periodo."}
+        </p>
+        <span className="bh-peak-legend">Menos <i className="l1" /><i className="l2" /><i className="l3" /><i className="l4" /> Más</span>
+      </div>
+    </div>
+  );
+}
+
+// Anillo segmentado: un arco por parte, con separación y brillo; en el centro la parte principal
+export function SegmentRing({ items, label, center }) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const R = 40, C = 2 * Math.PI * R, GAP = total && items.filter((i) => i.value).length > 1 ? 3 : 0;
+  const top = items.reduce((a, b) => (b.value > a.value ? b : a), items[0]);
+  let offset = 0;
+  return (
+    <div className="bh-segring">
+      <svg viewBox="0 0 100 100" role="img" aria-label={items.map((i) => `${i.label}: ${i.value}`).join(", ")}>
+        <circle cx="50" cy="50" r={R} className="bh-segring-track" />
+        {total > 0 && items.filter((i) => i.value > 0).map((it) => {
+          const len = (it.value / total) * C;
+          const el = (
+            <circle key={it.label} cx="50" cy="50" r={R} fill="none" stroke={it.color} strokeWidth="9" strokeLinecap="round"
+                    strokeDasharray={`${Math.max(len - GAP, 0.1)} ${C}`} strokeDashoffset={-offset - GAP / 2}
+                    transform="rotate(-90 50 50)" style={{ filter: `drop-shadow(0 0 4px ${it.color})` }} />
+          );
+          offset += len;
+          return el;
+        })}
+      </svg>
+      <div className="bh-segring-center">
+        {center ?? (
+          <>
+            <strong>{total ? `${Math.round((top.value / total) * 100)}%` : "–"}</strong>
+            <span>{total ? top.label.toLowerCase() : label}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

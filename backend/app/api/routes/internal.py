@@ -26,6 +26,7 @@ from app.services.catalog import LOAD_OPTIONS
 from app.services.embeddings import Embedder, get_embedder, plan_sync
 from app.services.query_parser import QueryIntent
 from app.services.recommendations import facts_for, validate_text
+from app.services.user_text import sin_terminos_internos
 
 MAX_TEXTS = 64
 PLAN_BATCH = 200
@@ -155,5 +156,7 @@ def validar(data: ValidarIn, db: Session = Depends(get_db)) -> dict:
     intent = QueryIntent(need="")
     respuesta = validate_text(data.respuesta, facts, intent)
     pasos = [p for p in (validate_text(p, facts, intent) for p in data.pasos) if len(p) >= 5]
+    # Solo cuenta como "frases eliminadas" lo que la validación quitó, no el cambio de términos internos
+    original = sin_terminos_internos(data.respuesta.strip())
     return {"respuesta": respuesta, "pasos": pasos,
-            "frases_eliminadas": data.respuesta.strip() != respuesta or len(pasos) != len(data.pasos)}
+            "frases_eliminadas": original != respuesta or len(pasos) != len(data.pasos)}

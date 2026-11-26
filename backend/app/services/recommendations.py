@@ -17,10 +17,13 @@ from decimal import Decimal
 
 from app.core.text import normalize
 from app.models import Establishment
-from app.services.llm import LLMError, LLMProvider
+from app.services.llm import LLMError, LLMProvider, answered_by
+from app.services.user_text import sin_terminos_internos
 from app.services.query_parser import QueryIntent, _LRU
 
 logger = logging.getLogger(__name__)
+
+MAX_TOKENS = 900  # tope de la respuesta de la IA (lo normal son ~430 tokens para 6 lugares)
 
 MAX_ITEMS = 6
 _cache = _LRU(256)
@@ -151,7 +154,8 @@ def validate_text(text: str, facts: dict, intent: QueryIntent) -> str:
         if _RATING.search(sentence) and "calificacion" not in facts:
             continue  # calificación inventada
         kept.append(sentence)
-    return " ".join(kept).strip()
+    # Sin términos internos ("las fichas no traen…" → "los datos registrados no traen…")
+    return sin_terminos_internos(" ".join(kept).strip())
 
 
 # --------------------------------------------------------------------------------------
@@ -193,6 +197,8 @@ Reglas OBLIGATORIAS:
 - Si la ficha tiene poca información, dilo con honestidad (ej. "No tenemos detalles de su menú; está registrado
   como comida rápida en Piedecuesta").
 - No repitas el horario: la aplicación ya lo muestra.
+- Escribe para el usuario: NUNCA menciones las palabras "ficha", "fichas", "id" ni "datos registrados en la
+  ficha"; di "no tenemos detalles de…" o "está registrado como…".
 - summary: una frase general orientando al usuario entre las opciones (sin inventar datos)."""
 
 
@@ -242,7 +248,9 @@ def recommend(query: str, intent: QueryIntent, establishments: list[Establishmen
         return cached
 
     try:
-        raw = llm.generate_json(json.dumps(payload, ensure_ascii=False, default=str), _schema(), system=SYSTEM_PROMPT)
+        raw = llm.generate_json(json.dumps(payload, ensure_ascii=False, default=str), _schema(), system=SYSTEM_PROMPT,
+                                max_tokens=MAX_TOKENS)
+        provider = answered_by(raw, llm)
     except LLMError as exc:
         logger.warning("Recomendaciones con IA no disponibles: %s", exc)
         return fallback()
@@ -262,11 +270,11 @@ def recommend(query: str, intent: QueryIntent, establishments: list[Establishmen
         if len(text) < 15:  # vacío o todo eliminado por la validación -> plantilla
             items.append(Recommendation(e.id, templates[e.id], gaps[e.id], "reglas"))
         else:
-            items.append(Recommendation(e.id, text, gaps[e.id], "gemini"))
+            items.append(Recommendation(e.id, text, gaps[e.id], provider))
 
     summary = raw.get("summary") if isinstance(raw, dict) else None
     if summary:
         summary = validate_text(summary, {"todas": list(facts.values())}, intent) or None
-    result = RecommendationSet(summary, items, "gemini")
+    result = RecommendationSet(summary, items, provider)
     _cache.put(cache_key, result)
     return result
