@@ -13,8 +13,7 @@ const BlackHole = lazy(() => import("./admin/blackhole/BlackHole.jsx"));
 // - Los colores del modo oscuro (tarjetas, botones, campos, chips…) están en theme.css.
 // Para llevar el modo oscuro a otra página basta con envolverla en <ThemedPage> (en App.jsx) y
 // añadir su ruta a isThemedRoute en Layout.jsx.
-// `variant="admin"`: el panel de administración va siempre en oscuro, con su propia paleta de negros,
-// azules y grises (admin-scope en theme.css) y un fondo fijo de vacío azul, sin selector de tema.
+// `variant="admin"`: el panel usa su propia paleta monocroma sobre el agujero negro.
 export default function ThemedPage({ children, variant }) {
   const { theme: chosen } = useTheme();
   const admin = variant === "admin";

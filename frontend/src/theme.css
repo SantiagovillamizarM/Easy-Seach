@@ -175,87 +175,87 @@
   box-shadow: 0 2px 6px #00000080;
 }
 
-/* ======================================================================================
-   Panel de administración: siempre oscuro, solo negros, azules y grises.
-   Mismo esquema que el modo oscuro, con los tokens de color cambiados a azul y los estados
-   (aprobado, pendiente, rechazado) en tonos de azul y gris: el texto de cada etiqueta dice el estado.
-   ====================================================================================== */
+/* La cabecera identifica la ruta incluso durante la carga. El filtro en la raíz incluye
+   el lienzo del agujero negro, los gráficos y los componentes compartidos del panel. */
+html:has(.site-nav-admin) {
+  background-color: #050505;
+  filter: grayscale(1);
+}
+
 .theme-scope.admin-scope[data-theme="dark"] {
-  --color-ink: #e7ecf6;
-  --color-ink-soft: #94a0b8;
-  --color-line: #9fb4dc1c;
-  --color-muted: #9fb4dc12;
-  --color-canvas: #05070c;
-  --color-brand-50: #3b82f61f;
-  --color-brand-100: #3b82f633;
-  --color-brand-200: #60a5fa59;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2f6fe4;
-  --color-brand-700: #93c5fd;
-  --color-open: #7dd3fc;
-  --color-open-bg: #38bdf81f;
-  --color-closed: #a9b4c8;
-  --color-closed-bg: #94a3b81f;
-  --color-warn: #bfdbfe;
-  --color-warn-bg: #60a5fa1f;
-  --color-warn-line: #60a5fa40;
-  --color-warn-soft: #60a5fa29;
-  --color-star: #93c5fd;
+  --color-ink: #fafafa;
+  --color-ink-soft: #b8b8b8;
+  --color-line: #ffffff26;
+  --color-muted: #b2b2b212;
+  --color-canvas: #070707;
+  --color-brand-50: #7b7b7b1f;
+  --color-brand-100: #7b7b7b33;
+  --color-brand-200: #9c9c9c59;
+  --color-brand-400: #9c9c9c;
+  --color-brand-500: #7b7b7b;
+  --color-brand-600: #d0d0d0;
+  --color-brand-700: #bebebe;
+  --color-brand-900: #dedede;
+  --color-open: #c4c4c4;
+  --color-open-bg: #a5a5a51f;
+  --color-closed: #b3b3b3;
+  --color-closed-bg: #a1a1a11f;
+  --color-warn: #d8d8d8;
+  --color-warn-bg: #9c9c9c1f;
+  --color-warn-line: #9c9c9c40;
+  --color-warn-soft: #9c9c9c29;
+  --color-star: #bebebe;
 
-  --surface-light: linear-gradient(165deg, #0d131f 0%, #0a0f19 60%, #080c14 100%);
-  --surface-ai: linear-gradient(160deg, #0f1a2e, #0b1322 60%, #0a1120);
+  --surface-light: linear-gradient(165deg, #252525 0%, #161616 60%, #101010 100%);
+  --surface-ai: linear-gradient(160deg, #303030, #1d1d1d 60%, #161616);
   --shadow-card: inset 0 1px 0 #ffffff0d, 0 24px 44px -30px #000;
-  --shadow-lift: inset 0 1px 0 #ffffff14, 0 24px 44px -24px #000, 0 0 34px -18px #3b82f6aa;
+  --shadow-lift: inset 0 1px 0 #ffffff14, 0 24px 44px -24px #000, 0 0 34px -18px #7b7b7baa;
 
-  background: #03050a;
+  background: #050505;
 }
 .admin-void {
   position: sticky;
   top: 0;
   height: 100svh;
   background:
-    radial-gradient(1px 1px at 12% 18%, #cfe0ff99, transparent 60%),
-    radial-gradient(1px 1px at 68% 9%, #cfe0ff80, transparent 60%),
-    radial-gradient(1.2px 1.2px at 84% 42%, #cfe0ff70, transparent 60%),
-    radial-gradient(1px 1px at 32% 66%, #cfe0ff60, transparent 60%),
-    radial-gradient(1px 1px at 52% 88%, #cfe0ff70, transparent 60%),
-    radial-gradient(1.2px 1.2px at 6% 78%, #cfe0ff60, transparent 60%),
-    radial-gradient(1px 1px at 92% 76%, #cfe0ff80, transparent 60%),
-    radial-gradient(ellipse 60% 45% at 75% 0%, #1e3a8a33, transparent 70%),
-    radial-gradient(ellipse 55% 50% at 0% 100%, #0f2a5c2e, transparent 70%),
-    linear-gradient(180deg, #03050a, #050811 55%, #03050a);
+    radial-gradient(1px 1px at 12% 18%, #dfdfdf99, transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, #dfdfdf80, transparent 60%),
+    radial-gradient(1.2px 1.2px at 84% 42%, #dfdfdf70, transparent 60%),
+    radial-gradient(1px 1px at 32% 66%, #dfdfdf60, transparent 60%),
+    radial-gradient(1px 1px at 52% 88%, #dfdfdf70, transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 78%, #dfdfdf60, transparent 60%),
+    radial-gradient(1px 1px at 92% 76%, #dfdfdf80, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 75% 0%, #3a3a3a33, transparent 70%),
+    radial-gradient(ellipse 55% 50% at 0% 100%, #2828282e, transparent 70%),
+    linear-gradient(180deg, #050505, #080808 55%, #050505);
 }
-.admin-scope[data-theme="dark"] .card-hover:hover { border-color: #60a5fa4d; }
-.admin-scope[data-theme="dark"] .btn-ghost:hover:not(:disabled) { border-color: #60a5fa4d; }
-.admin-scope[data-theme="dark"] .btn-primary {
-  background-image: linear-gradient(125deg, #1d4ed8, #2563eb 55%, #3b82f6);
-  box-shadow: 0 8px 20px -10px #3b82f6aa;
+.admin-scope[data-theme="dark"] .card-hover:hover { border-color: #9c9c9c4d; }
+.admin-scope[data-theme="dark"] .btn-ghost:hover:not(:disabled) { border-color: #9c9c9c4d; }
+.admin-scope[data-theme="dark"] .btn-primary,
+.site-nav.site-nav-admin .btn-primary {
+  color: #101010;
+  background: linear-gradient(125deg, #fff, #e6e6e6 55%, #c2c2c2);
+  box-shadow: 0 8px 20px -10px #ffffff59;
 }
-.admin-scope[data-theme="dark"] .input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px #3b82f62e; }
-.admin-scope[data-theme="dark"] .ai-surface { border-color: #60a5fa2e; }
+.admin-scope[data-theme="dark"] .input:focus { border-color: #9c9c9c; box-shadow: 0 0 0 3px #7b7b7b2e; }
+.admin-scope[data-theme="dark"] .ai-surface { border-color: #9c9c9c2e; }
 .admin-scope[data-theme="dark"] .workspace-heading {
-  background: radial-gradient(ellipse 45% 80% at 100% 0%, #3b82f62a, transparent 70%), var(--surface-light);
+  background: radial-gradient(ellipse 45% 80% at 100% 0%, #7b7b7b2a, transparent 70%), var(--surface-light);
 }
 
-/* Encabezado sobre el panel de administración: acentos azules en lugar de violetas */
+/* Encabezado sobre el panel de administración */
 .site-nav-admin {
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-200: #93c5fd;
+  --color-brand-400: #9c9c9c;
+  --color-brand-500: #7b7b7b;
+  --color-brand-600: #606060;
+  --color-brand-700: #4e4e4e;
+  --color-brand-200: #bebebe;
 }
 .site-nav.site-nav-admin {
-  --color-brand-50: #3b82f61f;
-  --color-brand-100: #3b82f633;
+  --color-brand-50: #7b7b7b1f;
+  --color-brand-100: #7b7b7b33;
 }
-.site-nav.site-nav-admin .btn-primary {
-  background-color: #2563eb;
-  background-image: linear-gradient(125deg, #1d4ed8, #2563eb 55%, #3b82f6);
-  box-shadow: 0 8px 20px -10px #3b82f6aa;
-}
-.site-nav.site-nav-admin .search-console:focus-within { border-color: #60a5fa; }
+.site-nav.site-nav-admin .search-console:focus-within { border-color: #9c9c9c; }
 
 /* Panel de administración: entrada suave del panel completo y de cada sección */
 .admin-enter { animation: admin-fade 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
@@ -265,7 +265,7 @@
   .admin-enter, .admin-page-enter { animation: none; }
 }
 
-/* Agujero negro de fondo en el panel de administración: encima del vacío azul, y una sombra suave que oscurece
+/* Agujero negro de fondo en el panel de administración: encima del fondo oscuro, y una sombra suave que oscurece
    la zona de los paneles (a la derecha y abajo) para que todo se lea sin tapar el agujero */
 .admin-hole { margin-top: -100svh; }
 .admin-hole-shade {
@@ -274,14 +274,14 @@
   height: 100svh;
   margin-top: -100svh;
   background:
-    radial-gradient(ellipse 70% 75% at 40% 22%, transparent 30%, #02040966 75%),
-    linear-gradient(180deg, #02040900 55%, #020409aa 100%),
-    #0204094d;
+    radial-gradient(ellipse 70% 75% at 40% 22%, transparent 30%, #04040466 75%),
+    linear-gradient(180deg, #04040400 55%, #040404aa 100%),
+    #0404044d;
 }
 /* Sobre el agujero negro el encabezado lleva siempre vidrio oscuro (el disco brillante pasa por detrás) */
 .site-nav.site-nav-admin {
   /* sin desenfoque: sobre un fondo animado, el desenfoque se recalcula en cada cuadro y es lo más caro */
-  background-color: #03050ae8;
+  background-color: #050505e8;
   border-color: #ffffff12;
   backdrop-filter: none !important;
 }

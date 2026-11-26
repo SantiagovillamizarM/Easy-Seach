@@ -3,6 +3,8 @@ import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import ThemedPage from "./components/ThemedPage.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
+import { prefetchAdmin } from "./lib/prefetchAdmin.js";
 import HomePage from "./pages/HomePage.jsx";
 
 // Solo el inicio viaja en el paquete principal: el resto de páginas se descarga al visitarlas
@@ -32,6 +34,7 @@ const PREFETCH = [loadAuth, loadResults];
 // Panel administrativo: se descarga solo cuando un administrador entra (no pesa para los demás usuarios)
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview.jsx"));
+// (para administradores se precargan en segundo plano: ver prefetchAdmin)
 const AdminReviews = lazy(() => import("./pages/admin/AdminReviews.jsx"));
 const AdminClaims = lazy(() => import("./pages/admin/AdminClaims.jsx"));
 const AdminEstablishments = lazy(() => import("./pages/admin/AdminEstablishments.jsx"));
@@ -48,6 +51,19 @@ const adminPage = (Page) => (
 );
 
 export default function App() {
+  // Administradores: el panel se precarga cuando el navegador queda libre (entrar al panel es instantáneo)
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(prefetchAdmin, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetchAdmin, 2000);
+    return () => clearTimeout(id);
+  }, [isAdmin]);
+
   useEffect(() => {
     const prefetch = () => PREFETCH.forEach((load) => load().catch(() => {}));
     if ("requestIdleCallback" in window) {

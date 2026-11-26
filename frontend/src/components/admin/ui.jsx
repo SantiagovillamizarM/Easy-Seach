@@ -83,7 +83,7 @@ export function FilterTabs({ tabs, value, onChange, label }) {
             aria-selected={selected}
             onClick={() => onChange(t.key)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-              selected ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-brand-50 hover:text-ink"
+              selected ? "bg-brand-600 text-canvas" : "text-ink-soft hover:bg-brand-50 hover:text-ink"
             }`}
           >
             {t.label}
@@ -155,7 +155,7 @@ export function useFlash() {
 export function Flash({ message }) {
   if (!message) return null;
   return (
-    <p role="status" className="fixed bottom-4 left-1/2 z-[1300] -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg">
+    <p role="status" className="fixed bottom-4 left-1/2 z-[1300] -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg">
       {message}
     </p>
   );

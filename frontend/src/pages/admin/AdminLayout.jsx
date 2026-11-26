@@ -97,14 +97,14 @@ export default function AdminLayout() {
                   end={end}
                   className={({ isActive }) =>
                     `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                      isActive ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-white hover:text-ink"
+                      isActive ? "bg-brand-600 text-canvas" : "text-ink-soft hover:bg-white hover:text-ink"
                     }`
                   }
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="truncate">{label}</span>
                   {count > 0 && (
-                    <span className="ml-auto rounded-full bg-warn-soft px-1.5 text-xs font-bold text-warn">
+                    <span className="ml-auto rounded-full bg-neutral-700 px-1.5 text-xs font-bold text-white">
                       {count > 99 ? "99+" : count}
                       <span className="sr-only"> pendientes</span>
                     </span>

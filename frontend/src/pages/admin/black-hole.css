@@ -1,22 +1,19 @@
-/* Dashboard del administrador: "Horizonte de eventos".
-   Un solo mundo oscuro (se ve igual con el modo claro u oscuro de la app): negro profundo, grises,
-   el ámbar del disco de acreción y un violeta-rosa de acento. Paneles tipo vidrio con esquinas de
-   "pantalla de control" y números en letra monoespaciada. */
+/* Dashboard del administrador: "Horizonte de eventos". */
 
 .bh {
   --bh-void: #020409;
-  --bh-panel: rgba(8, 12, 21, 0.88);
-  --bh-panel-hi: rgba(16, 24, 40, 0.9);
-  --bh-line: rgba(160, 185, 230, 0.10);
-  --bh-line-strong: rgba(160, 185, 230, 0.20);
-  --bh-ink: #e7ecf6;
-  --bh-mute: #8f9bb3;
-  --bh-faint: #56627a;
-  --bh-accretion: #9cc5ff;   /* disco: blanco azulado */
-  --bh-hot: #3b82f6;
-  --bh-violet: #5b8def;
+  --bh-panel: rgb(17 17 17 / 94%);
+  --bh-panel-hi: rgb(42 42 42 / 94%);
+  --bh-line: rgb(255 255 255 / 14%);
+  --bh-line-strong: rgb(255 255 255 / 28%);
+  --bh-ink: #fafafa;
+  --bh-mute: #b8b8b8;
+  --bh-faint: #999;
+  --bh-accretion: #f2f2f2;
+  --bh-hot: #bfbfbf;
+  --bh-violet: #787878;
   --bh-pink: #7dd3fc;
-  --bh-good: #7dd3fc;
+  --bh-good: #c4c4c4;
   --bh-bad: #94a3b8;
   --bh-mono: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   --bh-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
@@ -372,7 +369,7 @@
   border: 1px solid var(--bh-line);
   background:
     radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--kc) 16%, transparent), transparent 60%),
-    linear-gradient(170deg, rgba(16, 24, 40, 0.92), rgba(6, 10, 18, 0.92));
+    linear-gradient(170deg, var(--bh-panel-hi), var(--bh-panel));
   transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, box-shadow 0.25s ease;
 }
 /* línea de luz en el borde superior, del color del indicador */
@@ -443,8 +440,8 @@
 /* Tarjeta del costo: barra que reparte el gasto entre búsquedas y asistente */
 .bh-split { display: flex; gap: 3px; height: 8px; margin-top: auto; border-radius: 999px; overflow: hidden; }
 .bh-split i { display: block; height: 100%; min-width: 3px; border-radius: 999px; }
-.bh-split i:first-child { background: linear-gradient(90deg, #1d4ed8, #60a5fa); }
-.bh-split i:last-child { background: linear-gradient(90deg, #64748b, #cbd5e1); }
+.bh-split i:first-child { background: linear-gradient(90deg, #8f8f8f, #bebebe); }
+.bh-split i:last-child { background: linear-gradient(90deg, #d2d2d2, #fafafa); }
 .bh-split-legend { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0 14px; font-size: 0.66rem; color: var(--bh-mute); }
 .bh-split-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .bh-split-legend b { width: 7px; height: 7px; border-radius: 50%; }
@@ -720,6 +717,94 @@
 .bh-session-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .bh-session-legend b { width: 8px; height: 8px; border-radius: 50%; background: rgba(148, 163, 184, 0.6); }
 .bh-session-legend b.is-in { background: #60a5fa; }
+
+/* Crecimiento e IA comparten fila cuando ambas fichas tienen espacio para sus cifras. */
+.bh-reports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+  gap: 14px;
+}
+.bh-report { display: flex; flex-direction: column; gap: 16px; }
+.bh-report .bh-head { margin-bottom: 0; }
+.bh-report .bh-title { font-size: 1.1rem; }
+.bh-report .bh-eyebrow { margin-bottom: 3px; }
+.bh-retention, .bh-ai-headline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 104px;
+  padding: 12px 16px;
+  border: 1px solid var(--bh-line);
+  border-radius: 15px;
+  background: radial-gradient(ellipse at top left, #ffffff13, transparent 72%), #ffffff03;
+}
+.bh-retention-dial {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 82px;
+  aspect-ratio: 1;
+  color: #fff;
+  font: 600 1.15rem var(--bh-mono);
+  letter-spacing: -.06em;
+}
+.bh-retention-dial::before, .bh-retention-dial::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(#aaa 0deg 1deg, transparent 1deg 10deg);
+  mask: radial-gradient(closest-side, transparent 92%, black 93%);
+}
+.bh-retention-dial::after {
+  inset: 6px;
+  background: conic-gradient(from 225deg, #b8b8b8, #fff var(--share), #ffffff19 var(--share));
+  mask: radial-gradient(closest-side, transparent 86%, black 88%);
+}
+.bh-retention h3 { font-size: .95rem; font-weight: 700; }
+.bh-retention p { margin-top: 4px; color: var(--bh-mute); font-size: .79rem; line-height: 1.5; }
+.bh-retention p b { color: var(--bh-ink); }
+.bh-report-caption, .bh-ai-headline span {
+  color: var(--bh-mute);
+  font: .65rem var(--bh-mono);
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.bh-report-caption { display: flex; justify-content: space-between; gap: 10px; }
+.bh-growth-list ul { display: grid; gap: 13px; margin-top: 12px; }
+.bh-growth-list li, .bh-provider-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 5ch;
+  align-items: center;
+  gap: 5px 9px;
+  font-size: .82rem;
+}
+.bh-growth-list svg { width: 15px; height: 15px; color: var(--bh-mute); }
+.bh-growth-list b, .bh-provider-list b, .bh-report-foot b { font-family: var(--bh-mono); font-variant-numeric: tabular-nums; }
+.bh-growth-list small, .bh-provider-list small { color: var(--bh-mute); font: .7rem var(--bh-mono); text-align: right; }
+.bh-growth-track { grid-column: 2 / -1; height: 4px; overflow: hidden; border-radius: 5px; background: #ffffff14; }
+.bh-growth-track i { display: block; height: 100%; background: linear-gradient(90deg, #868686, #ededed); }
+.bh-report-foot, .bh-unit-cost { margin-top: auto; border-top: 1px solid var(--bh-line); padding-top: 10px; }
+.bh-report-foot { display: flex; gap: 8px; align-items: center; color: var(--bh-mute); font-size: .8rem; }
+.bh-report-foot b { margin-left: auto; color: var(--bh-ink); }
+.bh-ai-headline { flex-wrap: wrap; justify-content: space-between; gap: 8px 14px; }
+.bh-ai-headline span, .bh-ai-headline strong { display: block; }
+.bh-ai-headline strong { font: 600 2rem var(--bh-mono); letter-spacing: -.06em; }
+.bh-ai-headline > :last-child strong { margin-top: 4px; font-size: 1.25rem; }
+.bh-provider-strip { display: flex; overflow: hidden; height: 10px; border-radius: 4px; background: #ffffff10; }
+.bh-provider-strip i + i { box-shadow: inset 1px 0 #161616; }
+.bh-provider-list { display: grid; gap: 5px; margin-top: -7px; }
+.bh-provider-list i { width: 8px; height: 8px; border-radius: 2px; }
+.bh-ai-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 1px solid var(--bh-line); padding-top: 12px; }
+.bh-ai-facts dt { color: var(--bh-mute); font-size: .72rem; }
+.bh-ai-facts dd { margin-top: 2px; font: 600 .92rem var(--bh-mono); overflow-wrap: anywhere; }
+.bh-unit-cost summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; color: var(--bh-mute); font-size: .77rem; }
+.bh-unit-cost summary:hover, .bh-unit-cost[open] summary { color: var(--bh-ink); }
+.bh-unit-cost summary:focus-visible { outline: 2px solid var(--bh-ink); outline-offset: 3px; }
+.bh-unit-cost summary::-webkit-details-marker { display: none; }
+.bh-unit-cost[open] svg { transform: rotate(90deg); }
+.bh-unit-cost p { margin-top: 8px; }
 .bh-session-legend strong { color: var(--bh-ink); font-family: var(--bh-mono); }
 
 @media (prefers-reduced-motion: reduce) { .bh-peak-cell.is-peak::after { animation: none; } .bh-peak-cell { transition: none; } }

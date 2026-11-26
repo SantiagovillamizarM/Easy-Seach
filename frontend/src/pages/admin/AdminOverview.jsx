@@ -1,11 +1,11 @@
 import {
-  ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Monitor, Search, Smartphone,
+  Activity, ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MailCheck, MessageSquareText, Monitor, Search, Smartphone,
   Store, Tablet, UserPlus, Users,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarList, CountUp, Delta, Donut, Funnel, PeakHeatmap, PulseChart, SegmentRing, SparkArea, WordCloud, fmt, fmtUsd,
+  BarList, CountUp, Delta, Funnel, PeakHeatmap, PulseChart, SegmentRing, SparkArea, WordCloud, fmt, fmtUsd,
 } from "../../components/admin/blackhole/Charts.jsx";
 import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -18,17 +18,17 @@ import "./black-hole.css";
 const PERIODS = [{ days: 7, label: "7D" }, { days: 30, label: "30D" }, { days: 90, label: "90D" }, { days: 365, label: "1A" }];
 // Mismos colores que las tarjetas de indicadores
 const METRICS = [
-  { key: "visitors", label: "Visitantes", short: "Visitantes", color: "#7dd3fc" },
-  { key: "pageviews", label: "Páginas vistas", short: "Páginas", color: "#60a5fa" },
-  { key: "searches", label: "Búsquedas", short: "Búsquedas", color: "#3b82f6" },
-  { key: "new_users", label: "Usuarios nuevos", short: "Usuarios", color: "#22d3ee" },
-  { key: "questions", label: "Preguntas a la IA", short: "Preguntas IA", color: "#a5c8ff" },
+  { key: "visitors", label: "Visitantes", short: "Visitantes", color: "#ededed" },
+  { key: "pageviews", label: "Páginas vistas", short: "Páginas", color: "#bebebe" },
+  { key: "searches", label: "Búsquedas", short: "Búsquedas", color: "#a2a2a2" },
+  { key: "new_users", label: "Usuarios nuevos", short: "Usuarios", color: "#d1d1d1" },
+  { key: "questions", label: "Preguntas a la IA", short: "Preguntas IA", color: "#fafafa" },
 ];
 const PROVIDER_COLORS = { xai: "var(--bh-accretion)", openai: "var(--bh-good)", gemini: "var(--bh-violet)", reglas: "var(--bh-faint)" };
 const DEVICE = [
-  { key: "mobile", label: "Celular", icon: Smartphone, color: "#7dd3fc" },
-  { key: "desktop", label: "Computador", icon: Monitor, color: "#3b82f6" },
-  { key: "tablet", label: "Tableta", icon: Tablet, color: "#a5c8ff" },
+  { key: "mobile", label: "Celular", icon: Smartphone, color: "#ededed" },
+  { key: "desktop", label: "Computador", icon: Monitor, color: "#a2a2a2" },
+  { key: "tablet", label: "Tableta", icon: Tablet, color: "#fafafa" },
 ];
 const SECTION_LABEL = {
   inicio: "Inicio", buscar: "Resultados", lugar: "Página de un negocio", asistente: "Asistente IA", perfil: "Perfil",
@@ -90,8 +90,8 @@ function CostKpi({ cost, search, assistant }) {
         <i style={{ width: `${100 - pct}%` }} />
       </div>
       <div className="bh-split-legend">
-        <span><b style={{ background: "#60a5fa" }} />Búsquedas</span>
-        <span><b style={{ background: "#cbd5e1" }} />Asistente</span>
+        <span><b style={{ background: "#bebebe" }} />Búsquedas</span>
+        <span><b style={{ background: "#fafafa" }} />Asistente</span>
       </div>
     </div>
   );
@@ -239,6 +239,83 @@ function Traffic({ traffic }) {
   );
 }
 
+function Growth({ users, days }) {
+  const metrics = [
+    { label: "Cuentas creadas", value: users.total, icon: UserPlus },
+    { label: "Correo confirmado", value: users.verified, icon: MailCheck },
+    { label: "Hicieron al menos una búsqueda", value: users.searched, icon: Search },
+    { label: "Activos en los últimos 7 días", value: users.active_7d, icon: Activity },
+  ];
+  return (
+    <Panel className="bh-report" eyebrow="Nº 006 · Crecimiento" title="De visitante a usuario fiel">
+      <div className="bh-retention">
+        <div className="bh-retention-dial" style={{ "--share": `${users.returning_pct}%` }}>
+          <strong>{users.active_in_range ? `${fmt(users.returning_pct)}%` : "—"}</strong>
+        </div>
+        <div>
+          <h3>Volvieron a buscar</h3>
+          <p>{users.active_in_range
+            ? <><b>{fmt(users.returning)} de {fmt(users.active_in_range)}</b> usuarios activos buscaron en dos o más días durante el periodo.</>
+            : `Sin usuarios activos en los últimos ${days} días.`}</p>
+        </div>
+      </div>
+      <div className="bh-growth-list">
+        <div className="bh-report-caption"><span>Actividad de las cuentas</span><span>% del total</span></div>
+        <ul>
+          {metrics.map(({ label, value, icon: Icon }) => {
+            const share = users.total ? (value / users.total) * 100 : 0;
+            return (
+              <li key={label}>
+                <Icon aria-hidden="true" />
+                <span>{label}</span><b>{fmt(value)}</b><small>{users.total ? `${fmt(Math.round(share))}%` : "—"}</small>
+                <div className="bh-growth-track" aria-hidden="true"><i style={{ width: `${share}%` }} /></div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div className="bh-report-foot"><Store size={15} aria-hidden="true" /> Propietarios <b>{fmt(users.owners)}</b></div>
+    </Panel>
+  );
+}
+
+function AiCosts({ ai, cost }) {
+  const providers = [...ai.usage].sort((a, b) => b.count - a.count);
+  const total = providers.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <Panel className="bh-report" eyebrow="Nº 007 · IA y costos" title="Quién responde y cuánto cuesta">
+      <div className="bh-ai-headline">
+        <div><span>Respuestas</span><strong>{fmt(total)}</strong></div>
+        <div><span>Gasto estimado</span><strong>{fmtUsd(cost)}</strong></div>
+      </div>
+      <div className="bh-provider-strip" aria-hidden="true">
+        {providers.filter((p) => p.count > 0).map((p) => (
+          <i key={p.provider} style={{ flexGrow: p.count, background: PROVIDER_COLORS[p.provider] ?? "var(--bh-faint)" }} />
+        ))}
+      </div>
+      <ul className="bh-provider-list" aria-label="Distribución de respuestas por proveedor">
+        {providers.map((p) => (
+          <li key={p.provider}>
+            <i style={{ background: PROVIDER_COLORS[p.provider] ?? "var(--bh-faint)" }} aria-hidden="true" />
+            <span>{p.label}</span><b>{fmt(p.count)}</b>
+            <small>{total ? `${fmt(Math.round(p.count / total * 1000) / 10)}%` : "—"}</small>
+          </li>
+        ))}
+      </ul>
+      <dl className="bh-ai-facts">
+        <div><dt>Búsquedas con IA paga</dt><dd>{fmtUsd(ai.search_cost)}</dd></div>
+        <div><dt>Gasto del asistente</dt><dd>{fmtUsd(ai.assistant_cost)}</dd></div>
+        <div><dt>Tiempo de respuesta</dt><dd>{ai.assistant.avg_seconds == null ? "Sin datos" : `${fmt(ai.assistant.avg_seconds)} s`}</dd></div>
+        <div><dt>Calificación del asistente</dt><dd>{ai.assistant.rating_avg == null ? "Sin calificar" : `${fmt(ai.assistant.rating_avg)}/5`}</dd></div>
+      </dl>
+      <details className="bh-unit-cost">
+        <summary>Costo estimado por búsqueda <ChevronRight size={15} aria-hidden="true" /></summary>
+        <p className="bh-note">Según los tokens medidos, Grok cuesta ≈ {fmtUsd(ai.cost_per_search.xai)} y OpenAI ≈ {fmtUsd(ai.cost_per_search.openai)} por búsqueda. Gemini es gratis.</p>
+      </details>
+    </Panel>
+  );
+}
+
 function Ticker({ feed }) {
   if (!feed.length) return null;
   const KIND = { usuario: "USR", busqueda: "BUS", solicitud: "SOL", resena: "RES" };
@@ -286,8 +363,6 @@ export default function AdminOverview() {
   const today = series.searches.at(-1) + series.pageviews.at(-1) + series.questions.at(-1);
   // Sin elegir, la gráfica abre en la primera métrica con datos (las visitas se cuentan desde esta versión)
   const metric = chosenMetric ?? (METRICS.find((m) => series[m.key].some(Boolean)) ?? METRICS[0]).key;
-  const aiItems = ai.usage.map((u) => ({ label: u.label, value: u.count, color: PROVIDER_COLORS[u.provider] ?? "var(--bh-faint)" }));
-  const aiTotal = aiItems.reduce((s, i) => s + i.value, 0);
   const claims = business.claims;
   const pendingClaims = (claims.claim_pending ?? 0) + (claims.register_pending ?? 0);
 
@@ -316,11 +391,11 @@ export default function AdminOverview() {
 
         {/* ------------------------------ KPIs ------------------------------ */}
         <div className="bh-kpis bh-span-12">
-          <Kpi label="Visitantes" icon={Users} kpi={kpis.visitors} series={series.visitors} color="#7dd3fc" />
-          <Kpi label="Páginas vistas" icon={Eye} kpi={kpis.pageviews} series={series.pageviews} color="#60a5fa" />
-          <Kpi label="Búsquedas" icon={Search} kpi={kpis.searches} series={series.searches} color="#3b82f6" />
-          <Kpi label="Usuarios nuevos" icon={UserPlus} kpi={kpis.new_users} series={series.new_users} color="#22d3ee" />
-          <Kpi label="Preguntas a la IA" icon={Bot} kpi={kpis.questions} series={series.questions} color="#a5c8ff" />
+          <Kpi label="Visitantes" icon={Users} kpi={kpis.visitors} series={series.visitors} color="#ededed" />
+          <Kpi label="Páginas vistas" icon={Eye} kpi={kpis.pageviews} series={series.pageviews} color="#bebebe" />
+          <Kpi label="Búsquedas" icon={Search} kpi={kpis.searches} series={series.searches} color="#a2a2a2" />
+          <Kpi label="Usuarios nuevos" icon={UserPlus} kpi={kpis.new_users} series={series.new_users} color="#d1d1d1" />
+          <Kpi label="Preguntas a la IA" icon={Bot} kpi={kpis.questions} series={series.questions} color="#fafafa" />
           <CostKpi cost={kpis.ai_cost} search={ai.search_cost} assistant={ai.assistant_cost} />
         </div>
 
@@ -342,47 +417,10 @@ export default function AdminOverview() {
           <Traffic traffic={traffic} />
         </Panel>
 
-        {/* ------------------------------ Usuarios ------------------------------ */}
-        <Panel className="bh-span-7" eyebrow="Nº 006 · Crecimiento" title="De visitante a usuario fiel">
-          <Funnel steps={[
-            { label: "Cuentas creadas", value: users.total },
-            { label: "Correo confirmado", value: users.verified },
-            { label: "Hicieron al menos una búsqueda", value: users.searched },
-            { label: "Activos en los últimos 7 días", value: users.active_7d },
-          ]} />
-          <div className="bh-stat-row mt-4">
-            <div className="bh-stat"><span>Volvieron otro día</span><strong>{users.returning_pct}%</strong></div>
-            <div className="bh-stat"><span>Activos en el periodo</span><strong>{fmt(users.active_in_range)}</strong></div>
-            <div className="bh-stat"><span>Propietarios</span><strong>{fmt(users.owners)}</strong></div>
-          </div>
-        </Panel>
-
-        {/* ------------------------------ IA ------------------------------ */}
-        <Panel className="bh-span-5" eyebrow="Nº 007 · IA y costos" title="Quién responde y cuánto cuesta">
-          <div className="flex flex-wrap items-center gap-5">
-            <div className="relative">
-              <Donut items={aiItems} />
-              <div className="absolute inset-0 grid place-content-center text-center">
-                <strong className="bh-num text-lg">{fmt(aiTotal)}</strong>
-                <span className="text-[0.62rem] text-[var(--bh-mute)]">respuestas</span>
-              </div>
-            </div>
-            <ul className="bh-legend min-w-[150px] flex-1">
-              {aiItems.map((i) => (
-                <li key={i.label}><i style={{ background: i.color }} /><span>{i.label}</span><span className="bh-num">{fmt(i.value)}</span></li>
-              ))}
-            </ul>
-          </div>
-          <div className="bh-stat-row mt-4">
-            <div className="bh-stat"><span>Búsquedas con IA paga</span><strong>{fmtUsd(ai.search_cost)}</strong></div>
-            <div className="bh-stat"><span>Asistente</span><strong>{fmtUsd(ai.assistant_cost)}</strong></div>
-            <div className="bh-stat"><span>Respuesta del asistente</span><strong>{ai.assistant.avg_seconds ? `${ai.assistant.avg_seconds} s` : "–"}</strong></div>
-            <div className="bh-stat"><span>Calificación del asistente</span><strong>{ai.assistant.rating_avg ? `${ai.assistant.rating_avg}/5` : "–"}</strong></div>
-          </div>
-          <p className="bh-note mt-3">
-            Estimado con los tokens medidos: una búsqueda con Grok ≈ {fmtUsd(ai.cost_per_search.xai)}; con OpenAI ≈ {fmtUsd(ai.cost_per_search.openai)}. Gemini es gratis.
-          </p>
-        </Panel>
+        <div className="bh-reports bh-span-12">
+          <Growth users={users} days={days} />
+          <AiCosts ai={ai} cost={kpis.ai_cost.value} />
+        </div>
 
         {/* ------------------------------ Búsquedas ------------------------------ */}
         <Panel className="bh-span-6" eyebrow="Nº 008 · Demanda" title="Lo que más busca la gente"

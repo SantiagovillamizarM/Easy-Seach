@@ -271,22 +271,24 @@ function createEngine(canvas) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
-  let targets = [];
-  let fbo = null;
-  let layout = null;
+  // Doble juego de texturas: se dibuja con el actual ("current") mientras el siguiente ("pending") se hornea
+  // por franjas. Al terminar se intercambian de una vez: nunca se ve el canvas vacío ni a medio calcular.
+  let current = null;   // { targets, fbo, width, height, layout }
+  let pending = null;   // lo mismo + progreso del horneado
+  const BAKE_STRIPS = 12;
 
-  function freeTargets() {
-    targets.forEach((t) => gl.deleteTexture(t));
-    if (fbo) gl.deleteFramebuffer(fbo);
-    targets = [];
-    fbo = null;
+  function free(set) {
+    if (!set) return;
+    set.targets.forEach((t) => gl.deleteTexture(t));
+    gl.deleteFramebuffer(set.fbo);
   }
 
-  // Hornea las 4 texturas al tamaño actual del canvas
+  // Prepara el horneado de las 4 texturas a un tamaño nuevo (se completa con bakeStep, una franja por cuadro)
   function bakeAt(width, height, aspect) {
-    freeTargets();
-    fbo = gl.createFramebuffer();
+    free(pending);
+    const fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    const targets = [];
     for (let i = 0; i < 4; i++) {
       const t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
@@ -297,28 +299,51 @@ function createEngine(canvas) {
       targets.push(t);
     }
     gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3]);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("framebuffer");
-
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok) throw new Error("framebuffer");
     // Encuadre (como la referencia): agujero grande detrás del título y el disco cruzando en diagonal
     const wide = aspect > 1;
-    layout = {
+    const layout = {
       center: [wide ? -0.1 * aspect : -0.12, wide ? 0.2 : 0.28],
       planet: [wide ? 0.2 * aspect : 0.28, wide ? 0.2 : 0.38, wide ? 0.016 : 0.022],
+      zoom: wide ? 1.2 : 1.05,
+      roll: wide ? 0.42 : 0.3,
     };
+    pending = { targets, fbo, width, height, layout, y: 0, strip: Math.max(16, Math.ceil(height / BAKE_STRIPS)) };
+  }
+
+  // Hornea una franja. Devuelve el tamaño nuevo cuando termina (para ajustar el canvas) o null si sigue.
+  function bakeStep() {
+    if (!pending) return null;
+    const { fbo, width, height, layout, strip } = pending;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.useProgram(bake);
     gl.viewport(0, 0, width, height);
     gl.uniform2f(ub.uRes, width, height);
     gl.uniform2f(ub.uCenter, ...layout.center);
-    gl.uniform1f(ub.uZoom, wide ? 1.2 : 1.05);
-    gl.uniform1f(ub.uRoll, wide ? 0.42 : 0.3);
+    gl.uniform1f(ub.uZoom, layout.zoom);
+    gl.uniform1f(ub.uRoll, layout.roll);
     gl.uniform1f(ub.uDist, 12.5);
     gl.uniform1f(ub.uHeight, 0.9);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, pending.y, width, strip);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.SCISSOR_TEST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    pending.y += strip;
+    if (pending.y < height) return null;
+    free(current);
+    current = pending;
+    pending = null;
+    return { width: current.width, height: current.height };
   }
 
+  const isBaking = () => Boolean(pending);
+
   function draw(time, energy) {
-    if (!targets.length) return;
+    if (!current) return false;
+    const { targets, layout } = current;
     gl.useProgram(render);
     gl.viewport(0, 0, canvas.width, canvas.height);
     targets.forEach((t, i) => {
@@ -335,10 +360,12 @@ function createEngine(canvas) {
     gl.uniform2f(ur.uCenter, ...layout.center);
     gl.uniform3f(ur.uPlanet, ...layout.planet);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    return true;
   }
 
   function destroy() {
-    freeTargets();
+    free(current);
+    free(pending);
     gl.deleteTexture(noise);
     gl.deleteBuffer(buffer);
     gl.deleteVertexArray(vao);
@@ -346,7 +373,7 @@ function createEngine(canvas) {
     gl.deleteProgram(render);
   }
 
-  return { gl, bakeAt, draw, destroy };
+  return { gl, bakeAt, bakeStep, isBaking, draw, destroy };
 }
 
 export default function BlackHole({ intensity = 0.5, quality = 1, className = "" }) {
@@ -372,22 +399,23 @@ export default function BlackHole({ intensity = 0.5, quality = 1, className = ""
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const MIN_SCALE = 0.5;
     let scale = quality;
-    let raf = 0, visible = true, time = 40, prev = performance.now(), rebake = 0;
+    let raf = 0, visible = true, time = 40, prev = performance.now();
     // Medición del ritmo real de la pantalla (60, 120, 144 Hz…) para saber si vamos atrasados
     const intervals = [];
     let target = 1000 / 60, slow = 0, fast = 0;
 
+    // Calcula el tamaño objetivo y, si cambió, prepara un horneado nuevo (el canvas cambia de tamaño recién
+    // cuando ese horneado termina, para no mostrar nada a medias)
+    let wanted = "";
     function resize() {
       const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2);
       const w = Math.max(1, Math.round(rect.width * dpr * scale));
       const h = Math.max(1, Math.round(rect.height * dpr * scale));
-      if (w === canvas.width && h === canvas.height && rebake) return;
-      canvas.width = w;
-      canvas.height = h;
+      if (`${w}x${h}` === wanted) return;
+      wanted = `${w}x${h}`;
       try {
         engine.bakeAt(w, h, rect.width / Math.max(rect.height, 1));
-        rebake = 1;
       } catch {
         setFallback(true);
       }
@@ -410,10 +438,16 @@ export default function BlackHole({ intensity = 0.5, quality = 1, className = ""
       const ms = now - prev;
       prev = now;
       if (!reduce) time += Math.min(0.05, ms / 1000);
-      engine.draw(time, intensityRef.current);
-      if (!canvas.dataset.ready) canvas.dataset.ready = "1";
-      adapt(ms);
-      if (!reduce) raf = requestAnimationFrame(frame);
+      const baking = engine.isBaking();
+      const done = engine.bakeStep();
+      if (done) {
+        canvas.width = done.width;
+        canvas.height = done.height;
+      }
+      const drew = engine.draw(time, intensityRef.current);
+      if (drew && !canvas.dataset.ready) canvas.dataset.ready = "1";   // aparece con un fundido (CSS)
+      if (!baking) adapt(ms);   // los cuadros de horneado no cuentan para medir el rendimiento
+      if (!reduce || engine.isBaking() || !drew) raf = requestAnimationFrame(frame);
     }
 
     function start() {
@@ -422,12 +456,12 @@ export default function BlackHole({ intensity = 0.5, quality = 1, className = ""
       raf = requestAnimationFrame(frame);
     }
 
-    resize();
-    start();
+    // Se espera un instante antes de empezar: la transición de entrada al panel va primero y sin tirones
+    const startTimer = setTimeout(() => { resize(); start(); }, 280);
     let resizeTimer;
     const ro = new ResizeObserver(() => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { resize(); engine.draw(time, intensityRef.current); }, 150);
+      resizeTimer = setTimeout(() => { resize(); start(); }, 150);
     });
     ro.observe(canvas);
     const io = new IntersectionObserver(([entry]) => {
@@ -444,6 +478,7 @@ export default function BlackHole({ intensity = 0.5, quality = 1, className = ""
     canvas.addEventListener("webglcontextlost", onLost);
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(startTimer);
       clearTimeout(resizeTimer);
       ro.disconnect();
       io.disconnect();
