@@ -2,10 +2,10 @@ import {
   Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Monitor, Search, Smartphone,
   Store, Tablet, UserPlus, Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarList, CountUp, Delta, Funnel, PeakHeatmap, PulseChart, SegmentRing, SparkArea, WordCloud, fmt, fmtUsd,
+  BarList, CountUp, Delta, Funnel, PeakHeatmap, PulseChart, SegmentRing, SparkArea, WordCloud, fmt, fmtUsd, settleCounts,
 } from "../../components/admin/blackhole/Charts.jsx";
 import { ErrorBox, useApiData } from "../../components/admin/ui.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -330,12 +330,22 @@ function DashboardSkeleton() {
   );
 }
 
+// La animación de entrada (paneles que suben uno tras otro, curvas que se dibujan, cifras que cuentan) se hace
+// solo la primera vez en la sesión. Al volver desde otra sección todo aparece directo, sin repetirla.
+let introPlayed = false;
+
 export default function AdminOverview() {
   const { user } = useAuth();
   const [days, setDays] = useState(30);
   const [chosenMetric, setMetric] = useState(null);
   const { data, error, loading } = useApiData((opts) => api.admin.dashboard(days, opts), [days]);
   const { data: overview } = useApiData((opts) => api.admin.overview(opts), []);
+  const [calm] = useState(() => introPlayed);
+  useEffect(() => {
+    if (!data || introPlayed) return;
+    introPlayed = true;
+    settleCounts();
+  }, [data]);
 
   if (error) return <ErrorBox message={error} />;
   if (!data) return <DashboardSkeleton />;
@@ -348,8 +358,8 @@ export default function AdminOverview() {
   const pendingClaims = (claims.claim_pending ?? 0) + (claims.register_pending ?? 0);
 
   return (
-    <div className={`bh ${loading ? "is-refreshing" : ""}`}>
-      <div className="bh-grid-layout bh-reveal">
+    <div className={`bh ${loading ? "is-refreshing" : ""} ${calm ? "bh-calm" : ""}`}>
+      <div className={`bh-grid-layout ${calm ? "" : "bh-reveal"}`}>
         {/* ------------------------------ Hero ------------------------------ */}
         <section className="bh-hero bh-span-12" aria-labelledby="bh-title">
           <div className="bh-hero-top">

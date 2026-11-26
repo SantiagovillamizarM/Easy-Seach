@@ -12,3 +12,19 @@ export function prefetchAdmin() {
     () => import("../components/admin/blackhole/BlackHole.jsx"),
   ].forEach((load) => load().catch(() => { started = false; }));
 }
+
+// Todas las secciones del panel: se precargan al entrar al panel, para que cambiar de sección sea inmediato
+let sectionsStarted = false;
+export function prefetchAdminSections() {
+  if (sectionsStarted) return;
+  sectionsStarted = true;
+  [
+    () => import("../pages/admin/AdminReviews.jsx"),
+    () => import("../pages/admin/AdminClaims.jsx"),
+    () => import("../pages/admin/AdminEstablishments.jsx"),
+    () => import("../pages/admin/AdminDuplicates.jsx"),
+    () => import("../pages/admin/AdminUsers.jsx"),
+    () => import("../pages/admin/AdminSearchStats.jsx"),
+    () => import("../pages/admin/AdminCategories.jsx"),
+  ].forEach((load) => load().catch(() => { sectionsStarted = false; }));
+}

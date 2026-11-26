@@ -1,8 +1,9 @@
 import { BarChart3, Copy, LayoutDashboard, MessageSquareWarning, ShieldAlert, Store, Tags, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { api } from "../../lib/api.js";
+import { prefetchAdminSections } from "../../lib/prefetchAdmin.js";
 
 const SECTIONS = [
   { to: "/admin", label: "Resumen", icon: LayoutDashboard, end: true },
@@ -21,7 +22,6 @@ export default function AdminLayout() {
   const { user, updateUser } = useAuth();
   const [pending, setPending] = useState(null);
   const [roleChecked, setRoleChecked] = useState(false);
-  const { pathname } = useLocation();
 
   // Se confirma el rol con el servidor (el guardado en el navegador podría estar desactualizado).
   // La seguridad real está en el backend: todas las rutas /api/admin exigen rol admin.
@@ -32,6 +32,15 @@ export default function AdminLayout() {
       .catch(() => {})
       .finally(() => setRoleChecked(true));
   }, [updateUser]);
+
+  // Todas las secciones se descargan en segundo plano al entrar: cambiar de sección no espera nada
+  useEffect(() => {
+    if (user?.role !== "admin") return undefined;
+    const id = "requestIdleCallback" in window
+      ? window.requestIdleCallback(prefetchAdminSections, { timeout: 2000 })
+      : setTimeout(prefetchAdminSections, 800);
+    return () => ("cancelIdleCallback" in window ? window.cancelIdleCallback(id) : clearTimeout(id));
+  }, [user?.role]);
 
   // Contadores de tareas pendientes para la barra lateral; se refrescan al volver a la pestaña
   useEffect(() => {
@@ -95,6 +104,7 @@ export default function AdminLayout() {
                 <NavLink
                   to={to}
                   end={end}
+                  viewTransition
                   className={({ isActive }) =>
                     `flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                       isActive ? "bg-brand-600 text-canvas" : "text-ink-soft hover:bg-white hover:text-ink"
@@ -115,8 +125,8 @@ export default function AdminLayout() {
           })}
         </ul>
       </nav>
-      {/* Cada sección entra con un fundido corto al cambiar de pestaña */}
-      <div key={pathname} className="admin-page-enter min-w-0">
+      {/* El cambio de sección lo suaviza la transición del navegador (viewTransition en el menú lateral) */}
+      <div className="admin-section min-w-0">
         <Outlet />
       </div>
     </div>

@@ -828,3 +828,10 @@
 .bh-min-facts dd { margin-top: 4px; font-size: 1.05rem; font-weight: 500; color: var(--bh-ink); }
 .bh-min-facts small { display: block; margin-top: 2px; font-size: 0.64rem; color: var(--bh-faint); }
 .bh-min-note { font-size: 0.7rem; color: var(--bh-faint); }
+
+/* Al volver al resumen desde otra sección: sin animaciones de entrada (todo aparece directo) */
+.bh-calm .bh-kpis > *,
+.bh-calm .bh-sparkarea svg,
+.bh-calm .bh-sparkarea-dot,
+.bh-calm .bh-pulse-plot svg,
+.bh-calm .bh-pulse-end { animation: none; }

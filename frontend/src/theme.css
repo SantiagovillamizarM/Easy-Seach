@@ -312,3 +312,45 @@ html[data-admin-idle] body { cursor: none; }
   to { transform: scale(1.06) translate(-1.2%, 0.8%); }
 }
 @media (prefers-reduced-motion: reduce) { .admin-hole { animation: none; } }
+
+/* ======================================================================================
+   Carga suave en todas las secciones del panel (reseñas, solicitudes, negocios…):
+   esqueleto con brillo mientras llegan los datos y entrada escalonada de lo que aparece.
+   Solo se anima lo que se monta: al actualizar en segundo plano no se repite.
+   ====================================================================================== */
+.admin-skeleton { display: grid; gap: 12px; }
+.admin-skeleton-block {
+  border-radius: 18px;
+  border: 1px solid var(--color-line);
+  background:
+    linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 6%) 45%, transparent 70%) 0 0 / 220% 100%,
+    rgb(255 255 255 / 3%);
+  animation: admin-shimmer 2.2s ease-in-out infinite, admin-soft-in 0.5s ease-out both;
+}
+@keyframes admin-shimmer { from { background-position: 120% 0, 0 0; } to { background-position: -120% 0, 0 0; } }
+
+/* Cada bloque de la sección (encabezado, filtros, tarjetas…) y cada elemento de las listas entra con un
+   fundido corto, uno tras otro. El resumen tiene su propia animación (.bh), por eso se excluye. */
+.admin-section > :not(.bh),
+.admin-section ul > li { animation: admin-soft-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.admin-section > :nth-child(2) { animation-delay: 50ms; }
+.admin-section > :nth-child(3) { animation-delay: 100ms; }
+.admin-section > :nth-child(4) { animation-delay: 150ms; }
+.admin-section > :nth-child(n + 5) { animation-delay: 200ms; }
+.admin-section ul > li:nth-child(2) { animation-delay: 40ms; }
+.admin-section ul > li:nth-child(3) { animation-delay: 80ms; }
+.admin-section ul > li:nth-child(4) { animation-delay: 120ms; }
+.admin-section ul > li:nth-child(5) { animation-delay: 160ms; }
+.admin-section ul > li:nth-child(6) { animation-delay: 200ms; }
+.admin-section ul > li:nth-child(7) { animation-delay: 240ms; }
+.admin-section ul > li:nth-child(n + 8) { animation-delay: 280ms; }
+/* dentro del resumen las listas ya tienen su propia entrada */
+.admin-section .bh ul > li { animation: none; }
+@keyframes admin-soft-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Mientras una lista se actualiza (cambio de filtro), se atenúa suave en vez de saltar */
+.admin-section .opacity-60 { transition: opacity 0.25s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-skeleton-block, .admin-section > :not(.bh), .admin-section ul > li { animation: none; }
+}

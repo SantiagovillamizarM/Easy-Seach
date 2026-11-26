@@ -251,9 +251,16 @@ export function WordCloud({ words }) {
 }
 
 // Cifra que sube contando hasta su valor (con movimiento reducido aparece directo)
+// Las cifras cuentan desde cero solo la primera vez que se abre el resumen en la sesión; al volver aparecen
+// directamente con su valor (settleCounts lo activa el dashboard después de la primera carga)
+let countFromZero = true;
+export function settleCounts() {
+  countFromZero = false;
+}
+
 export function CountUp({ value, duration = 900, format = fmt }) {
-  const [shown, setShown] = useState(0);
-  const from = useRef(0);
+  const [shown, setShown] = useState(() => (countFromZero ? 0 : value));
+  const from = useRef(countFromZero ? 0 : value);
   useEffect(() => {
     const start = from.current;
     if (start === value || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
