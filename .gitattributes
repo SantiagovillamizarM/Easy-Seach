@@ -1,2 +1,20 @@
-# Los scripts que corren dentro de contenedores Linux deben conservar saltos de línea LF también en Windows
+# Saltos de línea iguales en Windows, Linux y macOS: en el repositorio todo se guarda con LF y cada sistema lo
+# muestra como le corresponde (sin depender de la configuración de git de cada persona).
+* text=auto
+
+# Lo que se ejecuta en Linux/macOS o dentro de contenedores Linux: siempre LF (con CRLF fallaría)
 *.sh text eol=lf
+gateway/mvnw text eol=lf
+Dockerfile text eol=lf
+
+# Scripts de Windows: siempre CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binarios: no se tocan
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ico binary
+*.woff2 binary

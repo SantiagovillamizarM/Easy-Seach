@@ -1,7 +1,7 @@
 """Genera los diagramas entidad-relación (Mermaid) leyendo la estructura REAL de la base de datos.
 
-Uso (desde la carpeta backend, con la base de datos encendida):
-    .\\.venv\\Scripts\\python -m scripts.generar_diagrama_er
+Uso (con el entorno virtual activado, desde la carpeta backend, con la base de datos encendida):
+    python -m scripts.generar_diagrama_er
 
 Escribe docs/diagramas/entidad-relacion.md con un diagrama por módulo. Como se lee de PostgreSQL (tablas,
 columnas, tipos, llaves primarias, foráneas y únicas), el diagrama siempre coincide con las migraciones.

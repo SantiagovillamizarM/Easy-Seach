@@ -1,9 +1,9 @@
 """Carga o completa establecimientos desde un archivo CSV (se puede editar en Excel).
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.import_csv                    # carga data\\locales_easysearch.csv
-    .\\.venv\\Scripts\\python -m scripts.import_csv --dry-run          # solo valida
-    .\\.venv\\Scripts\\python -m scripts.import_csv data\\otro.csv      # otro archivo
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.import_csv                    # carga data/locales_easysearch.csv
+    python -m scripts.import_csv --dry-run          # solo valida
+    python -m scripts.import_csv data/otro.csv      # otro archivo
 
 Cómo se identifica cada fila (se puede ejecutar varias veces: nunca duplica):
 - `osm` (ej. "node/123456"): local que vino de OpenStreetMap. Es el identificador PERMANENTE: igual en

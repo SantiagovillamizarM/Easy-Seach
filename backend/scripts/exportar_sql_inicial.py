@@ -1,7 +1,7 @@
 """Genera el script SQL de la base de datos inicial de Easy Search (entregable de la materia).
 
-Uso (desde la carpeta backend, con la base de datos encendida):
-    .\\.venv\\Scripts\\python -m scripts.exportar_sql_inicial
+Uso (con el entorno virtual activado, desde la carpeta backend, con la base de datos encendida):
+    python -m scripts.exportar_sql_inicial
 
 Escribe dos archivos en docker/initdb/, que PostgreSQL ejecuta solos la primera vez que se crea la base
 (después de 01-extensions.sql):

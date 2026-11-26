@@ -1,9 +1,9 @@
 """Evalúa la búsqueda con los ejemplos de la propuesta, usando el sistema real (Gemini + pgvector + datos OSM).
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.eval_search
-    .\\.venv\\Scripts\\python -m scripts.eval_search --sin-ia      # solo intérprete por reglas
-    .\\.venv\\Scripts\\python -m scripts.eval_search "otra consulta"
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.eval_search
+    python -m scripts.eval_search --sin-ia      # solo intérprete por reglas
+    python -m scripts.eval_search "otra consulta"
 
 No guarda nada en el historial.
 """

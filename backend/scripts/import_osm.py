@@ -1,9 +1,9 @@
 """Importa establecimientos, municipios y barrios REALES desde OpenStreetMap (Overpass API).
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.import_osm                 # los 4 municipios del área metropolitana
-    .\\.venv\\Scripts\\python -m scripts.import_osm --municipio Piedecuesta
-    .\\.venv\\Scripts\\python -m scripts.import_osm --refresh       # ignora la copia local y vuelve a descargar
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.import_osm                 # los 4 municipios del área metropolitana
+    python -m scripts.import_osm --municipio Piedecuesta
+    python -m scripts.import_osm --refresh       # ignora la copia local y vuelve a descargar
 
 Se puede ejecutar varias veces: actualiza los registros existentes (por su id de OSM) sin duplicarlos.
 Los establecimientos editados por propietarios o administradores (source distinto de "osm") NO se

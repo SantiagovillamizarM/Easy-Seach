@@ -1,7 +1,7 @@
 """Calibra el umbral de similitud del asistente RAG con consultas reales.
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.calibrar_umbral
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.calibrar_umbral
 
 Compara la mejor similitud que obtienen en pgvector dos grupos de preguntas:
 - RELEVANTES: preguntas que los negocios registrados sí pueden responder.
