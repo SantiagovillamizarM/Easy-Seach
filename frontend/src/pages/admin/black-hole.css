@@ -835,3 +835,45 @@
 .bh-calm .bh-sparkarea-dot,
 .bh-calm .bh-pulse-plot svg,
 .bh-calm .bh-pulse-end { animation: none; }
+
+/* ------------------------------ Sección Búsquedas ------------------------------ */
+.bh-searches { display: grid; gap: 16px; }
+.bh-searches-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 4px 2px; }
+.bh-searches-head h1 {
+  margin: 4px 0 6px;
+  font-family: var(--bh-serif);
+  font-weight: 400;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.bh-searches-head .bh-note { max-width: 56ch; }
+.bh-searches .is-refreshing { opacity: 0.55; transition: opacity 0.3s ease; }
+
+.bh-searches-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; margin-bottom: 18px; }
+.bh-searches-stats div { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.bh-searches-stats dt { font-size: 0.72rem; color: var(--bh-mute); }
+.bh-searches-stats dd { font-size: 2rem; font-weight: 500; letter-spacing: -0.05em; line-height: 1; color: var(--bh-ink); }
+.bh-searches-stats i { display: block; height: 1px; background: var(--bh-line); }
+.bh-searches-stats u { display: block; height: 1px; background: var(--bh-ink); text-decoration: none; }
+.bh-searches-stats small { font-size: 0.66rem; color: var(--bh-faint); }
+@media (max-width: 640px) { .bh-searches-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Ranking: puesto, texto, cantidad y una línea fina */
+.bh-rank { display: grid; gap: 2px; }
+.bh-rank li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 8px 0 6px;
+}
+.bh-rank-pos { font-size: 0.68rem; color: var(--bh-faint); }
+.bh-rank-text { font-size: 0.84rem; color: var(--bh-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-rank-extra { font-size: 0.66rem; color: var(--bh-faint); }
+.bh-rank li b { font-size: 0.9rem; font-weight: 500; }
+.bh-rank li i { grid-column: 2 / -1; display: block; height: 1px; background: var(--bh-line); }
+.bh-rank li u { display: block; height: 1px; background: var(--bh-ink); text-decoration: none; }
+.bh-rank li:first-child .bh-rank-text, .bh-rank li:first-child b { font-weight: 600; }
+.bh-rank.is-muted .bh-rank-text { color: var(--bh-mute); }
+.bh-rank.is-muted li u { background: var(--bh-mute); }
