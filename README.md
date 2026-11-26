@@ -40,10 +40,11 @@ IA que solo usan datos reales de la base.
 9. [Roles y panel de administración](#-roles-y-panel-de-administración)
 10. [Seguridad y privacidad](#-seguridad-y-privacidad)
 11. [Pruebas](#-pruebas)
-12. [Comandos útiles](#-comandos-útiles)
-13. [Solución de problemas](#-solución-de-problemas)
-14. [Estructura del proyecto](#-estructura-del-proyecto)
-15. [Documentación y créditos](#-documentación-y-créditos)
+12. [API: Swagger y Postman](#-api-swagger-y-postman)
+13. [Comandos útiles](#-comandos-útiles)
+14. [Solución de problemas](#-solución-de-problemas)
+15. [Estructura del proyecto](#-estructura-del-proyecto)
+16. [Documentación y créditos](#-documentación-y-créditos)
 
 ---
 
@@ -324,18 +325,38 @@ apunta, `?` = puede quedar vacío. El modelo completo, con todos los tipos y tod
 
 ## 🚀 Cómo iniciarlo
 
-Hay dos formas. **¿Solo quieres verlo funcionando?** → Opción A. **¿Vas a programar?** → Opción B.
+Funciona en **Windows, Linux y macOS** (Intel y Apple Silicon). Hay dos formas: **¿solo quieres verlo
+funcionando?** → Opción A. **¿Vas a programar?** → Opción B.
 
-> **Antes de cualquiera:** abre **Docker Desktop** y espera a que diga *Engine running*. Si `docker` responde
-> `failed to connect to the docker API`, es que Docker Desktop está cerrado.
+Los comandos son los mismos en los tres sistemas salvo los marcados con 🪟 **Windows** (PowerShell) y
+🐧🍎 **Linux / macOS** (bash o zsh). Estas son todas las diferencias:
+
+| Acción | 🪟 Windows (PowerShell) | 🐧🍎 Linux / macOS |
+|---|---|---|
+| Copiar un archivo | `Copy-Item .env.example .env` | `cp .env.example .env` |
+| Python del entorno virtual | `.\.venv\Scripts\python` | `.venv/bin/python` |
+| Crear el entorno virtual | `python -m venv .venv` | `python3 -m venv .venv` |
+| Maven (incluido) | `.\mvnw` | `./mvnw` |
+| Elegir el JDK (si hace falta) | `$env:JAVA_HOME = "C:\ruta\al\jdk"` | `export JAVA_HOME=/ruta/al/jdk` |
+
+> **Antes de cualquiera:** Docker tiene que estar encendido. En Windows y macOS abre **Docker Desktop** y espera
+> a que diga *Engine running*. En Linux, el servicio `docker` debe estar activo (`sudo systemctl start docker`).
+> Si `docker` responde `failed to connect to the docker API` / `Cannot connect to the Docker daemon`, está apagado.
 
 ### Opción A · Solo con Docker (todo en contenedores)
 
 No hace falta instalar Python, Java ni Node: un comando levanta los cinco servicios (PostgreSQL, n8n, FastAPI,
-Spring Boot y el frontend con Nginx).
+Spring Boot y el frontend con Nginx). Las imágenes funcionan igual en los tres sistemas (amd64 y arm64).
 
+🪟 **Windows**
 ```powershell
 Copy-Item .env.example .env          # la primera vez: complétalo (ver "Variables de entorno")
+docker compose --profile completo up -d --build
+```
+
+🐧🍎 **Linux / macOS**
+```bash
+cp .env.example .env                 # la primera vez: complétalo (ver "Variables de entorno")
 docker compose --profile completo up -d --build
 ```
 
@@ -361,28 +382,59 @@ flowchart LR
 
 Abre 4 terminales en la carpeta del proyecto (en VS Code: botón `+` del panel de terminal). Hazlo en orden.
 
-**Terminal 1 · Docker** (base de datos y n8n)
-```powershell
+**Terminal 1 · Docker** (base de datos y n8n) — igual en todos
+```bash
 docker compose up -d
 ```
 
 **Terminal 2 · Backend FastAPI**
+
+🪟 **Windows**
 ```powershell
 cd backend
 .\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
 ```
-> Sin `--reload`: en Windows se queda pegado. Si cambias código del backend, `Ctrl + C` y vuelve a ejecutarlo.
+
+🍎 **macOS**
+```bash
+cd backend
+.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+```
+
+🐧 **Linux**
+```bash
+cd backend
+.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8010
+```
+
+> **Por qué en Linux es `0.0.0.0`:** n8n corre dentro de Docker y llama a FastAPI en tu equipo por
+> `host.docker.internal`. En Windows y macOS, Docker Desktop lo lleva al `127.0.0.1` del equipo; en Linux llega por
+> la red interna de Docker, así que FastAPI debe escuchar en todas las interfaces (si no, el asistente y la
+> indexación fallan). Si tu equipo está en una red pública, bloquea el puerto 8010 en el firewall.
+>
+> Sin `--reload` (en Windows se queda pegado): si cambias código del backend, `Ctrl + C` y vuelve a ejecutarlo.
+> En Linux y macOS puedes agregar `--reload` si quieres.
 
 **Terminal 3 · Puerta de entrada Spring Boot**
+
+🪟 **Windows**
 ```powershell
 cd gateway
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"   # ruta de tu JDK 21 o superior
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"   # ruta de tu JDK 21+ (solo si `java -version` es menor)
 .\mvnw spring-boot:run
+```
+
+🐧🍎 **Linux / macOS**
+```bash
+cd gateway
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)        # macOS, solo si `java -version` es menor que 21
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64     # Linux (Debian/Ubuntu), ídem
+./mvnw spring-boot:run
 ```
 Está lista cuando muestra `Tomcat started on port 8020`.
 
-**Terminal 4 · Frontend**
-```powershell
+**Terminal 4 · Frontend** — igual en todos
+```bash
 cd frontend
 npm run dev
 ```
@@ -395,19 +447,34 @@ Abre **http://127.0.0.1:5173**. El panel de administración está en **http://12
 
 ## 🧰 Instalación (solo la primera vez)
 
-**Requisitos:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) ·
-[Python 3.12](https://www.python.org/downloads/) · [Node.js 20+](https://nodejs.org/) ·
-[JDK 21+](https://adoptium.net/) (Maven no hace falta: el proyecto trae `mvnw`) · Git.
-Todos los comandos son de **PowerShell** desde la carpeta del proyecto.
+### Requisitos
 
-| Paso | Comando |
-|---|---|
-| 1. Variables de entorno | `Copy-Item .env.example .env` y complétalo ([ver tabla](#-variables-de-entorno)) |
-| 2. Base de datos | `docker compose up -d` |
-| 3. Backend | `cd backend` → `python -m venv .venv` → `.\.venv\Scripts\python -m pip install -r requirements.txt` |
-| 4. Tablas | `.\.venv\Scripts\python -m alembic upgrade head` (desde `backend`) |
-| 5. Administrador | `.\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"` |
-| 6. Frontend | `cd frontend` → `npm install` |
+| | 🪟 Windows | 🍎 macOS | 🐧 Linux (Debian/Ubuntu) |
+|---|---|---|---|
+| **Docker** | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Docker Engine + plugin `compose` ([guía](https://docs.docker.com/engine/install/)) |
+| **Python 3.12** | [python.org](https://www.python.org/downloads/) | `brew install python@3.12` | `sudo apt install python3.12 python3.12-venv` |
+| **Node.js 20+** | [nodejs.org](https://nodejs.org/) | `brew install node` | [nodejs.org](https://nodejs.org/) o `nvm` |
+| **JDK 21+** | [Adoptium](https://adoptium.net/) | `brew install openjdk@21` | `sudo apt install openjdk-21-jdk` |
+| **Git** | [git-scm.com](https://git-scm.com/) | incluido (o `brew install git`) | `sudo apt install git` |
+
+Maven no hace falta: el proyecto trae `mvnw`. En Linux, para usar `docker` sin `sudo`:
+`sudo usermod -aG docker $USER` (y vuelve a iniciar sesión).
+
+### Pasos
+
+| Paso | 🪟 Windows | 🐧🍎 Linux / macOS |
+|---|---|---|
+| 1. Variables de entorno | `Copy-Item .env.example .env` | `cp .env.example .env` |
+| | y complétalo ([ver tabla](#-variables-de-entorno)) | y complétalo |
+| 2. Base de datos | `docker compose up -d` | `docker compose up -d` |
+| 3. Entorno de Python (en `backend`) | `python -m venv .venv` | `python3 -m venv .venv` |
+| 4. Dependencias (en `backend`) | `.\.venv\Scripts\python -m pip install -r requirements.txt` | `.venv/bin/python -m pip install -r requirements.txt` |
+| 5. Tablas (en `backend`) | `.\.venv\Scripts\python -m alembic upgrade head` | `.venv/bin/python -m alembic upgrade head` |
+| 6. Administrador (en `backend`) | `.\.venv\Scripts\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"` | `.venv/bin/python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"` |
+| 7. Frontend (en `frontend`) | `npm install` | `npm install` |
+
+> **Atajo:** si activas el entorno virtual (🪟 `.\.venv\Scripts\Activate.ps1` · 🐧🍎 `source .venv/bin/activate`),
+> en todos los sistemas basta con escribir `python -m …` (por ejemplo `python -m scripts.create_admin …`).
 
 <details>
 <summary><b>Datos: base inicial, OpenStreetMap y carga manual</b></summary>
@@ -420,12 +487,12 @@ Todos los comandos son de **PowerShell** desde la carpeta del proyecto.
 | `02-esquema.sql` | Todas las tablas, restricciones, índices (incluido el HNSW) y la versión de Alembic |
 | `03-datos-iniciales.sql` | Negocios cargados a mano con sus productos y horarios, 32 categorías, municipios y barrios |
 
-**Importar miles de negocios de OpenStreetMap** (opcional, desde `backend`):
+**Importar miles de negocios de OpenStreetMap** (opcional, desde `backend` con el entorno virtual activado):
 
-```powershell
-.\.venv\Scripts\python -m scripts.import_osm           # municipios, barrios y negocios reales (unos minutos)
-.\.venv\Scripts\python -m scripts.reindex_embeddings   # vectores semánticos (la 1.ª vez descarga ~470 MB)
-.\.venv\Scripts\python -m scripts.import_csv           # vuelve a cargar los negocios completados a mano
+```bash
+python -m scripts.import_osm           # municipios, barrios y negocios reales (unos minutos)
+python -m scripts.reindex_embeddings   # vectores semánticos (la 1.ª vez descarga ~470 MB)
+python -m scripts.import_csv           # vuelve a cargar los negocios completados a mano
 ```
 
 Para completar negocios con descripción, carta y precios: [guía de carga manual](docs/CARGA_MANUAL.md).
@@ -441,15 +508,22 @@ http://127.0.0.1:5690 y crea la cuenta local la primera vez (solo sirve para ver
 
 - **Flujo 1 · indexación:** cada 30 minutos genera los vectores que faltan o cambiaron (sin duplicados). A mano:
 
+  🪟 **Windows**
   ```powershell
   $clave = (Select-String -Path .env -Pattern '^N8N_WEBHOOK_KEY=(.+)$').Matches.Groups[1].Value
   Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5690/webhook/easysearch/indexar -Headers @{ "X-N8N-Key" = $clave }
+  ```
+
+  🐧🍎 **Linux / macOS**
+  ```bash
+  clave=$(grep '^N8N_WEBHOOK_KEY=' .env | cut -d= -f2-)
+  curl -X POST -H "X-N8N-Key: $clave" http://127.0.0.1:5690/webhook/easysearch/indexar
   ```
 - **Flujo 2 · asistente RAG:** lo llama solo Spring Boot.
 - Los flujos del repositorio son la fuente de verdad: si cambias uno en n8n, expórtalo a `n8n/workflows/`.
 </details>
 
-> **Si `npm` dice "la ejecución de scripts está deshabilitada"**, ejecuta una vez
+> 🪟 **Si `npm` dice "la ejecución de scripts está deshabilitada"**, ejecuta una vez
 > `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`, o usa `npm.cmd` en lugar de `npm`.
 
 ---
@@ -475,14 +549,14 @@ Se copian de `.env.example` a `.env` (que **nunca** se sube a Git).
 | `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | Anti-robots de Cloudflare (gratis) | Opcional |
 | `ASISTENTE_UMBRAL` · `ASISTENTE_CONSULTAS_POR_HORA` | Umbral de similitud (0,82) y límite de preguntas | Opcional |
 
-Para generar una clave aleatoria (una vez por clave):
+Para generar una clave aleatoria (una vez por clave; en Linux/macOS usa `python3`):
 
-```powershell
-$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b).Replace('+','-').Replace('/','_').TrimEnd('=')
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
 > Usa `127.0.0.1` y **no** `localhost` en las direcciones: en Windows, `localhost` prueba primero IPv6 y puede
-> tardar más de 2 minutos.
+> tardar más de 2 minutos (en Linux y macOS también funciona igual con `127.0.0.1`).
 
 ---
 
@@ -528,25 +602,81 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 
 | Qué | Comando | Notas |
 |---|---|---|
-| **Backend** (FastAPI) | `cd backend` → `.\.venv\Scripts\python -m pytest` | Usa la base aparte `easysearch_test` (se crea sola) |
-| **Puerta de entrada** (Spring Boot) | `cd gateway` → `.\mvnw test` | Perfil `test` (sin base) y `it` (base de pruebas real; corre antes `pytest`) |
+| **Backend** (FastAPI) | `cd backend` → `python -m pytest` | Usa la base aparte `easysearch_test` (se crea sola) |
+| **Puerta de entrada** (Spring Boot) | `cd gateway` → `.\mvnw test` (🪟) · `./mvnw test` (🐧🍎) | Perfil `test` (sin base) y `it` (base de pruebas real; corre antes `pytest`) |
 | **Frontend** | `cd frontend` → `npm run lint` · `npm run build` | ESLint y compilación |
-| **Calidad de la búsqueda** | `.\.venv\Scripts\python -m scripts.benchmark_search` | Precisión@5, municipio correcto y tiempos (`--con-ia` usa la IA) |
-| **Una búsqueda desde la terminal** | `.\.venv\Scripts\python -m scripts.eval_search "pizza en Cabecera"` | No guarda historial |
+| **API completa** (Postman) | `npx -y -p newman newman run docs/postman/EasySearch.postman_collection.json -e …` | 42 peticiones · 118 comprobaciones ([ver sección](#-api-swagger-y-postman)) |
+| **Calidad de la búsqueda** | `python -m scripts.benchmark_search` | Precisión@5, municipio correcto y tiempos (`--con-ia` usa la IA) |
+| **Una búsqueda desde la terminal** | `python -m scripts.eval_search "pizza en Cabecera"` | No guarda historial |
 | **Dependencias** | `npm audit` · `pip_audit -r requirements.txt` | Vulnerabilidades conocidas |
+
+> Los comandos `python -m …` se ejecutan desde `backend` con el entorno virtual activado (🪟 `.\.venv\Scripts\Activate.ps1` · 🐧🍎 `source .venv/bin/activate`).
+
+---
+
+## 🧩 API: Swagger y Postman
+
+### Swagger (documentación interactiva)
+
+**http://127.0.0.1:8020/swagger-ui.html**. Arriba a la derecha se elige la API: **FastAPI** (71 operaciones en
+10 secciones: búsqueda, cuentas, catálogo, reseñas, negocios, administración…) o **Spring Boot** (asistente y
+sistema). Todas tienen título en español; con **Authorize** se pega el token para probar las rutas protegidas.
+Las especificaciones exportadas están en [docs/api/](docs/api/) (`openapi-fastapi.json` y `openapi-spring.json`).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/evidencias/api/swagger-fastapi.jpg" alt="Swagger de FastAPI"><br><b>FastAPI</b> en Swagger: secciones y títulos en español.</td>
+    <td width="50%"><img src="docs/evidencias/api/swagger-spring.jpg" alt="Swagger de Spring Boot"><br><b>Spring Boot</b> en Swagger: asistente y sistema.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/evidencias/api/swagger-fastapi-ejecutada.jpg" alt="Petición ejecutada en FastAPI"><br>Petición ejecutada desde Swagger (<code>GET /api/categories</code> → 200).</td>
+    <td><img src="docs/evidencias/api/swagger-spring-ejecutada.jpg" alt="Petición ejecutada en Spring Boot"><br>Petición ejecutada desde Swagger (<code>GET /api/sistema/estado</code> → 200).</td>
+  </tr>
+</table>
+
+### Postman (colección de pruebas)
+
+En [docs/postman/](docs/postman/):
+
+| Archivo | Qué es |
+|---|---|
+| `EasySearch.postman_collection.json` | **42 peticiones en 11 carpetas** con **118 comprobaciones**: sistema, cuenta, catálogo, búsqueda, favoritos e historial, reseñas, asistente, solicitudes, tráfico, analítica y administración |
+| `EasySearch.local.postman_environment.json` | Entorno `Easy Search · local` (`base_url`, credenciales y token) |
+| `reporte-pruebas.html` | Reporte de la última ejecución: **42/42 peticiones y 118/118 comprobaciones correctas** |
+| `reporte-pruebas.junit.xml` | El mismo resultado en formato JUnit |
+
+Las pruebas no solo miran el código de respuesta: también comprueban, por ejemplo, que un saludo no devuelva
+negocios, que el asistente cite fuentes por encima del umbral, que un usuario normal reciba 403 en el panel y que los
+datos inválidos den 422. El token se guarda solo al iniciar sesión y lo usan las demás peticiones.
+
+**Usarla en Postman:** *Import* → los dos archivos → elegir el entorno *Easy Search · local* → llenar
+`user_email`/`user_password` (y `admin_*`) → *Run collection*.
+
+> Con el anti-robots (Turnstile) activo, el login sin captcha responde 400 (la colección lo comprueba). Para
+> probar con sesión, pega en `token` el token de tu sesión, o usa las claves de prueba de Cloudflare que trae
+> `.env.example`.
+
+**Correrla por consola con Newman** (no hay que instalar nada):
+
+```bash
+cd docs/postman
+npx -y -p newman -p newman-reporter-htmlextra newman run EasySearch.postman_collection.json -e EasySearch.local.postman_environment.json -r cli,htmlextra --reporter-htmlextra-export reporte-pruebas.html
+```
+
+![Reporte de Newman](docs/evidencias/api/newman-reporte.jpg)
 
 ---
 
 ## 🛠️ Comandos útiles
 
-```powershell
-# (desde backend)
-.\.venv\Scripts\python -m alembic revision --autogenerate -m "descripcion"   # nueva migración
-.\.venv\Scripts\python -m alembic upgrade head                               # aplicar migraciones
-.\.venv\Scripts\python -m scripts.generar_diagrama_er                        # diagramas entidad-relación
-.\.venv\Scripts\python -m scripts.generar_modelo_relacional                  # modelo relacional
-.\.venv\Scripts\python -m scripts.exportar_sql_inicial                       # scripts SQL de docker/initdb
-docker exec -it easysearch-db psql -U easysearch -d easysearch               # consola SQL
+```bash
+# (desde backend, con el entorno virtual activado; iguales en Windows, Linux y macOS)
+python -m alembic revision --autogenerate -m "descripcion"   # nueva migración
+python -m alembic upgrade head                               # aplicar migraciones
+python -m scripts.generar_diagrama_er                        # diagramas entidad-relación
+python -m scripts.generar_modelo_relacional                  # modelo relacional
+python -m scripts.exportar_sql_inicial                       # scripts SQL de docker/initdb
+docker exec -it easysearch-db psql -U easysearch -d easysearch   # consola SQL
 ```
 
 ---
@@ -555,10 +685,14 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch               # c
 
 | Síntoma | Causa y solución |
 |---|---|
-| `failed to connect to the docker API` | Docker Desktop está cerrado: ábrelo y espera *Engine running* |
+| `failed to connect to the docker API` / `Cannot connect to the Docker daemon` | Docker está apagado: abre Docker Desktop (Windows/macOS) y espera *Engine running*, o `sudo systemctl start docker` (Linux) |
+| 🐧 `permission denied … docker.sock` | Tu usuario no está en el grupo `docker`: `sudo usermod -aG docker $USER` y vuelve a iniciar sesión |
 | La base tarda minutos en conectar | Estás usando `localhost`: cámbialo por `127.0.0.1` |
-| El backend se queda pegado al cambiar código | No uses `--reload` en Windows; reinicia con `Ctrl + C` |
-| `mvnw` dice que Java es muy viejo | Define `JAVA_HOME` con un JDK 21+ antes de `.\mvnw spring-boot:run` |
+| 🪟 El backend se queda pegado al cambiar código | No uses `--reload` en Windows; reinicia con `Ctrl + C` |
+| `mvnw` dice que Java es muy viejo | Define `JAVA_HOME` con un JDK 21+ antes de `mvnw spring-boot:run` |
+| 🐧🍎 `./mvnw: Permission denied` | El archivo perdió el permiso de ejecución: `chmod +x gateway/mvnw` |
+| 🐧🍎 `/bin/sh^M: bad interpreter` | El archivo se guardó con saltos de línea de Windows: `sed -i 's/\r$//' gateway/mvnw` (en macOS: `sed -i '' 's/\r$//' gateway/mvnw`). Con el `.gitattributes` del proyecto no vuelve a pasar |
+| 🐧 El asistente o la indexación fallan (n8n no llega al backend) | En Linux, FastAPI debe escuchar con `--host 0.0.0.0` (ver terminal 2) |
 | `ERR_CONNECTION_REFUSED` en el navegador | La terminal 4 (`npm run dev`) no está corriendo |
 | "Puerto en uso" (8010, 8020 o 5173) | Quedó un servidor abierto: ciérralo, o apaga el modo completo de Docker |
 | No aparece el "Panel administrativo" | Crea el administrador con `scripts.create_admin` y vuelve a iniciar sesión |
@@ -608,6 +742,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch               # c
 | [docs/Propuesta_Easy_Search.pdf](docs/Propuesta_Easy_Search.pdf) | Propuesta técnica y plan de trabajo |
 | [docs/AVANCE.md](docs/AVANCE.md) | Registro de avance por fases |
 | [docs/diagramas/](docs/diagramas/) | Arquitectura, entidad-relación, modelo relacional e imágenes |
+| [docs/api/](docs/api/) · [docs/postman/](docs/postman/) | Especificaciones OpenAPI, colección de Postman y reporte de pruebas |
 | [AI_USAGE.md](AI_USAGE.md) | Uso de inteligencia artificial en el desarrollo |
 
 Los datos de establecimientos provienen en parte de © colaboradores de

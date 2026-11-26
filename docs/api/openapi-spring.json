@@ -1,0 +1,460 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Easy Search â€” Spring Boot",
+    "description": "MÃ³dulos atendidos por Spring Boot: asistente con IA, anÃ¡lisis de datos y estado del sistema. Las demÃ¡s rutas de /api se reenvÃ­an a FastAPI (elige su especificaciÃ³n arriba a la derecha).\n\nPara probar las rutas protegidas: inicia sesiÃ³n en la app, copia el token y pÃ©galo en **Authorize**.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8020",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sistema",
+      "description": "Estado de los servicios y sesiÃ³n vista por Spring Boot"
+    },
+    {
+      "name": "Asistente IA",
+      "description": "Preguntas en lenguaje natural respondidas con RAG (pgvector + Gemini vÃ­a n8n)"
+    }
+  ],
+  "paths": {
+    "/api/asistente/consultas/{id}/calificacion": {
+      "put": {
+        "tags": [
+          "Asistente IA"
+        ],
+        "summary": "Calificar la respuesta de 1 a 5",
+        "description": "Si ya estaba calificada, se reemplaza la calificaciÃ³n.",
+        "operationId": "calificar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalificacionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/asistente/consultas": {
+      "get": {
+        "tags": [
+          "Asistente IA"
+        ],
+        "summary": "Historial de mis consultas",
+        "description": "De la mÃ¡s reciente a la mÃ¡s antigua.",
+        "operationId": "historial",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDtoConsultaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Asistente IA"
+        ],
+        "summary": "Hacer una pregunta al asistente",
+        "description": "Guarda la consulta, busca en pgvector los negocios mÃ¡s parecidos y genera una orientaciÃ³n usando solo esos negocios. Estados posibles: RESPONDIDA (con fuentes y similitudes), SIN_RESULTADOS (ninguna fuente relevante: no se inventa nada) o ERROR (fallÃ³ un servicio). Exige correo confirmado. LÃ­mite: 20 preguntas por hora.",
+        "operationId": "preguntar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/sistema/sesion": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Usuario de la sesiÃ³n actual",
+        "description": "Comprueba que Spring acepta el token emitido por FastAPI y muestra a quiÃ©n pertenece.",
+        "operationId": "sesion",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sesion"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/sistema/estado": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Estado de los servicios",
+        "description": "PÃºblico. Responde 200 si Spring, PostgreSQL y FastAPI funcionan; 503 si alguno falla.",
+        "operationId": "estado",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Estado"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/asistente/consultas/{id}": {
+      "get": {
+        "tags": [
+          "Asistente IA"
+        ],
+        "summary": "Detalle de una consulta",
+        "description": "Pregunta, estado, respuesta, fuentes, similitudes y calificaciÃ³n.",
+        "operationId": "detalle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsultaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalificacionRequest": {
+        "type": "object",
+        "properties": {
+          "puntuacion": {
+            "type": "integer",
+            "format": "int32",
+            "example": 5,
+            "maximum": 5,
+            "minimum": 1
+          },
+          "comentario": {
+            "type": "string",
+            "example": "Me sirviÃ³, fui al primer lugar",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "puntuacion"
+        ]
+      },
+      "CalificacionDto": {
+        "type": "object",
+        "properties": {
+          "puntuacion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "comentario": {
+            "type": "string"
+          },
+          "actualizadaEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ConsultaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pregunta": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "PENDIENTE",
+              "RESPONDIDA",
+              "SIN_RESULTADOS",
+              "ERROR"
+            ]
+          },
+          "creadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "respondidaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duracionMs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "umbral": {
+            "type": "number"
+          },
+          "mejorSimilitud": {
+            "type": "number"
+          },
+          "detalleError": {
+            "type": "string"
+          },
+          "respuesta": {
+            "$ref": "#/components/schemas/RespuestaDto"
+          }
+        }
+      },
+      "FuenteDto": {
+        "type": "object",
+        "properties": {
+          "establecimientoId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "similitud": {
+            "type": "number"
+          },
+          "posicion": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RespuestaDto": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string"
+          },
+          "pasos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "modelo": {
+            "type": "string"
+          },
+          "fuentes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FuenteDto"
+            }
+          },
+          "calificacion": {
+            "$ref": "#/components/schemas/CalificacionDto"
+          }
+        }
+      },
+      "ConsultaRequest": {
+        "type": "object",
+        "description": "Pregunta en lenguaje natural",
+        "properties": {
+          "pregunta": {
+            "type": "string",
+            "example": "Â¿DÃ³nde puedo almorzar barato en Cabecera?",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "pregunta"
+        ]
+      },
+      "Sesion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "email": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "rol": {
+            "type": "string"
+          },
+          "correoConfirmado": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Estado": {
+        "type": "object",
+        "properties": {
+          "gateway": {
+            "type": "string"
+          },
+          "baseDeDatos": {
+            "type": "string"
+          },
+          "fastapi": {
+            "type": "string"
+          }
+        }
+      },
+      "PaginaDtoConsultaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamano": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsultaDto"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "description": "El mismo token que devuelve POST /api/auth/login",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 """Genera el modelo relacional (notación de tablas) leyendo la estructura REAL de la base de datos.
 
-Uso (desde la carpeta backend, con la base de datos encendida):
-    .\\.venv\\Scripts\\python -m scripts.generar_modelo_relacional
+Uso (con el entorno virtual activado, desde la carpeta backend, con la base de datos encendida):
+    python -m scripts.generar_modelo_relacional
 
 Escribe docs/diagramas/modelo-relacional.md: cada tabla como RELACIÓN(atributos) con su llave primaria, llaves
 foráneas (y a qué tabla apuntan), únicas y columnas obligatorias. Usa la misma lectura de PostgreSQL que el

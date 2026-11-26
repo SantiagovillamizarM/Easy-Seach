@@ -1,0 +1,1654 @@
+{
+  "info": {
+    "_postman_id": "39e77af7-d58a-5477-a121-20d3202fac13",
+    "name": "Easy Search · API",
+    "description": "Colección de pruebas de la API de Easy Search. Todas las peticiones van a la puerta de entrada Spring Boot (`{{base_url}}`), que atiende el asistente y reenvía lo demás a FastAPI.\n\n1. Importa esta colección y el entorno `EasySearch.local.postman_environment.json`.\n2. Llena `user_email`/`user_password` (y `admin_*`), o pega directamente `token` y `admin_token`.\n3. Ejecuta la colección completa (Run collection) o con Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Responde en menos de 30 s\", () => pm.expect(pm.response.responseTime).to.be.below(30000));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 · Sistema",
+      "description": "Estado de los servicios (Spring Boot comprueba la base de datos y FastAPI).",
+      "item": [
+        {
+          "name": "Estado de los servicios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Informa gateway, base de datos y FastAPI\", () => pm.expect(j).to.include.keys(\"gateway\", \"baseDeDatos\", \"fastapi\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sistema/estado",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sistema",
+                "estado"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Estado de FastAPI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 · Cuenta",
+      "description": "Sesión con token JWT. Con el anti-robots (Turnstile) activo, el login sin captcha se rechaza: en ese caso pega tu token en la variable `token` del entorno (o usa las claves de prueba de Cloudflare).",
+      "item": [
+        {
+          "name": "Iniciar sesión (sin captcha)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 o 400\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.environment.set(\"token\", pm.response.json().access_token);",
+                  "  pm.test(\"Devuelve un token\", () => pm.expect(pm.response.json().access_token).to.be.a(\"string\"));",
+                  "} else {",
+                  "  pm.test(\"Pide el anti-robots\", () => pm.expect(pm.response.json().detail).to.match(/robot/i));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{user_email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{user_password}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Iniciar sesión con contraseña incorrecta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400 o 401\", () => pm.expect(pm.response.code).to.be.oneOf([400, 401]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{user_email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "contraseña-equivocada",
+                  "type": "text"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Mi perfil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);",
+                  "pm.test(\"Es el usuario de prueba\", () => pm.expect(pm.response.json().email).to.eql(pm.environment.get(\"user_email\")));",
+                  "pm.test(\"Correo confirmado\", () => pm.expect(pm.response.json().email_verified).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Sesión actual (Spring Boot valida el mismo token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sistema/sesion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sistema",
+                "sesion"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mi perfil sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 · Catálogo",
+      "description": "Lectura pública de categorías, lugares y negocios.",
+      "item": [
+        {
+          "name": "Categorías",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Hay categorías\", () => pm.expect(pm.response.json().length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Municipios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todos son municipios\", () => pm.response.json().forEach(p => pm.expect(p.kind).to.eql(\"municipio\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/places?kind=municipio&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "places"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "municipio"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Listar negocios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test(\"Devuelve hasta 5 negocios\", () => pm.expect(lista.length).to.be.within(1, 5));",
+                  "pm.environment.set(\"establishment_id\", lista[0].id);",
+                  "pm.environment.set(\"establishment_slug\", lista[0].slug);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments?limit=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Detalle de un negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Es el negocio pedido\", () => pm.expect(pm.response.json().slug).to.eql(pm.environment.get(\"establishment_slug\")));",
+                  "pm.test(\"Trae horario y productos\", () => pm.expect(pm.response.json()).to.include.keys(\"opening_hours\", \"offerings\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/{{establishment_slug}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "{{establishment_slug}}"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Negocio que no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/no-existe-este-negocio",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "no-existe-este-negocio"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 · Búsqueda",
+      "description": "Búsqueda en lenguaje natural y recomendaciones con IA (en esta prueba responde Gemini).",
+      "item": [
+        {
+          "name": "Buscar en lenguaje natural",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Entendió que es una búsqueda\", () => pm.expect(j.interpretation.is_search).to.be.true);",
+                  "pm.test(\"La interpretó una IA o las reglas\", () => pm.expect(j.interpretation.parser).to.be.oneOf([\"xai\", \"openai\", \"gemini\", \"reglas\"]));",
+                  "pm.test(\"Encontró resultados\", () => pm.expect(j.results.length).to.be.above(0));",
+                  "pm.environment.set(\"result_id\", j.results[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"q\": \"hamburguesas en piedecuesta\",\n  \"limit\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Recomendaciones con IA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Una recomendación por negocio\", () => pm.expect(j.items.length).to.eql(1));",
+                  "pm.test(\"Dice quién la escribió\", () => pm.expect(j.source).to.be.oneOf([\"xai\", \"openai\", \"gemini\", \"reglas\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/recommendations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "recommendations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"q\": \"hamburguesas en piedecuesta\",\n  \"establishment_ids\": [\n    \"{{result_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Un saludo no es una búsqueda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"No devuelve negocios al azar\", () => pm.expect(pm.response.json().results.length).to.eql(0));",
+                  "pm.test(\"Lo marca como no-búsqueda\", () => pm.expect(pm.response.json().interpretation.is_search).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"q\": \"hola\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Búsqueda vacía",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"q\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 · Favoritos e historial",
+      "description": "Lo que guarda cada usuario.",
+      "item": [
+        {
+          "name": "Guardar en favoritos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/favorites/{{establishment_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "favorites",
+                "{{establishment_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mis favoritos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye el negocio guardado\", () => pm.expect(pm.response.json().map(f => f.id)).to.include(Number(pm.environment.get(\"establishment_id\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/favorites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "favorites"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Quitar de favoritos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/favorites/{{establishment_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "favorites",
+                "{{establishment_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mi historial de búsquedas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Guarda las búsquedas\", () => pm.expect(j.items.length).to.be.above(0));",
+                  "pm.environment.set(\"history_id\", j.items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "history"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Borrar una búsqueda del historial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/history/{{history_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "history",
+                "{{history_id}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 · Reseñas",
+      "description": "Lectura y validación (escribir una reseña válida pasa por la moderación con IA).",
+      "item": [
+        {
+          "name": "Reseñas de un negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/{{establishment_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "{{establishment_id}}",
+                "reviews"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Reseña con calificación inválida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/{{establishment_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "{{establishment_id}}",
+                "reviews"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 7,\n  \"comment\": \"Fuera de rango\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reseña sin sesión",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/{{establishment_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "{{establishment_id}}",
+                "reviews"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 · Asistente IA (Spring Boot + n8n)",
+      "description": "RAG: responde solo con negocios registrados, con fuentes y similitud.",
+      "item": [
+        {
+          "name": "Preguntar al asistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Estado final válido\", () => pm.expect(j.estado).to.be.oneOf([\"RESPONDIDA\", \"SIN_RESULTADOS\", \"ERROR\"]));",
+                  "pm.test(\"Guarda el umbral usado\", () => pm.expect(j.umbral).to.be.a(\"number\"));",
+                  "if (j.estado === \"RESPONDIDA\") {",
+                  "  pm.test(\"Trae fuentes con similitud\", () => j.respuesta.fuentes.forEach(f => pm.expect(f.similitud).to.be.at.least(j.umbral)));",
+                  "}",
+                  "pm.environment.set(\"consulta_id\", j.id);",
+                  "pm.environment.set(\"consulta_respondida\", j.estado === \"RESPONDIDA\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pregunta\": \"¿Dónde puedo comer hamburguesas en Piedecuesta?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Historial de mis consultas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye la consulta\", () => pm.expect(pm.response.json().items.map(c => c.id)).to.include(pm.environment.get(\"consulta_id\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Detalle de una consulta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas/{{consulta_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas",
+                "{{consulta_id}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Calificar la respuesta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"consulta_respondida\")) { pm.test(\"Responde 200\", () => pm.response.to.have.status(200)); }",
+                  "else { pm.test(\"Solo se califican respuestas\", () => pm.expect(pm.response.code).to.be.oneOf([400, 409, 422])); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas/{{consulta_id}}/calificacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas",
+                "{{consulta_id}}",
+                "calificacion"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"puntuacion\": 5,\n  \"comentario\": \"Prueba automática\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pregunta vacía",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400 o 422\", () => pm.expect(pm.response.code).to.be.oneOf([400, 422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pregunta\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Preguntar sin sesión",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/asistente/consultas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "asistente",
+                "consultas"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pregunta\": \"pizza\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 · Negocios y solicitudes",
+      "description": "Solicitudes de dueños y panel del propietario.",
+      "item": [
+        {
+          "name": "Mis solicitudes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve JSON\", () => pm.response.to.be.json);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/me/claims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "claims"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Registrar negocio sin autorizar los datos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/business-registrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-registrations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"business\": {\n    \"name\": \"Negocio de prueba\",\n    \"category_ids\": [\n      1\n    ],\n    \"municipality_id\": 1,\n    \"address\": \"Calle 1 # 2-3\",\n    \"phone\": \"3001234567\",\n    \"latitude\": 7.1,\n    \"longitude\": -73.1\n  },\n  \"contact_phone\": \"3001234567\",\n  \"applicant_role\": \"dueno\",\n  \"accept_terms\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Panel del dueño sin ser dueño",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/owner/establishments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "owner",
+                "establishments"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 · Tráfico",
+      "description": "Aviso de trancón con TomTom (report es null si no hay demora).",
+      "item": [
+        {
+          "name": "Aviso de trancón hasta el negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Dice si el servicio está disponible\", () => pm.expect(pm.response.json()).to.have.property(\"available\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/establishments/{{establishment_id}}/traffic",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "establishments",
+                "{{establishment_id}}",
+                "traffic"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 7.119,\n  \"longitude\": -73.122\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 · Analítica",
+      "description": "Contador de visitas anónimo (sin cookies ni IP).",
+      "item": [
+        {
+          "name": "Registrar una visita",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/pageview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "analytics",
+                "pageview"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"path\": \"/\",\n  \"logged_in\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 · Administración",
+      "description": "Panel del administrador. Un usuario normal recibe 403.",
+      "item": [
+        {
+          "name": "Usuario normal no entra al panel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/overview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "overview"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Tareas pendientes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Trae los pendientes\", () => pm.expect(pm.response.json().pending).to.include.keys(\"reviews\", \"claims\", \"duplicates\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/overview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "overview"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard (7 días)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Una serie por día\", () => pm.expect(j.series.searches.length).to.eql(7));",
+                  "pm.test(\"Compara con el periodo anterior\", () => pm.expect(j.series_prev.searches.length).to.eql(7));",
+                  "pm.test(\"Calcula el costo de IA\", () => pm.expect(j.kpis.ai_cost.value).to.be.a(\"number\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/dashboard?days=7",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Estadísticas de búsqueda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Una cifra por día\", () => pm.expect(pm.response.json().daily.length).to.eql(7));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/search-stats?days=7",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "search-stats"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Categorías con su número de negocios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Solicitudes pendientes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/claims",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "claims"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard con un periodo inválido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/dashboard?days=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

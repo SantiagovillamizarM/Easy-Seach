@@ -1,7 +1,7 @@
 """Genera o actualiza los embeddings de todos los establecimientos.
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.reindex_embeddings
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.reindex_embeddings
 
 Solo recalcula los vectores cuyo texto cambió, así que se puede ejecutar las veces que se quiera.
 La primera vez descarga el modelo (~470 MB) y queda guardado en caché.

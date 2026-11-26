@@ -8,9 +8,9 @@ Métricas:
 - Sin resultados: consultas que no devolvieron nada.
 - Tiempo de respuesta (mediana y percentil 95).
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.benchmark_search            # solo intérprete por reglas (sin gastar cuota)
-    .\\.venv\\Scripts\\python -m scripts.benchmark_search --con-ia   # con Gemini (≈22 consultas a la API)
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.benchmark_search            # solo intérprete por reglas (sin gastar cuota)
+    python -m scripts.benchmark_search --con-ia   # con Gemini (≈22 consultas a la API)
 
 No guarda nada en el historial. Los resultados dependen de los datos cargados (OSM es incompleto).
 """

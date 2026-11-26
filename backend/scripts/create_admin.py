@@ -1,7 +1,7 @@
 """Crea un usuario administrador (o convierte en admin a un usuario existente).
 
-Uso (desde la carpeta backend):
-    .\\.venv\\Scripts\\python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
+Uso (con el entorno virtual activado, desde la carpeta backend):
+    python -m scripts.create_admin --email tu@correo.com --nombre "Tu Nombre"
 
 La contraseña se pide por teclado (no se escribe en el comando ni queda en el historial).
 """

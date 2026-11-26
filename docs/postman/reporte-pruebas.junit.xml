@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Easy Search · API" tests="42" time="3.480">
+  <testsuite name="01 · Sistema / Estado de los servicios" id="6611dbcc-47ef-4ece-8ce5-07c3117986b8" timestamp="2026-11-26T04:50:40.607Z" tests="4" failures="0" errors="0" time="0.081">
+    <testcase name="Responde en menos de 30 s" time="0.081" classname="01SistemaEstadoDeLosServicios"/>
+    <testcase name="Responde 200" time="0.081" classname="01SistemaEstadoDeLosServicios"/>
+    <testcase name="Devuelve JSON" time="0.081" classname="01SistemaEstadoDeLosServicios"/>
+    <testcase name="Informa gateway, base de datos y FastAPI" time="0.081" classname="01SistemaEstadoDeLosServicios"/>
+  </testsuite>
+  <testsuite name="01 · Sistema / Estado de FastAPI" id="a201093b-0bf0-48e1-b2da-56c79bf62672" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.019">
+    <testcase name="Responde en menos de 30 s" time="0.019" classname="01SistemaEstadoDeFastApi"/>
+    <testcase name="Responde 200" time="0.019" classname="01SistemaEstadoDeFastApi"/>
+  </testsuite>
+  <testsuite name="02 · Cuenta / Iniciar sesión (sin captcha)" id="b0aa4cfc-2d44-4c23-95ca-6a22086063b1" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.012">
+    <testcase name="Responde en menos de 30 s" time="0.012" classname="02CuentaIniciarSesionSinCaptcha"/>
+    <testcase name="Responde 200 o 400" time="0.012" classname="02CuentaIniciarSesionSinCaptcha"/>
+    <testcase name="Pide el anti-robots" time="0.012" classname="02CuentaIniciarSesionSinCaptcha"/>
+  </testsuite>
+  <testsuite name="02 · Cuenta / Iniciar sesión con contraseña incorrecta" id="dcfcfbbb-81c8-4163-9e79-1428b837bd4e" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.009">
+    <testcase name="Responde en menos de 30 s" time="0.009" classname="02CuentaIniciarSesionConContrasenaIncorrecta"/>
+    <testcase name="Responde 400 o 401" time="0.009" classname="02CuentaIniciarSesionConContrasenaIncorrecta"/>
+  </testsuite>
+  <testsuite name="02 · Cuenta / Mi perfil" id="ca4ba173-ca9f-4b74-be54-414b8551f718" timestamp="2026-11-26T04:50:40.607Z" tests="5" failures="0" errors="0" time="0.019">
+    <testcase name="Responde en menos de 30 s" time="0.019" classname="02CuentaMiPerfil"/>
+    <testcase name="Responde 200" time="0.019" classname="02CuentaMiPerfil"/>
+    <testcase name="Devuelve JSON" time="0.019" classname="02CuentaMiPerfil"/>
+    <testcase name="Es el usuario de prueba" time="0.019" classname="02CuentaMiPerfil"/>
+    <testcase name="Correo confirmado" time="0.019" classname="02CuentaMiPerfil"/>
+  </testsuite>
+  <testsuite name="02 · Cuenta / Sesión actual (Spring Boot valida el mismo token)" id="293cb621-1f8f-4f2f-8429-ef7864039459" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.012">
+    <testcase name="Responde en menos de 30 s" time="0.012" classname="02CuentaSesionActualSpringBootValidaElMismoToken"/>
+    <testcase name="Responde 200" time="0.012" classname="02CuentaSesionActualSpringBootValidaElMismoToken"/>
+    <testcase name="Devuelve JSON" time="0.012" classname="02CuentaSesionActualSpringBootValidaElMismoToken"/>
+  </testsuite>
+  <testsuite name="02 · Cuenta / Mi perfil sin token" id="765c5a0f-e07a-4bba-b21a-ef7f175f1e66" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.007">
+    <testcase name="Responde en menos de 30 s" time="0.007" classname="02CuentaMiPerfilSinToken"/>
+    <testcase name="Responde 401" time="0.007" classname="02CuentaMiPerfilSinToken"/>
+  </testsuite>
+  <testsuite name="03 · Catálogo / Categorías" id="847081a5-3531-4e36-98e6-3e9b0d5e4fba" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.014">
+    <testcase name="Responde en menos de 30 s" time="0.014" classname="03CatalogoCategorias"/>
+    <testcase name="Responde 200" time="0.014" classname="03CatalogoCategorias"/>
+    <testcase name="Hay categorías" time="0.014" classname="03CatalogoCategorias"/>
+  </testsuite>
+  <testsuite name="03 · Catálogo / Municipios" id="452170bb-c7eb-4abb-a0a8-69179d8fc80c" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.015">
+    <testcase name="Responde en menos de 30 s" time="0.015" classname="03CatalogoMunicipios"/>
+    <testcase name="Responde 200" time="0.015" classname="03CatalogoMunicipios"/>
+    <testcase name="Todos son municipios" time="0.015" classname="03CatalogoMunicipios"/>
+  </testsuite>
+  <testsuite name="03 · Catálogo / Listar negocios" id="a2e5b8eb-6e2e-4814-a10f-a6ceebba3782" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.033">
+    <testcase name="Responde en menos de 30 s" time="0.033" classname="03CatalogoListarNegocios"/>
+    <testcase name="Responde 200" time="0.033" classname="03CatalogoListarNegocios"/>
+    <testcase name="Devuelve hasta 5 negocios" time="0.033" classname="03CatalogoListarNegocios"/>
+  </testsuite>
+  <testsuite name="03 · Catálogo / Detalle de un negocio" id="0932c7a3-f8c5-4c36-9349-1bcdf4d5d450" timestamp="2026-11-26T04:50:40.607Z" tests="4" failures="0" errors="0" time="0.027">
+    <testcase name="Responde en menos de 30 s" time="0.027" classname="03CatalogoDetalleDeUnNegocio"/>
+    <testcase name="Responde 200" time="0.027" classname="03CatalogoDetalleDeUnNegocio"/>
+    <testcase name="Es el negocio pedido" time="0.027" classname="03CatalogoDetalleDeUnNegocio"/>
+    <testcase name="Trae horario y productos" time="0.027" classname="03CatalogoDetalleDeUnNegocio"/>
+  </testsuite>
+  <testsuite name="03 · Catálogo / Negocio que no existe" id="67d1fca2-a826-4a12-986e-3fd73f4998ac" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="Responde en menos de 30 s" time="0.013" classname="03CatalogoNegocioQueNoExiste"/>
+    <testcase name="Responde 404" time="0.013" classname="03CatalogoNegocioQueNoExiste"/>
+  </testsuite>
+  <testsuite name="04 · Búsqueda / Buscar en lenguaje natural" id="a166b452-5d98-4594-ae56-e540ee0937b5" timestamp="2026-11-26T04:50:40.607Z" tests="6" failures="0" errors="0" time="0.138">
+    <testcase name="Responde en menos de 30 s" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+    <testcase name="Responde 200" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+    <testcase name="Devuelve JSON" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+    <testcase name="Entendió que es una búsqueda" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+    <testcase name="La interpretó una IA o las reglas" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+    <testcase name="Encontró resultados" time="0.138" classname="04BusquedaBuscarEnLenguajeNatural"/>
+  </testsuite>
+  <testsuite name="04 · Búsqueda / Recomendaciones con IA" id="1a389753-2bbd-4c86-8091-b75653df9365" timestamp="2026-11-26T04:50:40.607Z" tests="4" failures="0" errors="0" time="0.056">
+    <testcase name="Responde en menos de 30 s" time="0.056" classname="04BusquedaRecomendacionesConIa"/>
+    <testcase name="Responde 200" time="0.056" classname="04BusquedaRecomendacionesConIa"/>
+    <testcase name="Una recomendación por negocio" time="0.056" classname="04BusquedaRecomendacionesConIa"/>
+    <testcase name="Dice quién la escribió" time="0.056" classname="04BusquedaRecomendacionesConIa"/>
+  </testsuite>
+  <testsuite name="04 · Búsqueda / Un saludo no es una búsqueda" id="5d6cac9a-c442-4eb2-a883-a84450d2ae77" timestamp="2026-11-26T04:50:40.607Z" tests="4" failures="0" errors="0" time="0.041">
+    <testcase name="Responde en menos de 30 s" time="0.041" classname="04BusquedaUnSaludoNoEsUnaBusqueda"/>
+    <testcase name="Responde 200" time="0.041" classname="04BusquedaUnSaludoNoEsUnaBusqueda"/>
+    <testcase name="No devuelve negocios al azar" time="0.041" classname="04BusquedaUnSaludoNoEsUnaBusqueda"/>
+    <testcase name="Lo marca como no-búsqueda" time="0.041" classname="04BusquedaUnSaludoNoEsUnaBusqueda"/>
+  </testsuite>
+  <testsuite name="04 · Búsqueda / Búsqueda vacía" id="45f264e7-fa54-41f4-b86d-a3bbcaed0fe3" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.016">
+    <testcase name="Responde en menos de 30 s" time="0.016" classname="04BusquedaBusquedaVacia"/>
+    <testcase name="Responde 422" time="0.016" classname="04BusquedaBusquedaVacia"/>
+  </testsuite>
+  <testsuite name="05 · Favoritos e historial / Guardar en favoritos" id="c0544245-520d-4d76-bf59-73f8b22cd6bd" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.031">
+    <testcase name="Responde en menos de 30 s" time="0.031" classname="05FavoritosEHistorialGuardarEnFavoritos"/>
+    <testcase name="Responde 204" time="0.031" classname="05FavoritosEHistorialGuardarEnFavoritos"/>
+  </testsuite>
+  <testsuite name="05 · Favoritos e historial / Mis favoritos" id="7ec3ccc7-4fd8-4d82-976e-14e145fa90b1" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.033">
+    <testcase name="Responde en menos de 30 s" time="0.033" classname="05FavoritosEHistorialMisFavoritos"/>
+    <testcase name="Responde 200" time="0.033" classname="05FavoritosEHistorialMisFavoritos"/>
+    <testcase name="Incluye el negocio guardado" time="0.033" classname="05FavoritosEHistorialMisFavoritos"/>
+  </testsuite>
+  <testsuite name="05 · Favoritos e historial / Quitar de favoritos" id="5556f3e2-ea39-4bf1-a8dc-e5403303f05b" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.023">
+    <testcase name="Responde en menos de 30 s" time="0.023" classname="05FavoritosEHistorialQuitarDeFavoritos"/>
+    <testcase name="Responde 204" time="0.023" classname="05FavoritosEHistorialQuitarDeFavoritos"/>
+  </testsuite>
+  <testsuite name="05 · Favoritos e historial / Mi historial de búsquedas" id="9b12338e-e683-456d-bc2c-f58b47d4f99e" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.025">
+    <testcase name="Responde en menos de 30 s" time="0.025" classname="05FavoritosEHistorialMiHistorialDeBusquedas"/>
+    <testcase name="Responde 200" time="0.025" classname="05FavoritosEHistorialMiHistorialDeBusquedas"/>
+    <testcase name="Guarda las búsquedas" time="0.025" classname="05FavoritosEHistorialMiHistorialDeBusquedas"/>
+  </testsuite>
+  <testsuite name="05 · Favoritos e historial / Borrar una búsqueda del historial" id="7cb57ae6-8b72-484f-aaf9-b369f50faade" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.022">
+    <testcase name="Responde en menos de 30 s" time="0.022" classname="05FavoritosEHistorialBorrarUnaBusquedaDelHistorial"/>
+    <testcase name="Responde 204" time="0.022" classname="05FavoritosEHistorialBorrarUnaBusquedaDelHistorial"/>
+  </testsuite>
+  <testsuite name="06 · Reseñas / Reseñas de un negocio" id="95e1e3db-a6e1-4945-aad4-3faadf41ea1f" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.021">
+    <testcase name="Responde en menos de 30 s" time="0.021" classname="06ResenasResenasDeUnNegocio"/>
+    <testcase name="Responde 200" time="0.021" classname="06ResenasResenasDeUnNegocio"/>
+    <testcase name="Devuelve JSON" time="0.021" classname="06ResenasResenasDeUnNegocio"/>
+  </testsuite>
+  <testsuite name="06 · Reseñas / Reseña con calificación inválida" id="e8764727-151f-4201-99ba-2b2697445b00" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.015">
+    <testcase name="Responde en menos de 30 s" time="0.015" classname="06ResenasResenaConCalificacionInvalida"/>
+    <testcase name="Responde 422" time="0.015" classname="06ResenasResenaConCalificacionInvalida"/>
+  </testsuite>
+  <testsuite name="06 · Reseñas / Reseña sin sesión" id="0481b4a6-3b7c-41f2-8a60-88367d4db188" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="Responde en menos de 30 s" time="0.006" classname="06ResenasResenaSinSesion"/>
+    <testcase name="Responde 401" time="0.006" classname="06ResenasResenaSinSesion"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Preguntar al asistente" id="e75af8bf-8d7e-4d6a-b767-fdb2955bd029" timestamp="2026-11-26T04:50:40.607Z" tests="5" failures="0" errors="0" time="1.895">
+    <testcase name="Responde en menos de 30 s" time="1.895" classname="07AsistenteIaSpringBootN8NPreguntarAlAsistente"/>
+    <testcase name="Responde 201" time="1.895" classname="07AsistenteIaSpringBootN8NPreguntarAlAsistente"/>
+    <testcase name="Estado final válido" time="1.895" classname="07AsistenteIaSpringBootN8NPreguntarAlAsistente"/>
+    <testcase name="Guarda el umbral usado" time="1.895" classname="07AsistenteIaSpringBootN8NPreguntarAlAsistente"/>
+    <testcase name="Trae fuentes con similitud" time="1.895" classname="07AsistenteIaSpringBootN8NPreguntarAlAsistente"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Historial de mis consultas" id="22c278f5-12c7-46ce-aaea-2c23247aca0d" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.105">
+    <testcase name="Responde en menos de 30 s" time="0.105" classname="07AsistenteIaSpringBootN8NHistorialDeMisConsultas"/>
+    <testcase name="Responde 200" time="0.105" classname="07AsistenteIaSpringBootN8NHistorialDeMisConsultas"/>
+    <testcase name="Incluye la consulta" time="0.105" classname="07AsistenteIaSpringBootN8NHistorialDeMisConsultas"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Detalle de una consulta" id="ae094bea-a12e-4cb4-a815-d9a1102fe76a" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.029">
+    <testcase name="Responde en menos de 30 s" time="0.029" classname="07AsistenteIaSpringBootN8NDetalleDeUnaConsulta"/>
+    <testcase name="Responde 200" time="0.029" classname="07AsistenteIaSpringBootN8NDetalleDeUnaConsulta"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Calificar la respuesta" id="e7892a1d-ef57-4a2e-8b17-6fdbbc793c93" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.044">
+    <testcase name="Responde en menos de 30 s" time="0.044" classname="07AsistenteIaSpringBootN8NCalificarLaRespuesta"/>
+    <testcase name="Responde 200" time="0.044" classname="07AsistenteIaSpringBootN8NCalificarLaRespuesta"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Pregunta vacía" id="dc658a0e-b8e6-4b02-b8cf-2c2b3ec94419" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.012">
+    <testcase name="Responde en menos de 30 s" time="0.012" classname="07AsistenteIaSpringBootN8NPreguntaVacia"/>
+    <testcase name="Responde 400 o 422" time="0.012" classname="07AsistenteIaSpringBootN8NPreguntaVacia"/>
+  </testsuite>
+  <testsuite name="07 · Asistente IA (Spring Boot + n8n) / Preguntar sin sesión" id="b979336f-2128-4dd5-98f1-1fe670d557d6" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.005">
+    <testcase name="Responde en menos de 30 s" time="0.005" classname="07AsistenteIaSpringBootN8NPreguntarSinSesion"/>
+    <testcase name="Responde 401" time="0.005" classname="07AsistenteIaSpringBootN8NPreguntarSinSesion"/>
+  </testsuite>
+  <testsuite name="08 · Negocios y solicitudes / Mis solicitudes" id="bc2f82b3-1374-415a-aaeb-e1364f7f19eb" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.016">
+    <testcase name="Responde en menos de 30 s" time="0.016" classname="08NegociosYSolicitudesMisSolicitudes"/>
+    <testcase name="Responde 200" time="0.016" classname="08NegociosYSolicitudesMisSolicitudes"/>
+    <testcase name="Devuelve JSON" time="0.016" classname="08NegociosYSolicitudesMisSolicitudes"/>
+  </testsuite>
+  <testsuite name="08 · Negocios y solicitudes / Registrar negocio sin autorizar los datos" id="a0c28e98-bb3a-449c-9a7c-b164d79a655f" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.016">
+    <testcase name="Responde en menos de 30 s" time="0.016" classname="08NegociosYSolicitudesRegistrarNegocioSinAutorizarLosDatos"/>
+    <testcase name="Responde 422" time="0.016" classname="08NegociosYSolicitudesRegistrarNegocioSinAutorizarLosDatos"/>
+  </testsuite>
+  <testsuite name="08 · Negocios y solicitudes / Panel del dueño sin ser dueño" id="adf881a5-9a0b-40b1-9fe9-c70f1d4c4d4b" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.016">
+    <testcase name="Responde en menos de 30 s" time="0.016" classname="08NegociosYSolicitudesPanelDelDuenoSinSerDueno"/>
+    <testcase name="Responde 403" time="0.016" classname="08NegociosYSolicitudesPanelDelDuenoSinSerDueno"/>
+  </testsuite>
+  <testsuite name="09 · Tráfico / Aviso de trancón hasta el negocio" id="cd4edff7-edbd-4189-acae-b2f250b2d8cb" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.024">
+    <testcase name="Responde en menos de 30 s" time="0.024" classname="09TraficoAvisoDeTranconHastaElNegocio"/>
+    <testcase name="Responde 200" time="0.024" classname="09TraficoAvisoDeTranconHastaElNegocio"/>
+    <testcase name="Dice si el servicio está disponible" time="0.024" classname="09TraficoAvisoDeTranconHastaElNegocio"/>
+  </testsuite>
+  <testsuite name="10 · Analítica / Registrar una visita" id="7c55a722-59f6-4fa1-bafe-0d7eb58f79cb" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.008">
+    <testcase name="Responde en menos de 30 s" time="0.008" classname="10AnaliticaRegistrarUnaVisita"/>
+    <testcase name="Responde 204" time="0.008" classname="10AnaliticaRegistrarUnaVisita"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Usuario normal no entra al panel" id="b3ff69ce-b350-4dde-b515-0291f18064a6" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.016">
+    <testcase name="Responde en menos de 30 s" time="0.016" classname="11AdministracionUsuarioNormalNoEntraAlPanel"/>
+    <testcase name="Responde 403" time="0.016" classname="11AdministracionUsuarioNormalNoEntraAlPanel"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Tareas pendientes" id="8686c6e5-a53b-46d8-a90a-d583a043ffba" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.370">
+    <testcase name="Responde en menos de 30 s" time="0.370" classname="11AdministracionTareasPendientes"/>
+    <testcase name="Responde 200" time="0.370" classname="11AdministracionTareasPendientes"/>
+    <testcase name="Trae los pendientes" time="0.370" classname="11AdministracionTareasPendientes"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Dashboard (7 días)" id="73382b7b-0bc6-48c6-89cb-38c43aab0db1" timestamp="2026-11-26T04:50:40.607Z" tests="5" failures="0" errors="0" time="0.144">
+    <testcase name="Responde en menos de 30 s" time="0.144" classname="11AdministracionDashboard7Dias"/>
+    <testcase name="Responde 200" time="0.144" classname="11AdministracionDashboard7Dias"/>
+    <testcase name="Una serie por día" time="0.144" classname="11AdministracionDashboard7Dias"/>
+    <testcase name="Compara con el periodo anterior" time="0.144" classname="11AdministracionDashboard7Dias"/>
+    <testcase name="Calcula el costo de IA" time="0.144" classname="11AdministracionDashboard7Dias"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Estadísticas de búsqueda" id="33e6e222-2b7b-4a78-a87f-ef1c4723a6dc" timestamp="2026-11-26T04:50:40.607Z" tests="3" failures="0" errors="0" time="0.037">
+    <testcase name="Responde en menos de 30 s" time="0.037" classname="11AdministracionEstadisticasDeBusqueda"/>
+    <testcase name="Responde 200" time="0.037" classname="11AdministracionEstadisticasDeBusqueda"/>
+    <testcase name="Una cifra por día" time="0.037" classname="11AdministracionEstadisticasDeBusqueda"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Categorías con su número de negocios" id="23777453-8035-4e21-b87b-94629207bdb2" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.023">
+    <testcase name="Responde en menos de 30 s" time="0.023" classname="11AdministracionCategoriasConSuNumeroDeNegocios"/>
+    <testcase name="Responde 200" time="0.023" classname="11AdministracionCategoriasConSuNumeroDeNegocios"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Solicitudes pendientes" id="e60be5bd-b1a0-4278-bf99-ab1ddeb92a3a" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.018">
+    <testcase name="Responde en menos de 30 s" time="0.018" classname="11AdministracionSolicitudesPendientes"/>
+    <testcase name="Responde 200" time="0.018" classname="11AdministracionSolicitudesPendientes"/>
+  </testsuite>
+  <testsuite name="11 · Administración / Dashboard con un periodo inválido" id="f26c1ae8-5075-4187-940f-aa7f9a8b5612" timestamp="2026-11-26T04:50:40.607Z" tests="2" failures="0" errors="0" time="0.014">
+    <testcase name="Responde en menos de 30 s" time="0.014" classname="11AdministracionDashboardConUnPeriodoInvalido"/>
+    <testcase name="Responde 422" time="0.014" classname="11AdministracionDashboardConUnPeriodoInvalido"/>
+  </testsuite>
+</testsuites>
