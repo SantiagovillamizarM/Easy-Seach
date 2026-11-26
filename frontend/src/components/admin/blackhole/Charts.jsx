@@ -496,7 +496,7 @@ export function PeakHeatmap({ grid }) {
 }
 
 // Anillo segmentado: un arco por parte, con separación y brillo; en el centro la parte principal
-export function SegmentRing({ items, label }) {
+export function SegmentRing({ items, label, center }) {
   const total = items.reduce((s, i) => s + i.value, 0);
   const R = 40, C = 2 * Math.PI * R, GAP = total && items.filter((i) => i.value).length > 1 ? 3 : 0;
   const top = items.reduce((a, b) => (b.value > a.value ? b : a), items[0]);
@@ -517,8 +517,12 @@ export function SegmentRing({ items, label }) {
         })}
       </svg>
       <div className="bh-segring-center">
-        <strong>{total ? `${Math.round((top.value / total) * 100)}%` : "–"}</strong>
-        <span>{total ? top.label.toLowerCase() : label}</span>
+        {center ?? (
+          <>
+            <strong>{total ? `${Math.round((top.value / total) * 100)}%` : "–"}</strong>
+            <span>{total ? top.label.toLowerCase() : label}</span>
+          </>
+        )}
       </div>
     </div>
   );

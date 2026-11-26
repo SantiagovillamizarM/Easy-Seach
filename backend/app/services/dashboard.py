@@ -214,38 +214,9 @@ def build_dashboard(db: Session, days: int) -> dict:
     claims = {f"{k}_{s}": c for k, s, c in db.execute(
         select(OwnershipClaim.kind, OwnershipClaim.status, func.count()).group_by(OwnershipClaim.kind,
                                                                                   OwnershipClaim.status)).all()}
-    # Clientes potenciales: negocios SIN dueño que la gente más visita y guarda en favoritos
-    views = (select(PageView.establishment_id.label("eid"), func.count().label("views"))
-             .where(pv_range, PageView.establishment_id.is_not(None)).group_by(PageView.establishment_id).subquery())
-    favs = (select(Favorite.establishment_id.label("eid"), func.count().label("favs"))
-            .group_by(Favorite.establishment_id).subquery())
-    leads = [{"id": i, "name": n, "slug": s, "views": v or 0, "favorites": f or 0} for i, n, s, v, f in db.execute(
-        select(Establishment.id, Establishment.name, Establishment.slug, views.c.views, favs.c.favs)
-        .outerjoin(views, views.c.eid == Establishment.id).outerjoin(favs, favs.c.eid == Establishment.id)
-        .where(active, Establishment.owner_id.is_(None), or_(views.c.views.is_not(None), favs.c.favs.is_not(None)))
-        .order_by((func.coalesce(views.c.views, 0) + 3 * func.coalesce(favs.c.favs, 0)).desc()).limit(8)).all()]
-
     # ------------------------------- Contenido --------------------------------------------
     reviews = dict(db.execute(select(Review.status, func.count()).group_by(Review.status)).all())
     rating_avg = db.scalar(select(func.avg(Review.rating)).where(Review.status == "approved"))
-
-    # ------------------------------- Actividad reciente (cinta) ---------------------------
-    feed = []
-    for name, created in db.execute(select(User.full_name, User.created_at).order_by(User.created_at.desc()).limit(4)):
-        feed.append({"at": created, "kind": "usuario", "text": f"Nuevo usuario: {(name or 'Alguien').split()[0]}"})
-    for q, created, n in db.execute(select(SearchHistory.query_text, SearchHistory.created_at,
-                                           SearchHistory.results_count)
-                                    .order_by(SearchHistory.created_at.desc()).limit(8)):
-        feed.append({"at": created, "kind": "busqueda", "text": f"«{q[:60]}» · {n} resultados"})
-    for kind, data, est_id, created in db.execute(select(OwnershipClaim.kind, OwnershipClaim.proposed_data,
-                                                         OwnershipClaim.establishment_id, OwnershipClaim.created_at)
-                                                  .order_by(OwnershipClaim.created_at.desc()).limit(3)):
-        name = (data or {}).get("name") or db.scalar(select(Establishment.name).where(Establishment.id == est_id))
-        feed.append({"at": created, "kind": "solicitud",
-                     "text": f"Solicitud: {'registrar' if kind == 'register' else 'administrar'} {name or 'un negocio'}"})
-    for rating, created in db.execute(select(Review.rating, Review.created_at).order_by(Review.created_at.desc()).limit(3)):
-        feed.append({"at": created, "kind": "resena", "text": f"Reseña nueva de {rating} estrellas"})
-    feed.sort(key=lambda e: e["at"], reverse=True)
 
     return {
         "days": days,
@@ -299,12 +270,11 @@ def build_dashboard(db: Session, days: int) -> dict:
         "business": {
             "active": _count(db, Establishment.id, active), "with_owner": with_owner,
             "verified": _count(db, Establishment.id, active, Establishment.is_verified.is_(True)),
-            "complete": complete, "claims": claims, "leads": leads,
+            "complete": complete, "claims": claims,
         },
         "content": {
             "reviews": {s: reviews.get(s, 0) for s in ("approved", "pending", "rejected")},
             "rating_avg": round(float(rating_avg), 2) if rating_avg is not None else None,
             "favorites": _count(db, Favorite.user_id),
         },
-        "feed": feed[:14],
     }

@@ -1,5 +1,5 @@
 import {
-  Activity, ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MailCheck, MessageSquareText, Monitor, Search, Smartphone,
+  Bot, Check, CheckCircle2, ChevronRight, Coins, Copy, Eye, Flag, MessageSquareText, Monitor, Search, Smartphone,
   Store, Tablet, UserPlus, Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -30,11 +30,6 @@ const DEVICE = [
   { key: "desktop", label: "Computador", icon: Monitor, color: "#a2a2a2" },
   { key: "tablet", label: "Tableta", icon: Tablet, color: "#fafafa" },
 ];
-const SECTION_LABEL = {
-  inicio: "Inicio", buscar: "Resultados", lugar: "Página de un negocio", asistente: "Asistente IA", perfil: "Perfil",
-  favoritos: "Favoritos", historial: "Historial", panel: "Panel del dueño", "registrar-negocio": "Registrar negocio",
-  cuenta: "Ingreso y registro", otras: "Otras",
-};
 
 function Panel({ title, eyebrow, action, className = "", children }) {
   return (
@@ -239,97 +234,83 @@ function Traffic({ traffic }) {
   );
 }
 
+// Crecimiento (minimalista): las 4 etapas del recorrido como cifras con una línea fina, el porcentaje que
+// pasa de una etapa a la otra y una sola línea de retención.
 function Growth({ users, days }) {
-  const metrics = [
-    { label: "Cuentas creadas", value: users.total, icon: UserPlus },
-    { label: "Correo confirmado", value: users.verified, icon: MailCheck },
-    { label: "Hicieron al menos una búsqueda", value: users.searched, icon: Search },
-    { label: "Activos en los últimos 7 días", value: users.active_7d, icon: Activity },
+  const stages = [
+    { label: "Cuentas", value: users.total },
+    { label: "Confirmaron", value: users.verified },
+    { label: "Buscaron", value: users.searched },
+    { label: "Activos 7 días", value: users.active_7d },
   ];
+  const top = Math.max(1, users.total);
   return (
     <Panel className="bh-report" eyebrow="Nº 006 · Crecimiento" title="De visitante a usuario fiel">
-      <div className="bh-retention">
-        <div className="bh-retention-dial" style={{ "--share": `${users.returning_pct}%` }}>
-          <strong>{users.active_in_range ? `${fmt(users.returning_pct)}%` : "—"}</strong>
-        </div>
+      <ol className="bh-min-steps">
+        {stages.map(({ label, value }, i) => (
+          <li key={label}>
+            <strong className="bh-num"><CountUp value={value} /></strong>
+            <span>{label}</span>
+            <i aria-hidden="true"><u style={{ width: `${(value / top) * 100}%` }} /></i>
+            {i > 0 && (
+              <small className="bh-num" title="De la etapa anterior">
+                {stages[i - 1].value ? `↳ ${Math.round((value / stages[i - 1].value) * 100)}%` : "—"}
+              </small>
+            )}
+          </li>
+        ))}
+      </ol>
+      <dl className="bh-min-facts">
         <div>
-          <h3>Volvieron a buscar</h3>
-          <p>{users.active_in_range
-            ? <><b>{fmt(users.returning)} de {fmt(users.active_in_range)}</b> usuarios activos buscaron en dos o más días durante el periodo.</>
-            : `Sin usuarios activos en los últimos ${days} días.`}</p>
+          <dt>Volvieron a buscar</dt>
+          <dd className="bh-num">{users.active_in_range ? `${fmt(users.returning_pct)}%` : "—"}</dd>
+          <small>{users.active_in_range ? `${fmt(users.returning)} de ${fmt(users.active_in_range)} activos` : `sin actividad en ${days} días`}</small>
         </div>
-      </div>
-      <div className="bh-growth-list">
-        <div className="bh-report-caption"><span>Actividad de las cuentas</span><span>% del total</span></div>
-        <ul>
-          {metrics.map(({ label, value, icon: Icon }) => {
-            const share = users.total ? (value / users.total) * 100 : 0;
-            return (
-              <li key={label}>
-                <Icon aria-hidden="true" />
-                <span>{label}</span><b>{fmt(value)}</b><small>{users.total ? `${fmt(Math.round(share))}%` : "—"}</small>
-                <div className="bh-growth-track" aria-hidden="true"><i style={{ width: `${share}%` }} /></div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      <div className="bh-report-foot"><Store size={15} aria-hidden="true" /> Propietarios <b>{fmt(users.owners)}</b></div>
+        <div><dt>Propietarios</dt><dd className="bh-num">{fmt(users.owners)}</dd></div>
+      </dl>
     </Panel>
   );
 }
 
-function AiCosts({ ai, cost }) {
+// IA y costos (minimalista): respuestas y gasto como cifras, una barra fina por proveedor con su leyenda en
+// texto, y los datos del asistente y del costo por búsqueda en una línea.
+function AiCosts({ ai, cost }) {   // cost = kpis.ai_cost: { value, monthly }
   const providers = [...ai.usage].sort((a, b) => b.count - a.count);
   const total = providers.reduce((sum, item) => sum + item.count, 0);
+  const shades = ["#f2f2f2", "#a8a8a8", "#6b6b6b", "#3f3f3f"];
   return (
     <Panel className="bh-report" eyebrow="Nº 007 · IA y costos" title="Quién responde y cuánto cuesta">
-      <div className="bh-ai-headline">
-        <div><span>Respuestas</span><strong>{fmt(total)}</strong></div>
-        <div><span>Gasto estimado</span><strong>{fmtUsd(cost)}</strong></div>
+      <div className="bh-min-pair">
+        <div><span>Respuestas</span><strong className="bh-num"><CountUp value={total} /></strong></div>
+        <div>
+          <span>Gasto estimado</span>
+          <strong className="bh-num"><CountUp value={cost.value} format={fmtUsd} /></strong>
+          <small>≈ {fmtUsd(cost.monthly)} / mes</small>
+        </div>
       </div>
-      <div className="bh-provider-strip" aria-hidden="true">
-        {providers.filter((p) => p.count > 0).map((p) => (
-          <i key={p.provider} style={{ flexGrow: p.count, background: PROVIDER_COLORS[p.provider] ?? "var(--bh-faint)" }} />
+      <div className="bh-min-bar" aria-hidden="true">
+        {providers.filter((p) => p.count > 0).map((p, i) => (
+          <i key={p.provider} style={{ flexGrow: p.count, background: shades[i] ?? shades[3] }} />
         ))}
       </div>
-      <ul className="bh-provider-list" aria-label="Distribución de respuestas por proveedor">
-        {providers.map((p) => (
+      <ul className="bh-min-legend" aria-label="Respuestas por proveedor">
+        {providers.map((p, i) => (
           <li key={p.provider}>
-            <i style={{ background: PROVIDER_COLORS[p.provider] ?? "var(--bh-faint)" }} aria-hidden="true" />
-            <span>{p.label}</span><b>{fmt(p.count)}</b>
-            <small>{total ? `${fmt(Math.round(p.count / total * 1000) / 10)}%` : "—"}</small>
+            <i style={{ background: shades[i] ?? shades[3] }} aria-hidden="true" />
+            {p.label} <b className="bh-num">{total ? `${Math.round((p.count / total) * 100)}%` : "—"}</b>
           </li>
         ))}
       </ul>
-      <dl className="bh-ai-facts">
-        <div><dt>Búsquedas con IA paga</dt><dd>{fmtUsd(ai.search_cost)}</dd></div>
-        <div><dt>Gasto del asistente</dt><dd>{fmtUsd(ai.assistant_cost)}</dd></div>
-        <div><dt>Tiempo de respuesta</dt><dd>{ai.assistant.avg_seconds == null ? "Sin datos" : `${fmt(ai.assistant.avg_seconds)} s`}</dd></div>
-        <div><dt>Calificación del asistente</dt><dd>{ai.assistant.rating_avg == null ? "Sin calificar" : `${fmt(ai.assistant.rating_avg)}/5`}</dd></div>
+      <dl className="bh-min-facts">
+        <div><dt>Búsquedas</dt><dd className="bh-num">{fmtUsd(ai.search_cost)}</dd></div>
+        <div><dt>Asistente</dt><dd className="bh-num">{fmtUsd(ai.assistant_cost)}</dd></div>
+        <div><dt>Respuesta</dt><dd className="bh-num">{ai.assistant.avg_seconds == null ? "—" : `${fmt(ai.assistant.avg_seconds)} s`}</dd></div>
+        <div><dt>Calificación</dt><dd className="bh-num">{ai.assistant.rating_avg == null ? "—" : `${fmt(ai.assistant.rating_avg)}/5`}</dd></div>
       </dl>
-      <details className="bh-unit-cost">
-        <summary>Costo estimado por búsqueda <ChevronRight size={15} aria-hidden="true" /></summary>
-        <p className="bh-note">Según los tokens medidos, Grok cuesta ≈ {fmtUsd(ai.cost_per_search.xai)} y OpenAI ≈ {fmtUsd(ai.cost_per_search.openai)} por búsqueda. Gemini es gratis.</p>
-      </details>
+      <p className="bh-min-note">
+        Por búsqueda: Grok ≈ {fmtUsd(ai.cost_per_search.xai)} · OpenAI ≈ {fmtUsd(ai.cost_per_search.openai)} · Gemini gratis
+      </p>
     </Panel>
-  );
-}
-
-function Ticker({ feed }) {
-  if (!feed.length) return null;
-  const KIND = { usuario: "USR", busqueda: "BUS", solicitud: "SOL", resena: "RES" };
-  const line = feed.map((e, i) => (
-    <span key={i}>
-      <b>{KIND[e.kind] ?? "EVT"} · {new Date(e.at).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</b>
-      {e.text}
-    </span>
-  ));
-  return (
-    <div className="bh-ticker" aria-label="Actividad reciente">
-      <div className="bh-ticker-track">{line}</div>
-      <div className="bh-ticker-track" aria-hidden="true">{line}</div>
-    </div>
   );
 }
 
@@ -419,7 +400,7 @@ export default function AdminOverview() {
 
         <div className="bh-reports bh-span-12">
           <Growth users={users} days={days} />
-          <AiCosts ai={ai} cost={kpis.ai_cost.value} />
+          <AiCosts ai={ai} cost={kpis.ai_cost} />
         </div>
 
         {/* ------------------------------ Búsquedas ------------------------------ */}
@@ -464,7 +445,7 @@ export default function AdminOverview() {
         </Panel>
 
         {/* ------------------------------ Negocios ------------------------------ */}
-        <Panel className="bh-span-5" eyebrow="Nº 010 · Negocios" title="Del mapa a la verificación">
+        <Panel className="bh-span-12" eyebrow="Nº 010 · Negocios" title="Del mapa a la verificación">
           <Funnel steps={[
             { label: "Negocios activos", value: business.active },
             { label: "Con dueño", value: business.with_owner },
@@ -478,38 +459,6 @@ export default function AdminOverview() {
             <div className="bh-stat"><span>Calificación promedio</span><strong>{content.rating_avg ? `${content.rating_avg}★` : "–"}</strong></div>
           </div>
         </Panel>
-
-        <Panel className="bh-span-7" eyebrow="Nº 011 · Monetización" title="Clientes potenciales"
-               action={<span className="bh-note">Sin dueño, pero la gente los busca</span>}>
-          {business.leads.length ? (
-            <div className="bh-scroll">
-              <table className="bh-table">
-                <thead><tr><th>Negocio</th><th>Visitas</th><th>En favoritos</th></tr></thead>
-                <tbody>
-                  {business.leads.map((l) => (
-                    <tr key={l.id}>
-                      <td>
-                        <Link to={`/lugar/${l.slug}`} className="inline-flex items-center gap-1">
-                          {l.name}
-                          <ArrowUpRight className="h-3 w-3 opacity-60" aria-hidden="true" />
-                        </Link>
-                      </td>
-                      <td className="bh-num">{fmt(l.views)}</td>
-                      <td className="bh-num">{fmt(l.favorites)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <p className="bh-note">Cuando la gente visite páginas de negocios sin dueño, aparecerán aquí para ofrecerles un plan.</p>}
-          <p className="bh-note mt-3">
-            Páginas más visitadas: {traffic.sections.slice(0, 4).map((s) => `${SECTION_LABEL[s.section] ?? s.section} (${fmt(s.count)})`).join(" · ") || "sin datos"}.
-          </p>
-        </Panel>
-
-        <div className="bh-span-12">
-          <Ticker feed={data.feed} />
-        </div>
       </div>
     </div>
   );

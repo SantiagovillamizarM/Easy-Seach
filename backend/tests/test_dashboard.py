@@ -106,9 +106,7 @@ def test_dashboard_numbers(client, db, admin_headers):
     assert d["kpis"]["ai_cost"]["value"] > 0 and d["ai"]["assistant"]["avg_seconds"] == 4.0
     assert d["traffic"]["devices"] == {"mobile": 1, "desktop": 1, "tablet": 0}
     assert sum(sum(row) for row in d["traffic"]["heatmap"]) == 5          # 3 búsquedas + 2 visitas
-    assert d["business"]["leads"][0]["slug"] == "pollo-asado-prueba" and d["business"]["leads"][0]["views"] == 1
     assert d["users"]["searched"] == 1 and d["users"]["active_7d"] == 1
-    assert any(e["kind"] == "busqueda" for e in d["feed"])
     assert db.scalar(select(User.id).where(User.email == "busca@test.com"))
 
 
