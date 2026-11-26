@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api import openapi_docs
 from app.api.routes import admin, analytics, auth, catalog, health, internal, me, owner, reviews, search, traffic
 from app.core.config import get_settings
 from app.services.photos import PUBLIC_PREFIX, upload_root
@@ -41,6 +42,7 @@ async def lifespan(_app: FastAPI):
 # En producción no se publica la documentación interactiva (/docs): no hace falta mostrar el mapa de la API
 _docs = {} if not settings.is_production else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan, **_docs)
+openapi_docs.install(app)   # Swagger en español: títulos, secciones e introducción
 
 
 @app.middleware("http")

@@ -40,10 +40,11 @@ IA que solo usan datos reales de la base.
 9. [Roles y panel de administración](#-roles-y-panel-de-administración)
 10. [Seguridad y privacidad](#-seguridad-y-privacidad)
 11. [Pruebas](#-pruebas)
-12. [Comandos útiles](#-comandos-útiles)
-13. [Solución de problemas](#-solución-de-problemas)
-14. [Estructura del proyecto](#-estructura-del-proyecto)
-15. [Documentación y créditos](#-documentación-y-créditos)
+12. [API: Swagger y Postman](#-api-swagger-y-postman)
+13. [Comandos útiles](#-comandos-útiles)
+14. [Solución de problemas](#-solución-de-problemas)
+15. [Estructura del proyecto](#-estructura-del-proyecto)
+16. [Documentación y créditos](#-documentación-y-créditos)
 
 ---
 
@@ -531,9 +532,64 @@ $b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create
 | **Backend** (FastAPI) | `cd backend` → `.\.venv\Scripts\python -m pytest` | Usa la base aparte `easysearch_test` (se crea sola) |
 | **Puerta de entrada** (Spring Boot) | `cd gateway` → `.\mvnw test` | Perfil `test` (sin base) y `it` (base de pruebas real; corre antes `pytest`) |
 | **Frontend** | `cd frontend` → `npm run lint` · `npm run build` | ESLint y compilación |
+| **API completa** (Postman) | `npx -y -p newman newman run docs\postman\EasySearch.postman_collection.json -e …` | 42 peticiones · 118 comprobaciones ([ver sección](#-api-swagger-y-postman)) |
 | **Calidad de la búsqueda** | `.\.venv\Scripts\python -m scripts.benchmark_search` | Precisión@5, municipio correcto y tiempos (`--con-ia` usa la IA) |
 | **Una búsqueda desde la terminal** | `.\.venv\Scripts\python -m scripts.eval_search "pizza en Cabecera"` | No guarda historial |
 | **Dependencias** | `npm audit` · `pip_audit -r requirements.txt` | Vulnerabilidades conocidas |
+
+---
+
+## 🧩 API: Swagger y Postman
+
+### Swagger (documentación interactiva)
+
+**http://127.0.0.1:8020/swagger-ui.html**. Arriba a la derecha se elige la API: **FastAPI** (71 operaciones en
+10 secciones: búsqueda, cuentas, catálogo, reseñas, negocios, administración…) o **Spring Boot** (asistente y
+sistema). Todas tienen título en español; con **Authorize** se pega el token para probar las rutas protegidas.
+Las especificaciones exportadas están en [docs/api/](docs/api/) (`openapi-fastapi.json` y `openapi-spring.json`).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/evidencias/api/swagger-fastapi.jpg" alt="Swagger de FastAPI"><br><b>FastAPI</b> en Swagger: secciones y títulos en español.</td>
+    <td width="50%"><img src="docs/evidencias/api/swagger-spring.jpg" alt="Swagger de Spring Boot"><br><b>Spring Boot</b> en Swagger: asistente y sistema.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/evidencias/api/swagger-fastapi-ejecutada.jpg" alt="Petición ejecutada en FastAPI"><br>Petición ejecutada desde Swagger (<code>GET /api/categories</code> → 200).</td>
+    <td><img src="docs/evidencias/api/swagger-spring-ejecutada.jpg" alt="Petición ejecutada en Spring Boot"><br>Petición ejecutada desde Swagger (<code>GET /api/sistema/estado</code> → 200).</td>
+  </tr>
+</table>
+
+### Postman (colección de pruebas)
+
+En [docs/postman/](docs/postman/):
+
+| Archivo | Qué es |
+|---|---|
+| `EasySearch.postman_collection.json` | **42 peticiones en 11 carpetas** con **118 comprobaciones**: sistema, cuenta, catálogo, búsqueda, favoritos e historial, reseñas, asistente, solicitudes, tráfico, analítica y administración |
+| `EasySearch.local.postman_environment.json` | Entorno `Easy Search · local` (`base_url`, credenciales y token) |
+| `reporte-pruebas.html` | Reporte de la última ejecución: **42/42 peticiones y 118/118 comprobaciones correctas** |
+| `reporte-pruebas.junit.xml` | El mismo resultado en formato JUnit |
+
+Las pruebas no solo miran el código de respuesta: también comprueban, por ejemplo, que un saludo no devuelva
+negocios, que el asistente cite fuentes por encima del umbral, que un usuario normal reciba 403 en el panel y que los
+datos inválidos den 422. El token se guarda solo al iniciar sesión y lo usan las demás peticiones.
+
+**Usarla en Postman:** *Import* → los dos archivos → elegir el entorno *Easy Search · local* → llenar
+`user_email`/`user_password` (y `admin_*`) → *Run collection*.
+
+> Con el anti-robots (Turnstile) activo, el login sin captcha responde 400 (la colección lo comprueba). Para
+> probar con sesión, pega en `token` el token de tu sesión, o usa las claves de prueba de Cloudflare que trae
+> `.env.example`.
+
+**Correrla por consola con Newman** (no hay que instalar nada):
+
+```powershell
+cd docs\postman
+npx -y -p newman -p newman-reporter-htmlextra newman run EasySearch.postman_collection.json `
+  -e EasySearch.local.postman_environment.json -r cli,htmlextra --reporter-htmlextra-export reporte-pruebas.html
+```
+
+![Reporte de Newman](docs/evidencias/api/newman-reporte.jpg)
 
 ---
 
@@ -608,6 +664,7 @@ docker exec -it easysearch-db psql -U easysearch -d easysearch               # c
 | [docs/Propuesta_Easy_Search.pdf](docs/Propuesta_Easy_Search.pdf) | Propuesta técnica y plan de trabajo |
 | [docs/AVANCE.md](docs/AVANCE.md) | Registro de avance por fases |
 | [docs/diagramas/](docs/diagramas/) | Arquitectura, entidad-relación, modelo relacional e imágenes |
+| [docs/api/](docs/api/) · [docs/postman/](docs/postman/) | Especificaciones OpenAPI, colección de Postman y reporte de pruebas |
 | [AI_USAGE.md](AI_USAGE.md) | Uso de inteligencia artificial en el desarrollo |
 
 Los datos de establecimientos provienen en parte de © colaboradores de
